@@ -34,7 +34,7 @@
 
 <p>
   <b>体验功能：</b>
-  企业档案 → 会议纪要 → 合同审阅 → 政策准备 → 供需协作 → 实施计划 → 报告归档
+  企业档案 → 会议纪要 → 合同审阅 → 政策准备 → 供需协作 → 实施计划 → 报告归档 · 支持流式生成
 </p>
 
 <br/>
@@ -80,6 +80,41 @@
 因此，当前在线地址可以理解为 **公开演示版 / Demo Deployment**；正式企业落地时，可升级为 **私有化部署 / 专属云部署 / 企业内网部署**，以满足稳定性、安全性、权限管理和数据合规要求。
 
 ---
+
+## 流式生成体验
+
+本版本已升级为 **流式生成（Streaming Generation）** 交互：用户点击生成后，系统会边调用大模型边实时渲染输出内容，避免长时间空白等待，更接近成熟 AI 产品的使用体验。
+
+| 能力 | 说明 |
+|---|---|
+| 实时输出 | 会议纪要、合同审阅、政策准备等模块生成时会逐段显示内容 |
+| 前端流式渲染 | 使用 `fetch + ReadableStream` 读取后端流式响应 |
+| 后端 SSE 输出 | FastAPI 通过 `StreamingResponse` 返回 Server-Sent Events 风格数据 |
+| 模型兼容 | 支持 OpenAI-Compatible `stream=true` 接口，包括 DashScope compatible-mode |
+| 完成后归档 | 流式生成完成后，结果会自动进入当前会话，可复制、单模块导出或汇总到报告归档 |
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant UI as 前端工作台
+    participant API as FastAPI StreamingResponse
+    participant Agent as 业务 Agent
+    participant LLM as OpenAI-Compatible LLM
+
+    User->>UI: 点击生成
+    UI->>API: POST /api/{module}/stream
+    API->>Agent: 构造业务提示词
+    Agent->>LLM: stream=true
+    loop token / chunk
+        LLM-->>Agent: delta content
+        Agent-->>API: yield chunk
+        API-->>UI: data: delta
+        UI-->>UI: 实时渲染 Markdown
+    end
+    API-->>UI: data: done
+    UI-->>UI: 保存结果并启用复制/导出
+```
+
 
 ## 0. Executive Summary
 
@@ -515,6 +550,13 @@ flowchart LR
 | `POST` | `/api/report/markdown` | Export Markdown |
 | `POST` | `/api/report/txt` | Export TXT |
 | `POST` | `/api/report/docx` | Export Word DOCX |
+| `POST` | `/api/profile/stream` | 流式生成企业档案 |
+| `POST` | `/api/meeting/stream` | 流式生成会议纪要 |
+| `POST` | `/api/contract/stream` | 流式生成合同风险提示 |
+| `POST` | `/api/policy/stream` | 流式生成政策准备建议 |
+| `POST` | `/api/match/stream` | 流式生成供需协作方案 |
+| `POST` | `/api/landing/stream` | 流式生成实施计划 |
+| `POST` | `/api/report/stream` | 流式生成综合运营报告 |
 
 ---
 

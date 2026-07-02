@@ -493,6 +493,138 @@ function setResult(key, result) {
   updateModeBadge();
 }
 
+function beginStreamingResult(key) {
+  const panel = $(`${key}Result`);
+  if (!panel) return;
+  const title = resultTitles[key] || "生成结果";
+  panel.className = "result-panel streaming";
+  panel.innerHTML = `
+    <div class="result-header">
+      <div>
+        <p class="result-label">${escapeHtml(title)}</p>
+        <h3>${escapeHtml(title)}流式生成中</h3>
+      </div>
+      <div class="result-actions">
+        <span class="streaming-badge"><span class="streaming-dot"></span>正在生成</span>
+      </div>
+    </div>
+    <div class="result-meta">
+      <span class="meta-pill">AI模型流式模式</span>
+      <span class="meta-pill">${escapeHtml(new Date().toLocaleTimeString())}</span>
+    </div>
+    <div id="${key}StreamContent" class="streaming-content">正在连接模型接口，请稍候...</div>
+  `;
+}
+
+function updateStreamingResult(key, content) {
+  const target = $(`${key}StreamContent`);
+  if (!target) return;
+  if (!content.trim()) {
+    target.textContent = "正在接收模型输出...";
+    return;
+  }
+  target.innerHTML = renderStructuredMarkdown(content);
+}
+
+function finishStreamingResult(key, content, mode = "AI模型流式模式") {
+  setResult(key, { ok: true, content, mode, error: "" });
+}
+
+function failStreamingResult(key, message) {
+  const panel = $(`${key}Result`);
+  if (!panel) return;
+  const title = resultTitles[key] || "生成结果";
+  panel.className = "result-panel";
+  panel.innerHTML = `
+    <div class="result-header">
+      <div>
+        <p class="result-label">${escapeHtml(title)}</p>
+        <h3>${escapeHtml(title)}生成失败</h3>
+      </div>
+    </div>
+    <div class="result-meta">
+      <span class="meta-pill danger">${escapeHtml(message || "流式生成失败")}</span>
+    </div>
+  `;
+}
+
+async function apiStream(url, payload, key) {
+  saveConfig();
+  beginStreamingResult(key);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let full = "";
+  let buffer = "";
+
+  try {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      let detail = text;
+      try { detail = JSON.parse(text).detail || text; } catch (_) {}
+      throw new Error(detail);
+    }
+    if (!resp.body) throw new Error("当前浏览器不支持流式读取，请更新浏览器后重试。");
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let lastRender = 0;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() || "";
+
+      for (const frame of frames) {
+        const line = frame.split("\n").find(x => x.startsWith("data:"));
+        if (!line) continue;
+
+        const raw = line.slice(5).trim();
+        if (!raw) continue;
+
+        let event;
+        try { event = JSON.parse(raw); } catch (_) { continue; }
+
+        if (event.type === "delta") {
+          full += event.content || "";
+          const now = Date.now();
+          if (now - lastRender > 120 || full.length < 80) {
+            updateStreamingResult(key, full);
+            lastRender = now;
+          }
+        } else if (event.type === "done") {
+          full = event.content || full;
+          finishStreamingResult(key, full, event.mode || "AI模型流式模式");
+          return { ok: true, content: full, mode: event.mode || "AI模型流式模式" };
+        } else if (event.type === "error") {
+          throw new Error(event.error || "模型流式生成失败。");
+        }
+      }
+
+      updateStreamingResult(key, full);
+    }
+
+    finishStreamingResult(key, full, "AI模型流式模式");
+    return { ok: true, content: full, mode: "AI模型流式模式" };
+  } catch (err) {
+    const message = err.name === "AbortError" ? "请求超时，请缩短输入内容或检查模型接口后重试。" : (err.message || String(err));
+    failStreamingResult(key, message);
+    throw new Error(message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function loadResultsFromSession() {
   state.results = JSON.parse(sessionStorage.getItem("zhilian_results") || "{}");
   state.meta = JSON.parse(sessionStorage.getItem("zhilian_meta") || "{}");
@@ -604,22 +736,19 @@ function collectSingleModuleResult(key) {
 async function runProfile(button) {
   saveProfileToState();
   if (!state.profile.name && !state.profile.demands) throw new Error("请至少填写企业名称或当前需求。");
-  const res = await apiPost("/api/profile", { config: requireApiConfig(), profile: state.profile });
-  setResult("profile", res);
+  await apiStream("/api/profile/stream", { config: requireApiConfig(), profile: state.profile }, "profile");
 }
 
 async function runMeeting(button) {
   const text = $("meetingInput").value.trim();
   if (text.length < 8) throw new Error("会议内容过短，请补充会议背景、决策或待办事项。");
-  const res = await apiPost("/api/meeting", { config: requireApiConfig(), text, profile_summary: getProfileContext() });
-  setResult("meeting", res);
+  await apiStream("/api/meeting/stream", { config: requireApiConfig(), text, profile_summary: getProfileContext() }, "meeting");
 }
 
 async function runContract(button) {
   const text = $("contractInput").value.trim();
   if (text.length < 12) throw new Error("合同文本过短，请粘贴关键条款后再生成风险提示。");
-  const res = await apiPost("/api/contract", { config: requireApiConfig(), text, profile_summary: getProfileContext() });
-  setResult("contract", res);
+  await apiStream("/api/contract/stream", { config: requireApiConfig(), text, profile_summary: getProfileContext() }, "contract");
 }
 
 async function runPolicy(button) {
@@ -627,8 +756,7 @@ async function runPolicy(button) {
   const demand = $("policyDemand").value.trim();
   const hasProfile = Object.values(state.profile || {}).some(v => String(v || "").trim());
   if (!demand && !hasProfile) throw new Error("请先填写企业档案或政策需求，系统才能给出更贴合的政策方向建议。");
-  const res = await apiPost("/api/policy", { config: requireApiConfig(), profile: state.profile, demand });
-  setResult("policy", res);
+  await apiStream("/api/policy/stream", { config: requireApiConfig(), profile: state.profile, demand }, "policy");
 }
 
 async function runMatch(button) {
@@ -641,8 +769,7 @@ async function runMatch(button) {
     scenario: $("scenarioInput").value.trim(),
   };
   if (![payload.offer, payload.need, payload.target, payload.scenario].some(Boolean)) throw new Error("请至少填写供给、需求、目标对象或业务场景中的一项。");
-  const res = await apiPost("/api/match", payload);
-  setResult("match", res);
+  await apiStream("/api/match/stream", payload, "match");
 }
 
 async function runLanding(button) {
@@ -662,15 +789,13 @@ async function runLanding(button) {
     "政策准备": state.results.policy || "",
     "供需协作": state.results.match || "",
   };
-  const res = await apiPost("/api/landing", { config: requireApiConfig(), profile: state.profile, landing_info: landingInfo, existing_results: existing });
-  setResult("landing", res);
+  await apiStream("/api/landing/stream", { config: requireApiConfig(), profile: state.profile, landing_info: landingInfo, existing_results: existing }, "landing");
 }
 
 async function runReport(button) {
   const results = collectResultsForReport(false);
   if (!Object.values(results).some(Boolean)) throw new Error("还没有可整合的模块结果，请先完成至少一个模块。");
-  const res = await apiPost("/api/report", { config: requireApiConfig(), results, use_ai_summary: true });
-  setResult("report", res);
+  await apiStream("/api/report/stream", { config: requireApiConfig(), results, use_ai_summary: true }, "report");
 }
 
 async function requestDownload(url, payload, filename, contentType, emptyMessage, timeoutMessage) {
@@ -924,13 +1049,13 @@ function bindEvents() {
     finally { setLoading(btn, false); }
   });
 
-  attachRun("runProfile", runProfile, "生成画像...");
-  attachRun("runMeeting", runMeeting, "生成纪要...");
-  attachRun("runContract", runContract, "识别风险...");
-  attachRun("runPolicy", runPolicy, "匹配政策...");
-  attachRun("runMatch", runMatch, "生成方案...");
-  attachRun("runLanding", runLanding, "评估落地...");
-  attachRun("runReport", runReport, "整合报告...");
+  attachRun("runProfile", runProfile, "流式生成中...");
+  attachRun("runMeeting", runMeeting, "流式生成中...");
+  attachRun("runContract", runContract, "流式生成中...");
+  attachRun("runPolicy", runPolicy, "流式生成中...");
+  attachRun("runMatch", runMatch, "流式生成中...");
+  attachRun("runLanding", runLanding, "流式生成中...");
+  attachRun("runReport", runReport, "流式整合中...");
 
   function attachDownload(id, url, filename, contentType) {
     $(id).addEventListener("click", async (e) => {

@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,7 +42,7 @@ from .schemas import (  # noqa: E402
 )
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
-APP_VERSION = "2.1.0-fastapi-optimized"
+APP_VERSION = "2.2.0-fastapi-streaming"
 MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
 FRONTEND_DIR = ROOT / "frontend"
 ASSETS_DIR = FRONTEND_DIR / "assets"
@@ -127,6 +128,37 @@ def defaults() -> DefaultsResponse:
     )
 
 
+def _sse(data: dict) -> str:
+    """Encode one server-sent-event data frame."""
+    return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _stream_response(chunks) -> StreamingResponse:
+    """Wrap model token iterator as SSE stream for fetch ReadableStream."""
+
+    def event_generator():
+        full: list[str] = []
+        yield _sse({"type": "meta", "mode": "AI模型流式模式"})
+        try:
+            for chunk in chunks:
+                if not chunk:
+                    continue
+                full.append(chunk)
+                yield _sse({"type": "delta", "content": chunk})
+            yield _sse({"type": "done", "content": "".join(full), "mode": "AI模型流式模式"})
+        except Exception as exc:  # noqa: BLE001
+            yield _sse({"type": "error", "error": str(exc)})
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @app.post("/api/test-connection", response_model=AgentResponse)
 def test_connection(config: APIConfig) -> AgentResponse:
     client = LLMClient(
@@ -153,12 +185,28 @@ def profile(req: ProfileRequest) -> AgentResponse:
     return agent_response(hub.profile.run(profile_to_dict(req.profile)))
 
 
+
+@app.post("/api/profile/stream")
+def profile_stream(req: ProfileRequest) -> StreamingResponse:
+    hub = make_hub(req.config)
+    return _stream_response(hub.profile.stream(profile_to_dict(req.profile)))
+
+
 @app.post("/api/meeting", response_model=AgentResponse)
 def meeting(req: TextRequest) -> AgentResponse:
     if len(req.text.strip()) < 8:
         raise HTTPException(status_code=400, detail="会议内容过短，请补充会议背景、结论或待办事项。")
     hub = make_hub(req.config)
     return agent_response(hub.meeting.run(req.text, req.profile_summary))
+
+
+
+@app.post("/api/meeting/stream")
+def meeting_stream(req: TextRequest) -> StreamingResponse:
+    if len(req.text.strip()) < 8:
+        raise HTTPException(status_code=400, detail="会议内容过短，请补充会议背景、结论或待办事项。")
+    hub = make_hub(req.config)
+    return _stream_response(hub.meeting.stream(req.text, req.profile_summary))
 
 
 @app.post("/api/contract", response_model=AgentResponse)
@@ -169,10 +217,26 @@ def contract(req: TextRequest) -> AgentResponse:
     return agent_response(hub.contract.run(req.text, req.profile_summary))
 
 
+
+@app.post("/api/contract/stream")
+def contract_stream(req: TextRequest) -> StreamingResponse:
+    if len(req.text.strip()) < 12:
+        raise HTTPException(status_code=400, detail="合同文本过短，请粘贴关键条款后再生成风险提示。")
+    hub = make_hub(req.config)
+    return _stream_response(hub.contract.stream(req.text, req.profile_summary))
+
+
 @app.post("/api/policy", response_model=AgentResponse)
 def policy(req: PolicyRequest) -> AgentResponse:
     hub = make_hub(req.config)
     return agent_response(hub.policy.run(profile_to_dict(req.profile), req.demand))
+
+
+
+@app.post("/api/policy/stream")
+def policy_stream(req: PolicyRequest) -> StreamingResponse:
+    hub = make_hub(req.config)
+    return _stream_response(hub.policy.stream(profile_to_dict(req.profile), req.demand))
 
 
 @app.post("/api/match", response_model=AgentResponse)
@@ -183,10 +247,26 @@ def match(req: MatchRequest) -> AgentResponse:
     return agent_response(hub.match.run(profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario))
 
 
+
+@app.post("/api/match/stream")
+def match_stream(req: MatchRequest) -> StreamingResponse:
+    if not any([req.offer.strip(), req.need.strip(), req.target.strip(), req.scenario.strip()]):
+        raise HTTPException(status_code=400, detail="请至少填写供给、需求、目标对象或业务场景中的一项。")
+    hub = make_hub(req.config)
+    return _stream_response(hub.match.stream(profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario))
+
+
 @app.post("/api/landing", response_model=AgentResponse)
 def landing(req: LandingRequest) -> AgentResponse:
     hub = make_hub(req.config)
     return agent_response(hub.landing.run(profile_to_dict(req.profile), req.landing_info, req.existing_results))
+
+
+
+@app.post("/api/landing/stream")
+def landing_stream(req: LandingRequest) -> StreamingResponse:
+    hub = make_hub(req.config)
+    return _stream_response(hub.landing.stream(profile_to_dict(req.profile), req.landing_info, req.existing_results))
 
 
 @app.post("/api/report", response_model=AgentResponse)
@@ -195,6 +275,15 @@ def report(req: ReportRequest) -> AgentResponse:
         hub = make_hub(req.config)
         return agent_response(hub.report.run(req.results))
     return AgentResponse(ok=True, content=build_markdown(req.results), mode="本地报告模式")
+
+
+
+@app.post("/api/report/stream")
+def report_stream(req: ReportRequest) -> StreamingResponse:
+    if req.use_ai_summary:
+        hub = make_hub(req.config)
+        return _stream_response(hub.report.stream(req.results))
+    return _stream_response(iter([build_markdown(req.results)]))
 
 
 @app.post("/api/report/markdown")
