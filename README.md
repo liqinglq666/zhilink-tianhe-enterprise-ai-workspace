@@ -25,6 +25,24 @@
 
 ---
 
+## Online Demo
+
+<p align="center">
+  <a href="https://zhilink-tianhe-ai-workspace.onrender.com">
+    <img src="https://img.shields.io/badge/Live_Demo-Open_Web_App-2563EB?style=for-the-badge&logo=render&logoColor=white" alt="Live Demo" />
+  </a>
+  <a href="https://github.com/liqinglq666/zhilink-tianhe-enterprise-ai-workspace">
+    <img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Repository" />
+  </a>
+</p>
+
+| Type | Link |
+|---|---|
+| Online Demo | [https://zhilink-tianhe-ai-workspace.onrender.com](https://zhilink-tianhe-ai-workspace.onrender.com) |
+| GitHub Repository | [https://github.com/liqinglq666/zhilink-tianhe-enterprise-ai-workspace](https://github.com/liqinglq666/zhilink-tianhe-enterprise-ai-workspace) |
+
+> The online demo is deployed on Render. Free instances may sleep after periods of inactivity, so the first visit may take a few seconds to wake up.
+
 ## 0. Executive Summary
 
 **智链天河 · 企业运营 AI 工作台** 不是一个普通的 AI 聊天页面，而是一套围绕企业运营材料生产链路设计的轻量级 AI 工作台。
