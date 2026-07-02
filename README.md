@@ -81,40 +81,6 @@
 
 ---
 
-## 流式生成体验
-
-本版本已升级为 **流式生成（Streaming Generation）** 交互：用户点击生成后，系统会边调用大模型边实时渲染输出内容，避免长时间空白等待，更接近成熟 AI 产品的使用体验。
-
-| 能力 | 说明 |
-|---|---|
-| 实时输出 | 会议纪要、合同审阅、政策准备等模块生成时会逐段显示内容 |
-| 前端流式渲染 | 使用 `fetch + ReadableStream` 读取后端流式响应 |
-| 后端 SSE 输出 | FastAPI 通过 `StreamingResponse` 返回 Server-Sent Events 风格数据 |
-| 模型兼容 | 支持 OpenAI-Compatible `stream=true` 接口，包括 DashScope compatible-mode |
-| 完成后归档 | 流式生成完成后，结果会自动进入当前会话，可复制、单模块导出或汇总到报告归档 |
-
-```mermaid
-sequenceDiagram
-    participant User as 用户
-    participant UI as 前端工作台
-    participant API as FastAPI StreamingResponse
-    participant Agent as 业务 Agent
-    participant LLM as OpenAI-Compatible LLM
-
-    User->>UI: 点击生成
-    UI->>API: POST /api/{module}/stream
-    API->>Agent: 构造业务提示词
-    Agent->>LLM: stream=true
-    loop token / chunk
-        LLM-->>Agent: delta content
-        Agent-->>API: yield chunk
-        API-->>UI: data: delta
-        UI-->>UI: 实时渲染 Markdown
-    end
-    API-->>UI: data: done
-    UI-->>UI: 保存结果并启用复制/导出
-```
-
 
 ## 0. Executive Summary
 
