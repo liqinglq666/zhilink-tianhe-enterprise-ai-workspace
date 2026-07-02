@@ -468,6 +468,23 @@ button.small { min-height: 38px; padding: 8px 12px; }
 .result-section-title span { color: var(--primary); font-weight: 900; font-size: 12px; }
 .result-section-title h3 { margin: 0; font-size: 16px; }
 .result-section-content { padding: 14px; line-height: 1.75; color: var(--text-2); }
+.result-section-content strong,
+.streaming-content strong {
+  color: var(--text);
+  font-weight: 850;
+}
+.result-section-content code,
+.streaming-content code {
+  display: inline-flex;
+  border-radius: 6px;
+  padding: 1px 5px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: #1e40af;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
 .result-section-content h1, .result-section-content h2, .result-section-content h3 { margin: 12px 0 8px; color: var(--text); }
 .result-section-content p { margin: 0 0 10px; }
 ul { margin: 0 0 12px 20px; padding: 0; }

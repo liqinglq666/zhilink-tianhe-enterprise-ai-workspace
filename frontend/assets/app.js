@@ -365,6 +365,15 @@ function escapeHtml(text) {
     .replaceAll("'", "&#039;");
 }
 
+function renderInlineMarkdown(text) {
+  let html = escapeHtml(text);
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  return html;
+}
+
 function renderMarkdown(md) {
   const lines = String(md || "").split(/\r?\n/);
   let html = "";
@@ -381,7 +390,7 @@ function renderMarkdown(md) {
       const cells = row.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(c => c.trim());
       if (idx === 1 && cells.every(c => /^:?-{3,}:?$/.test(c))) return;
       html += idx === 0 ? "<thead><tr>" : "<tr>";
-      cells.forEach(c => html += idx === 0 ? `<th>${escapeHtml(c)}</th>` : `<td>${escapeHtml(c)}</td>`);
+      cells.forEach(c => html += idx === 0 ? `<th>${renderInlineMarkdown(c)}</th>` : `<td>${renderInlineMarkdown(c)}</td>`);
       html += idx === 0 ? "</tr></thead><tbody>" : "</tr>";
     });
     html += "</tbody></table>";
@@ -393,22 +402,22 @@ function renderMarkdown(md) {
     if (line.startsWith("|") && line.endsWith("|")) { flushList(); tableBuffer.push(line); continue; }
     flushTable();
     if (!line) { flushList(); html += "<br/>"; continue; }
-    if (line.startsWith("### ")) { flushList(); html += `<h3>${escapeHtml(line.slice(4))}</h3>`; continue; }
-    if (line.startsWith("## ")) { flushList(); html += `<h2>${escapeHtml(line.slice(3))}</h2>`; continue; }
-    if (line.startsWith("# ")) { flushList(); html += `<h1>${escapeHtml(line.slice(2))}</h1>`; continue; }
+    if (line.startsWith("### ")) { flushList(); html += `<h3>${renderInlineMarkdown(line.slice(4))}</h3>`; continue; }
+    if (line.startsWith("## ")) { flushList(); html += `<h2>${renderInlineMarkdown(line.slice(3))}</h2>`; continue; }
+    if (line.startsWith("# ")) { flushList(); html += `<h1>${renderInlineMarkdown(line.slice(2))}</h1>`; continue; }
     if (line.startsWith("- ")) {
       if (!inList) { html += "<ul>"; inList = true; }
-      html += `<li>${escapeHtml(line.slice(2))}</li>`;
+      html += `<li>${renderInlineMarkdown(line.slice(2))}</li>`;
       continue;
     }
     if (/^\d+\.\s/.test(line)) {
       flushList();
-      html += `<p>${escapeHtml(line)}</p>`;
+      html += `<p>${renderInlineMarkdown(line)}</p>`;
       continue;
     }
-    if (line.startsWith("> ")) { flushList(); html += `<blockquote>${escapeHtml(line.slice(2))}</blockquote>`; continue; }
+    if (line.startsWith("> ")) { flushList(); html += `<blockquote>${renderInlineMarkdown(line.slice(2))}</blockquote>`; continue; }
     flushList();
-    html += `<p>${escapeHtml(line)}</p>`;
+    html += `<p>${renderInlineMarkdown(line)}</p>`;
   }
   flushList(); flushTable();
   return html;
