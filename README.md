@@ -1,12 +1,41 @@
 <div align="center">
 
-<img src="frontend/assets/hero-enterprise-ai.png" alt="智链天河企业运营 AI 工作台" width="100%" />
-
 # 智链天河 · 企业运营 AI 工作台
 
-### Enterprise AI Operations Workspace for Business Service, Governance Materials & Operational Intelligence
+### ZhiLink Tianhe Enterprise AI Workspace
 
-面向 **企业、园区服务窗口、商圈运营团队、青年创业团队与中小经营主体** 的企业级 AI 运营材料生成、复核、流转与归档平台。
+**面向企业、园区服务窗口、商圈运营团队与中小经营主体的 AI 运营材料生成、复核、流转与归档平台**
+
+<br/>
+
+## 🎨 立即访问在线演示
+
+<p>
+  <a href="https://zhilink-tianhe-ai-workspace.onrender.com" target="_blank">
+    <img src="frontend/assets/hero-enterprise-ai.png" alt="点击访问智链天河在线演示" width="92%" />
+  </a>
+</p>
+
+### 👆 点击上方图片即可访问在线演示
+
+<p>
+  <a href="https://zhilink-tianhe-ai-workspace.onrender.com" target="_blank">
+    <img src="https://img.shields.io/badge/立即体验-ZhiLink_Tianhe_AI_Workspace-2563EB?style=for-the-badge&logo=render&logoColor=white" alt="立即体验" />
+  </a>
+  <a href="https://github.com/liqinglq666/zhilink-tianhe-enterprise-ai-workspace" target="_blank">
+    <img src="https://img.shields.io/badge/GitHub-项目仓库-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Repository" />
+  </a>
+</p>
+
+<p>
+  🌐 在线体验地址：
+  <a href="https://zhilink-tianhe-ai-workspace.onrender.com"><b>https://zhilink-tianhe-ai-workspace.onrender.com</b></a>
+</p>
+
+<p>
+  <b>体验功能：</b>
+  企业档案 → 会议纪要 → 合同审阅 → 政策准备 → 供需协作 → 实施计划 → 报告归档
+</p>
 
 <br/>
 
@@ -17,31 +46,40 @@
 ![Docker](https://img.shields.io/badge/Docker-Deployable-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-All_Rights_Reserved-black?style=for-the-badge)
 
-<br/>
-
-**会议纪要 · 合同审阅 · 政策准备 · 供需协作 · 实施计划 · 报告归档**
-
 </div>
 
 ---
 
-## Online Demo
+## 在线 Demo 说明
 
-<p align="center">
-  <a href="https://zhilink-tianhe-ai-workspace.onrender.com">
-    <img src="https://img.shields.io/badge/Live_Demo-Open_Web_App-2563EB?style=for-the-badge&logo=render&logoColor=white" alt="Live Demo" />
-  </a>
-  <a href="https://github.com/liqinglq666/zhilink-tianhe-enterprise-ai-workspace">
-    <img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Repository" />
-  </a>
-</p>
+当前在线体验版本部署在 **Render 免费实例** 上，主要用于作品展示、功能演示和评审体验。由于免费实例存在平台限制，网页在长时间无人访问后可能进入休眠状态，首次打开时可能出现几十秒冷启动等待，这是免费部署环境的正常现象，不代表系统不可用。
 
-| Type | Link |
+为控制演示成本，当前 Demo 采用轻量化部署方式：
+
+- 不在服务端内置或保存大模型 API Key；
+- 使用者需在网页左侧自行填写 OpenAI-Compatible API Key；
+- API Key 默认仅保存在浏览器当前会话中；
+- 业务文本和生成结果不作为生产数据持久化存储；
+- 当前版本主要用于功能验证、场景演示和产品原型展示。
+
+### 面向企业正式部署的建议方案
+
+如果后续面向园区、商圈、企业服务窗口或具体企业客户正式使用，建议从“免费 Demo 部署”升级为“企业级生产部署”：
+
+| 方向 | 建议措施 |
 |---|---|
-| Online Demo | [https://zhilink-tianhe-ai-workspace.onrender.com](https://zhilink-tianhe-ai-workspace.onrender.com) |
-| GitHub Repository | [https://github.com/liqinglq666/zhilink-tianhe-enterprise-ai-workspace](https://github.com/liqinglq666/zhilink-tianhe-enterprise-ai-workspace) |
+| 部署环境 | 使用云服务器、企业内网服务器、容器平台或专属 PaaS，避免免费实例休眠 |
+| 访问稳定性 | 采用付费实例、自动扩缩容、健康检查、服务监控和异常告警 |
+| 域名与安全 | 绑定企业专属域名，启用 HTTPS、访问控制和安全网关 |
+| 模型接口 | 接入企业统一大模型网关，或由企业集中配置模型 API Key |
+| 用户权限 | 增加账号体系、角色权限、组织空间和操作审计 |
+| 数据治理 | 增加数据脱敏、敏感字段过滤、日志分级、数据留存周期和删除机制 |
+| 结果归档 | 引入数据库或对象存储，支持历史报告、服务台账和版本追踪 |
+| 运维保障 | 增加备份策略、部署流水线、监控面板和故障恢复方案 |
 
-> The online demo is deployed on Render. Free instances may sleep after periods of inactivity, so the first visit may take a few seconds to wake up.
+因此，当前在线地址可以理解为 **公开演示版 / Demo Deployment**；正式企业落地时，可升级为 **私有化部署 / 专属云部署 / 企业内网部署**，以满足稳定性、安全性、权限管理和数据合规要求。
+
+---
 
 ## 0. Executive Summary
 
