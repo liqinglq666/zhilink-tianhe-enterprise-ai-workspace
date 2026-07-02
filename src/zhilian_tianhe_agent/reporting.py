@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 """报告导出工具。
 
-重点优化 DOCX 导出效果：
-- Markdown 标题转 Word 标题
-- Markdown 表格转真实 Word 表格
-- **加粗**、`代码`、列表、复选框、引用块转为 Word 样式
-- 自动处理宽表格，适合合同审阅、风险清单、政策材料等业务报告
+用于把各模块生成结果导出为 Markdown / TXT / Word DOCX。
+
+重点优化：
+1. Markdown 表格转真实 Word 表格，不再显示 |---| 原始符号；
+2. 支持无首尾竖线的表格行；
+3. 支持中文全角竖线 ｜；
+4. 支持 **加粗**、`代码`、列表、复选框；
+5. 宽表格自动使用横向页面；
+6. 合同审阅、风险清单、实施计划等内容导出更像正式报告。
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from io import BytesIO
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 try:
     from docx import Document
@@ -23,6 +27,7 @@ try:
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
     from docx.shared import Cm, Pt, RGBColor
+
     DOCX_AVAILABLE = True
 except Exception:  # noqa: BLE001
     DOCX_AVAILABLE = False
@@ -52,6 +57,8 @@ KNOWN_SECTION_TITLES = {
     "数据边界",
     "复核机制",
     "评估指标",
+    "下一步动作",
+    "下次会议议题",
 }
 
 
@@ -64,11 +71,13 @@ def build_markdown_report(results: Dict[str, str]) -> str:
         f"> {LEGAL_DISCLAIMER}",
         "",
     ]
+
     for title, content in results.items():
         if content:
             parts.append(f"## {title}")
             parts.append(content.strip())
             parts.append("")
+
     return "\n".join(parts).strip()
 
 
@@ -100,6 +109,7 @@ def _set_cell_margins(cell, top=90, start=90, bottom=90, end=90) -> None:
     tc = cell._tc
     tc_pr = tc.get_or_add_tcPr()
     tc_mar = tc_pr.first_child_found_in("w:tcMar")
+
     if tc_mar is None:
         tc_mar = OxmlElement("w:tcMar")
         tc_pr.append(tc_mar)
@@ -114,6 +124,7 @@ def _set_cell_margins(cell, top=90, start=90, bottom=90, end=90) -> None:
         if node is None:
             node = OxmlElement(f"w:{margin_name}")
             tc_mar.append(node)
+
         node.set(qn("w:w"), str(value))
         node.set(qn("w:type"), "dxa")
 
@@ -122,15 +133,19 @@ def _set_table_borders(table, color: str = "D0D5DD", size: str = "6") -> None:
     tbl = table._tbl
     tbl_pr = tbl.tblPr
     borders = tbl_pr.first_child_found_in("w:tblBorders")
+
     if borders is None:
         borders = OxmlElement("w:tblBorders")
         tbl_pr.append(borders)
+
     for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
         tag = f"w:{edge}"
         element = borders.find(qn(tag))
+
         if element is None:
             element = OxmlElement(tag)
             borders.append(element)
+
         element.set(qn("w:val"), "single")
         element.set(qn("w:sz"), size)
         element.set(qn("w:space"), "0")
@@ -139,29 +154,32 @@ def _set_table_borders(table, color: str = "D0D5DD", size: str = "6") -> None:
 
 def _clean_inline_text(text: str) -> str:
     return (
-        text.replace("&nbsp;", " ")
+        str(text)
+        .replace("&nbsp;", " ")
         .replace("<br>", "\n")
         .replace("<br/>", "\n")
         .replace("<br />", "\n")
+        .replace("｜", "|")
         .strip()
     )
 
 
 def _add_inline_runs(paragraph, text: str, *, base_size: float = 10.5, color: str | None = None) -> None:
-    """Render simple inline Markdown into Word runs.
+    """把简单 Markdown 行内语法转换为 Word Run。
 
-    Supports:
-    - **bold**
-    - __bold__
-    - `code`
-    - bare text
+    支持：
+    - **加粗**
+    - __加粗__
+    - `代码`
     """
+
     text = _clean_inline_text(text)
     if not text:
         return
 
     pattern = re.compile(r"(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`)")
     pos = 0
+
     for match in pattern.finditer(text):
         if match.start() > pos:
             run = paragraph.add_run(text[pos:match.start()])
@@ -189,6 +207,7 @@ def _add_inline_runs(paragraph, text: str, *, base_size: float = 10.5, color: st
         _set_east_asian_font(run, "Consolas" if code else "微软雅黑")
         run.font.size = Pt(base_size if not code else max(base_size - 0.5, 8))
         run.bold = bold
+
         if code:
             run.font.color.rgb = RGBColor(30, 64, 175)
         elif color:
@@ -204,37 +223,98 @@ def _add_inline_runs(paragraph, text: str, *, base_size: float = 10.5, color: st
             run.font.color.rgb = RGBColor.from_string(color)
 
 
-def _is_table_separator(cells: Sequence[str]) -> bool:
+def _normalize_table_line(line: str) -> str:
+    line = _clean_inline_text(line)
+
+    # 有些模型会把表格行前面加项目符号，这里统一去掉。
+    line = re.sub(r"^[•\-*+]\s*(?=\|)", "", line)
+
+    # 有些生成结果可能包含 Word 复制出来的换行符号，提前清理。
+    line = line.replace("\r", "").replace("\n", "")
+
+    return line.strip()
+
+
+def _is_table_separator_cells(cells: Sequence[str]) -> bool:
     return bool(cells) and all(re.fullmatch(r":?-{2,}:?", c.strip()) for c in cells)
 
 
 def _split_table_row(line: str) -> List[str]:
-    line = line.strip()
+    line = _normalize_table_line(line)
+
     if line.startswith("|"):
         line = line[1:]
+
     if line.endswith("|"):
         line = line[:-1]
+
     return [cell.strip() for cell in line.split("|")]
 
 
-def _is_table_line(line: str) -> bool:
-    stripped = line.strip()
-    return stripped.startswith("|") and stripped.endswith("|") and "|" in stripped[1:-1]
+def _is_probable_table_line(line: str) -> bool:
+    """判断一行是否像 Markdown 表格。
+
+    比旧版更宽松：
+    - 支持 | A | B |
+    - 支持 A | B | C
+    - 支持中文全角竖线 ｜
+    """
+
+    line = _normalize_table_line(line)
+
+    if not line:
+        return False
+
+    # 至少要有两个竖线，才认为可能是多列表格。
+    if line.count("|") < 2:
+        return False
+
+    cells = _split_table_row(line)
+
+    # 至少两列，而且不能全为空。
+    if len(cells) < 2:
+        return False
+
+    if not any(cell.strip() for cell in cells):
+        return False
+
+    return True
 
 
 def _collect_table(lines: Sequence[str], start: int) -> Tuple[List[List[str]], int]:
-    rows: List[List[str]] = []
+    """从 start 开始收集连续表格行。
+
+    支持标准 Markdown 表格，也支持模型生成的非严格表格。
+    """
+
+    raw_rows: List[List[str]] = []
     i = start
-    while i < len(lines) and _is_table_line(lines[i]):
-        cells = _split_table_row(lines[i])
-        if not _is_table_separator(cells):
-            rows.append(cells)
+
+    while i < len(lines):
+        line = lines[i].strip()
+
+        if not line:
+            # 空行代表表格结束。
+            break
+
+        if not _is_probable_table_line(line):
+            break
+
+        cells = _split_table_row(line)
+
+        # 跳过 |---|---| 分隔行。
+        if not _is_table_separator_cells(cells):
+            raw_rows.append(cells)
+
         i += 1
-    if not rows:
+
+    if not raw_rows:
         return [], i
-    max_cols = max(len(row) for row in rows)
-    normalized = [row + [""] * (max_cols - len(row)) for row in rows]
-    return normalized, i
+
+    max_cols = max(len(row) for row in raw_rows)
+    rows = [row + [""] * (max_cols - len(row)) for row in raw_rows]
+
+    return rows, i
 
 
 def _add_table(doc: Document, rows: List[List[str]]) -> None:
@@ -245,10 +325,12 @@ def _add_table(doc: Document, rows: List[List[str]]) -> None:
     table = doc.add_table(rows=0, cols=col_count)
     table.style = "Table Grid"
     table.autofit = True
+
     _set_table_borders(table)
 
     for r_idx, row_data in enumerate(rows):
         row = table.add_row()
+
         for c_idx, cell_text in enumerate(row_data):
             cell = row.cells[c_idx]
             cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
@@ -263,12 +345,17 @@ def _add_table(doc: Document, rows: List[List[str]]) -> None:
             paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
             _set_paragraph_format(paragraph, before=0, after=0, line_spacing=1.05)
 
-            _add_inline_runs(
-                paragraph,
-                cell_text,
-                base_size=8.5 if col_count >= 5 else 9.2,
-                color=None,
-            )
+            # 宽表格自动缩小字号。
+            if col_count >= 6:
+                font_size = 7.8
+            elif col_count >= 5:
+                font_size = 8.4
+            elif col_count >= 4:
+                font_size = 9
+            else:
+                font_size = 9.5
+
+            _add_inline_runs(paragraph, cell_text, base_size=font_size)
 
             for run in paragraph.runs:
                 if r_idx == 0:
@@ -279,22 +366,40 @@ def _add_table(doc: Document, rows: List[List[str]]) -> None:
 
 
 def _looks_like_plain_section_title(text: str) -> bool:
-    stripped = text.strip().strip("：:")
+    stripped = _clean_inline_text(text).strip("：:")
+
     if stripped in KNOWN_SECTION_TITLES:
         return True
-    if len(stripped) <= 12 and re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9·（）() ]+", stripped):
-        # 避免把普通短句都识别成标题，只处理常见“名词型”标题。
-        title_keywords = ("清单", "总览", "结论", "说明", "建议", "机制", "框架", "风险", "摘要", "指标", "免责声明")
+
+    if len(stripped) <= 14 and re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9·（）() ]+", stripped):
+        title_keywords = (
+            "清单",
+            "总览",
+            "结论",
+            "说明",
+            "建议",
+            "机制",
+            "框架",
+            "风险",
+            "摘要",
+            "指标",
+            "免责声明",
+            "议题",
+            "动作",
+        )
         return any(k in stripped for k in title_keywords)
+
     return False
 
 
 def _add_heading(doc: Document, text: str, level: int) -> None:
     heading = doc.add_heading("", level=level)
     _set_paragraph_format(heading, before=8 if level <= 2 else 6, after=6, line_spacing=1.1)
+
     run = heading.add_run(_clean_inline_text(text))
     _set_east_asian_font(run)
     run.bold = True
+
     if level == 1:
         run.font.size = Pt(16)
         run.font.color.rgb = RGBColor(17, 24, 39)
@@ -311,6 +416,7 @@ def _add_quote(doc: Document, text: str) -> None:
     paragraph.paragraph_format.left_indent = Cm(0.35)
     paragraph.paragraph_format.space_before = Pt(4)
     paragraph.paragraph_format.space_after = Pt(8)
+
     _add_inline_runs(paragraph, text, base_size=9.5, color="667085")
 
 
@@ -320,11 +426,9 @@ def _add_paragraph(doc: Document, text: str) -> None:
     _add_inline_runs(paragraph, text, base_size=10.5)
 
 
-def _add_bullet(doc: Document, text: str, *, checkbox: bool = False) -> None:
+def _add_bullet(doc: Document, text: str) -> None:
     paragraph = doc.add_paragraph(style="List Bullet")
     _set_paragraph_format(paragraph, before=0, after=4, line_spacing=1.12)
-    if checkbox:
-        text = "☐ " + text
     _add_inline_runs(paragraph, text, base_size=10.2)
 
 
@@ -336,14 +440,18 @@ def _add_numbered(doc: Document, text: str) -> None:
 
 def _configure_document(doc: Document) -> None:
     section = doc.sections[0]
+
+    # 横向页面更适合风险清单、合同审阅等宽表格。
     section.orientation = WD_ORIENT.LANDSCAPE
     section.page_width, section.page_height = section.page_height, section.page_width
+
     section.top_margin = Cm(1.25)
     section.bottom_margin = Cm(1.25)
     section.left_margin = Cm(1.35)
     section.right_margin = Cm(1.35)
 
     styles = doc.styles
+
     styles["Normal"].font.name = "微软雅黑"
     styles["Normal"]._element.rPr.rFonts.set(qn("w:eastAsia"), "微软雅黑")
     styles["Normal"].font.size = Pt(10.5)
@@ -358,6 +466,7 @@ def _add_cover(doc: Document) -> None:
     title = doc.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title.paragraph_format.space_after = Pt(4)
+
     run = title.add_run("智链天河：企业运营 AI 工作台")
     _set_east_asian_font(run)
     run.bold = True
@@ -367,6 +476,7 @@ def _add_cover(doc: Document) -> None:
     subtitle = doc.add_paragraph()
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
     subtitle.paragraph_format.space_after = Pt(10)
+
     run = subtitle.add_run("运营材料生成与风险提示报告")
     _set_east_asian_font(run)
     run.font.size = Pt(11)
@@ -375,6 +485,7 @@ def _add_cover(doc: Document) -> None:
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_after = Pt(12)
+
     run = p.add_run(f"生成时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}")
     _set_east_asian_font(run)
     run.font.size = Pt(9.5)
@@ -384,6 +495,7 @@ def _add_cover(doc: Document) -> None:
     disclaimer.paragraph_format.left_indent = Cm(0.2)
     disclaimer.paragraph_format.right_indent = Cm(0.2)
     disclaimer.paragraph_format.space_after = Pt(12)
+
     _add_inline_runs(disclaimer, f"说明：{LEGAL_DISCLAIMER}", base_size=9.2, color="667085")
 
 
@@ -399,11 +511,14 @@ def _add_markdown_content(doc: Document, content: str) -> None:
             i += 1
             continue
 
-        if _is_table_line(line):
-            table_rows, new_i = _collect_table(lines, i)
-            _add_table(doc, table_rows)
-            i = new_i
-            continue
+        # 关键：优先识别表格，避免表格被当成普通段落输出。
+        if _is_probable_table_line(line):
+            table_rows, next_i = _collect_table(lines, i)
+
+            if table_rows:
+                _add_table(doc, table_rows)
+                i = next_i
+                continue
 
         if re.fullmatch(r"-{3,}|_{3,}|\*{3,}", line):
             doc.add_paragraph()
@@ -412,24 +527,52 @@ def _add_markdown_content(doc: Document, content: str) -> None:
 
         if line.startswith("# "):
             _add_heading(doc, line[2:].strip(), 1)
+
         elif line.startswith("## "):
             _add_heading(doc, line[3:].strip(), 2)
+
         elif line.startswith("### "):
             _add_heading(doc, line[4:].strip(), 3)
+
         elif line.startswith("> "):
             _add_quote(doc, line[2:].strip())
+
         elif re.match(r"^[-*+]\s+\[[ xX]\]\s+", line):
-            text = re.sub(r"^[-*+]\s+\[[ xX]\]\s+", "", line).strip()
             checked = bool(re.match(r"^[-*+]\s+\[[xX]\]\s+", line))
+            text = re.sub(r"^[-*+]\s+\[[ xX]\]\s+", "", line).strip()
             _add_bullet(doc, ("☑ " if checked else "☐ ") + text)
+
         elif line.startswith("•"):
-            _add_bullet(doc, line[1:].strip())
+            text = line[1:].strip()
+
+            # 如果项目符号后面其实是一个表格行，则也转成表格。
+            if _is_probable_table_line(text):
+                table_rows, next_i = _collect_table([text] + list(lines[i + 1:]), 0)
+                if table_rows:
+                    _add_table(doc, table_rows)
+                    i = i + next_i
+                    continue
+
+            _add_bullet(doc, text)
+
         elif re.match(r"^[-*+]\s+", line):
-            _add_bullet(doc, re.sub(r"^[-*+]\s+", "", line).strip())
+            text = re.sub(r"^[-*+]\s+", "", line).strip()
+
+            if _is_probable_table_line(text):
+                table_rows, next_i = _collect_table([text] + list(lines[i + 1:]), 0)
+                if table_rows:
+                    _add_table(doc, table_rows)
+                    i = i + next_i
+                    continue
+
+            _add_bullet(doc, text)
+
         elif re.match(r"^\d+[.)、]\s+", line):
             _add_numbered(doc, re.sub(r"^\d+[.)、]\s+", "", line).strip())
+
         elif _looks_like_plain_section_title(line):
             _add_heading(doc, line.rstrip("：:"), 2)
+
         else:
             _add_paragraph(doc, line)
 
@@ -438,7 +581,7 @@ def _add_markdown_content(doc: Document, content: str) -> None:
 
 def build_docx_bytes(results: Dict[str, str]) -> bytes:
     if not DOCX_AVAILABLE:
-        raise RuntimeError("未安装 python-docx，无法导出DOCX。")
+        raise RuntimeError("未安装 python-docx，无法导出 DOCX。")
 
     doc = Document()
     _configure_document(doc)
@@ -451,10 +594,10 @@ def build_docx_bytes(results: Dict[str, str]) -> bytes:
         _add_heading(doc, section_title, 1)
         _add_markdown_content(doc, content.strip())
 
-    # 页脚
     footer = doc.sections[0].footer
     p = footer.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
     run = p.add_run("智链天河 · 企业运营 AI 工作台")
     _set_east_asian_font(run)
     run.font.size = Pt(8.5)
@@ -463,4 +606,5 @@ def build_docx_bytes(results: Dict[str, str]) -> bytes:
     buffer = BytesIO()
     doc.save(buffer)
     buffer.seek(0)
+
     return buffer.getvalue()
