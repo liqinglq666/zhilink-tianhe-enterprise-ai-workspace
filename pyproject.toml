@@ -1,0 +1,17 @@
+[project]
+name = "zhilian-tianhe-agent-fastapi"
+version = "2.0.0"
+description = "智链天河：企业运营 AI 助手 FastAPI + HTML/CSS/JS 正式网页版"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.110.0",
+  "uvicorn[standard]>=0.27.0",
+  "requests>=2.31.0",
+  "python-dotenv>=1.0.0",
+  "python-docx>=1.1.0",
+  "pydantic>=2.6.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]

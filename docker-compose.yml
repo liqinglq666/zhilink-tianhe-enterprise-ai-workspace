@@ -1,0 +1,11 @@
+services:
+  zhilian-tianhe-agent:
+    build: .
+    container_name: zhilian-tianhe-agent
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=Asia/Shanghai
+      - MAX_BODY_BYTES=1500000
+      - CORS_ALLOW_ORIGINS=*
+    restart: unless-stopped
