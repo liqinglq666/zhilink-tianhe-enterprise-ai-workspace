@@ -4,6 +4,7 @@ import asyncio
 import socket
 
 import pytest
+import requests
 from fastapi.testclient import TestClient
 
 from backend.main import _stream_response, app
@@ -28,6 +29,12 @@ class _FakeStreamResponse:
 
     def iter_lines(self, decode_unicode=True):  # noqa: ARG002
         yield from self._lines
+
+
+class _InterruptedStreamResponse(_FakeStreamResponse):
+    def iter_lines(self, decode_unicode=True):  # noqa: ARG002
+        yield from self._lines
+        raise requests.exceptions.ChunkedEncodingError("incomplete chunk")
 
 
 def _consume_stream(response) -> str:
@@ -73,8 +80,20 @@ def test_missing_api_key_does_not_trigger_dns(monkeypatch):
         llm.chat("system", "user")
 
 
-def test_upstream_partial_stream_requires_terminal_marker(monkeypatch):
+def test_upstream_eof_after_content_is_accepted(monkeypatch):
     response = _FakeStreamResponse(
+        ['data: {"choices":[{"delta":{"content":"完整"}}]}']
+    )
+    monkeypatch.setattr(
+        "zhilian_tianhe_agent.llm_client.requests.post",
+        lambda *args, **kwargs: response,
+    )
+
+    assert list(_configured_client().chat_stream("system", "user")) == ["完整"]
+
+
+def test_upstream_transport_interruption_is_rejected(monkeypatch):
+    response = _InterruptedStreamResponse(
         ['data: {"choices":[{"delta":{"content":"partial"}}]}']
     )
     monkeypatch.setattr(
@@ -82,7 +101,7 @@ def test_upstream_partial_stream_requires_terminal_marker(monkeypatch):
         lambda *args, **kwargs: response,
     )
 
-    with pytest.raises(RuntimeError, match="提前中断"):
+    with pytest.raises(RuntimeError, match="异常中断"):
         list(_configured_client().chat_stream("system", "user"))
 
 
