@@ -29,7 +29,7 @@ def test_accepts_public_https(monkeypatch):
     monkeypatch.setattr(
         socket,
         "getaddrinfo",
-        lambda *args, **kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("203.0.113.10", 443))],
+        lambda *args, **kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 443))],
     )
 
     client = LLMClient(LLMConfig(api_key="x", base_url="https://gateway.example/v1", model="demo"))
