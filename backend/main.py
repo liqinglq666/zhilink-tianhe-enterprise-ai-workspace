@@ -41,7 +41,7 @@ from .schemas import (  # noqa: E402
 )
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
-APP_VERSION = "2.2.0-fastapi-streaming"
+APP_VERSION = "2.2.1-fastapi-streaming-fix"
 MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
 FRONTEND_DIR = ROOT / "frontend"
 ASSETS_DIR = FRONTEND_DIR / "assets"
@@ -93,13 +93,15 @@ async def limit_request_size(request: Request, call_next):
     if content_length and content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:
         return _too_large_response()
 
+    # Keep the original receiver so streaming responses can still wait for a
+    # genuine client disconnect after the consumed body has been replayed.
+    upstream_receive = request.receive
     try:
-        body = await read_limited_body(request.receive, MAX_BODY_BYTES)
+        body = await read_limited_body(upstream_receive, MAX_BODY_BYTES)
     except BodyTooLarge:
         return _too_large_response()
 
-    # Starlette 已经把流吃掉了，给下游重放一次。
-    request._receive = replay_body(body)
+    request._receive = replay_body(body, upstream_receive)
     return await call_next(request)
 
 
@@ -156,7 +158,10 @@ def _stream_response(chunks) -> StreamingResponse:
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream; charset=utf-8",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
