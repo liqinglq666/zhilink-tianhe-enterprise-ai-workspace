@@ -10,6 +10,8 @@ class BodyTooLarge(ValueError):
 
 
 async def read_limited_body(receive: Receive, max_bytes: int) -> bytes:
+    """Read an ASGI request body while enforcing a byte limit."""
+
     chunks: list[bytes] = []
     size = 0
 
@@ -32,14 +34,21 @@ async def read_limited_body(receive: Receive, max_bytes: int) -> bytes:
     return b"".join(chunks)
 
 
-def replay_body(body: bytes) -> Receive:
+def replay_body(body: bytes, upstream_receive: Receive) -> Receive:
+    """Replay the consumed body once, then delegate to the real ASGI receiver.
+
+    Delegating after the replay is essential for streaming responses. Returning
+    an endless sequence of empty ``http.request`` messages makes Starlette's
+    disconnect listener spin forever and can starve ``StreamingResponse``.
+    """
+
     sent = False
 
     async def receive() -> dict:
         nonlocal sent
-        if sent:
-            return {"type": "http.request", "body": b"", "more_body": False}
-        sent = True
-        return {"type": "http.request", "body": body, "more_body": False}
+        if not sent:
+            sent = True
+            return {"type": "http.request", "body": body, "more_body": False}
+        return await upstream_receive()
 
     return receive
