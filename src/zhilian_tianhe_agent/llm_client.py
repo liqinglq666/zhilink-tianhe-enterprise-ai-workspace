@@ -179,6 +179,7 @@ class LLMClient:
 
     def chat_stream(self, system_prompt: str, user_prompt: str) -> Iterator[str]:
         yielded_content = False
+        received_terminal_event = False
 
         with requests.post(
             self._url(),
@@ -201,10 +202,11 @@ class LLMClient:
                 if line.startswith("data:"):
                     line = line[5:].strip()
 
-                if not line or line == "[DONE]":
-                    if line == "[DONE]":
-                        break
+                if not line:
                     continue
+                if line == "[DONE]":
+                    received_terminal_event = True
+                    break
 
                 try:
                     data = json.loads(line)
@@ -229,5 +231,11 @@ class LLMClient:
                     yielded_content = True
                     yield str(content)
 
+                if choice.get("finish_reason") is not None:
+                    received_terminal_event = True
+                    break
+
         if not yielded_content:
             raise RuntimeError("模型流式接口未返回有效文本，请检查模型名称或接口兼容性。")
+        if not received_terminal_event:
+            raise RuntimeError("模型流式连接提前中断，未收到完整结束标记。")
