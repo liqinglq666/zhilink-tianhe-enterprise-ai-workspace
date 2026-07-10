@@ -64,6 +64,12 @@ class ReportRequest(BaseAgentRequest):
     use_ai_summary: bool = True
 
 
+class ExportRequest(BaseModel):
+    """Report export payload that deliberately excludes model credentials."""
+
+    results: Dict[str, str]
+
+
 class AgentResponse(BaseModel):
     ok: bool = True
     content: str = ""
