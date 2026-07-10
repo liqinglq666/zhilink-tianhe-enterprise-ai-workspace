@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +31,7 @@ from .schemas import (  # noqa: E402
     APIConfig,
     AgentResponse,
     DefaultsResponse,
+    ExportRequest,
     HealthResponse,
     LandingRequest,
     MatchRequest,
@@ -41,10 +42,22 @@ from .schemas import (  # noqa: E402
 )
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
-APP_VERSION = "2.2.0-fastapi-streaming"
+APP_VERSION = "2.3.0-fastapi-streaming"
 MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
 FRONTEND_DIR = ROOT / "frontend"
 ASSETS_DIR = FRONTEND_DIR / "assets"
+
+_APP_SCRIPT = '<script src="/assets/app.js"></script>'
+_BUGFIX_PRE_SCRIPT = '<script src="/assets/bugfixes.js" data-phase="pre"></script>'
+_BUGFIX_POST_SCRIPT = '<script src="/assets/bugfixes.js" data-phase="post"></script>'
+_index_source = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+if _APP_SCRIPT not in _index_source:
+    raise RuntimeError("frontend/index.html 缺少 app.js 脚本标记，无法加载前端修复层。")
+INDEX_HTML = _index_source.replace(
+    _APP_SCRIPT,
+    f"{_BUGFIX_PRE_SCRIPT}\n  {_APP_SCRIPT}\n  {_BUGFIX_POST_SCRIPT}",
+    1,
+)
 
 PROVIDER_PRESETS = {
     "通义千问 DashScope": {
@@ -117,8 +130,8 @@ app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
 
 @app.get("/", include_in_schema=False)
-def index() -> FileResponse:
-    return FileResponse(FRONTEND_DIR / "index.html")
+def index() -> HTMLResponse:
+    return HTMLResponse(INDEX_HTML)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -149,7 +162,13 @@ def _stream_response(chunks) -> StreamingResponse:
                     continue
                 full.append(chunk)
                 yield _sse({"type": "delta", "content": chunk})
-            yield _sse({"type": "done", "content": "".join(full), "mode": "AI模型流式模式"})
+
+            content = "".join(full)
+            if not content.strip():
+                yield _sse({"type": "error", "error": "模型接口未返回有效文本，请检查模型名称或接口兼容性。"})
+                return
+
+            yield _sse({"type": "done", "content": content, "mode": "AI模型流式模式"})
         except Exception as exc:  # noqa: BLE001
             yield _sse({"type": "error", "error": str(exc)})
 
@@ -281,7 +300,7 @@ def report_stream(req: ReportRequest) -> StreamingResponse:
 
 
 @app.post("/api/report/markdown")
-def report_markdown(req: ReportRequest) -> Response:
+def report_markdown(req: ExportRequest) -> Response:
     return Response(
         content=build_markdown(req.results),
         media_type="text/markdown; charset=utf-8",
@@ -290,7 +309,7 @@ def report_markdown(req: ReportRequest) -> Response:
 
 
 @app.post("/api/report/txt")
-def report_txt(req: ReportRequest) -> Response:
+def report_txt(req: ExportRequest) -> Response:
     return Response(
         content=build_markdown(req.results),
         media_type="text/plain; charset=utf-8",
@@ -299,7 +318,7 @@ def report_txt(req: ReportRequest) -> Response:
 
 
 @app.post("/api/report/docx")
-def report_docx(req: ReportRequest) -> Response:
+def report_docx(req: ExportRequest) -> Response:
     try:
         data = build_docx(req.results)
     except Exception as exc:  # noqa: BLE001
