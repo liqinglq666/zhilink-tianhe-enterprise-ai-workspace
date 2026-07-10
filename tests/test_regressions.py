@@ -13,6 +13,23 @@ from zhilian_tianhe_agent.llm_client import LLMClient, LLMConfig
 client = TestClient(app)
 
 
+class _FakeStreamResponse:
+    is_redirect = False
+    ok = True
+
+    def __init__(self, lines: list[str]):
+        self._lines = lines
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):  # noqa: ARG002
+        return False
+
+    def iter_lines(self, decode_unicode=True):  # noqa: ARG002
+        yield from self._lines
+
+
 def _consume_stream(response) -> str:
     async def consume() -> str:
         chunks: list[str] = []
@@ -24,6 +41,18 @@ def _consume_stream(response) -> str:
         return "".join(chunks)
 
     return asyncio.run(consume())
+
+
+def _configured_client() -> LLMClient:
+    llm = LLMClient(
+        LLMConfig(
+            api_key="test-key",
+            base_url="https://gateway.example/v1",
+            model="test-model",
+        )
+    )
+    llm._base_url = "https://gateway.example/v1"
+    return llm
 
 
 def test_missing_api_key_does_not_trigger_dns(monkeypatch):
@@ -42,6 +71,34 @@ def test_missing_api_key_does_not_trigger_dns(monkeypatch):
     assert llm.enabled is False
     with pytest.raises(RuntimeError, match="API Key"):
         llm.chat("system", "user")
+
+
+def test_upstream_partial_stream_requires_terminal_marker(monkeypatch):
+    response = _FakeStreamResponse(
+        ['data: {"choices":[{"delta":{"content":"partial"}}]}']
+    )
+    monkeypatch.setattr(
+        "zhilian_tianhe_agent.llm_client.requests.post",
+        lambda *args, **kwargs: response,
+    )
+
+    with pytest.raises(RuntimeError, match="提前中断"):
+        list(_configured_client().chat_stream("system", "user"))
+
+
+def test_upstream_finish_reason_completes_stream(monkeypatch):
+    response = _FakeStreamResponse(
+        [
+            'data: {"choices":[{"delta":{"content":"完整"}}]}',
+            'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}',
+        ]
+    )
+    monkeypatch.setattr(
+        "zhilian_tianhe_agent.llm_client.requests.post",
+        lambda *args, **kwargs: response,
+    )
+
+    assert list(_configured_client().chat_stream("system", "user")) == ["完整"]
 
 
 def test_empty_stream_emits_error_without_done_event():
