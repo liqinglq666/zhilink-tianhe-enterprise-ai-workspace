@@ -8,7 +8,7 @@ import json
 import os
 import socket
 from dataclasses import dataclass
-from typing import Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -148,6 +148,8 @@ class LLMClient:
     @staticmethod
     def _stream_error(data: dict) -> RuntimeError | None:
         error = data.get("error")
+        if not error and data.get("code") and data.get("message"):
+            error = {"message": f"{data.get('code')}：{data.get('message')}"}
         if not error:
             return None
         if isinstance(error, dict):
@@ -155,6 +157,81 @@ class LLMClient:
         else:
             detail = str(error)
         return RuntimeError(f"模型流式接口返回错误：{detail[:800]}")
+
+    @staticmethod
+    def _coerce_text(value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (int, float)):
+            return str(value)
+        if isinstance(value, list):
+            return "".join(LLMClient._coerce_text(item) for item in value)
+        if isinstance(value, dict):
+            for key in ("text", "content", "output_text", "value"):
+                if key in value:
+                    text = LLMClient._coerce_text(value.get(key))
+                    if text:
+                        return text
+        return ""
+
+    @classmethod
+    def _extract_text(cls, data: Any) -> str:
+        if not isinstance(data, dict):
+            return ""
+
+        if data.get("type") == "response.output_text.delta":
+            text = cls._coerce_text(data.get("delta"))
+            if text:
+                return text
+
+        containers = [data]
+        output = data.get("output")
+        if isinstance(output, dict):
+            containers.append(output)
+
+        for container in containers:
+            choices = container.get("choices") or []
+            if isinstance(choices, list):
+                for choice in choices:
+                    if not isinstance(choice, dict):
+                        continue
+                    for source_name in ("delta", "message"):
+                        source = choice.get(source_name)
+                        if isinstance(source, dict):
+                            for key in ("content", "text", "output_text"):
+                                text = cls._coerce_text(source.get(key))
+                                if text:
+                                    return text
+                    for key in ("text", "content", "output_text"):
+                        text = cls._coerce_text(choice.get(key))
+                        if text:
+                            return text
+
+            for key in ("output_text", "text", "content"):
+                text = cls._coerce_text(container.get(key))
+                if text:
+                    return text
+
+        return ""
+
+    @staticmethod
+    def _finish_reason(data: Any) -> Any:
+        if not isinstance(data, dict):
+            return None
+        containers = [data]
+        output = data.get("output")
+        if isinstance(output, dict):
+            containers.append(output)
+        for container in containers:
+            choices = container.get("choices") or []
+            if not isinstance(choices, list):
+                continue
+            for choice in choices:
+                if isinstance(choice, dict) and choice.get("finish_reason") is not None:
+                    return choice.get("finish_reason")
+        return None
 
     def chat(self, system_prompt: str, user_prompt: str) -> str:
         resp = requests.post(
@@ -169,16 +246,14 @@ class LLMClient:
         if not resp.ok:
             raise self._http_error(resp)
         data = resp.json()
-        try:
-            content = str(data["choices"][0]["message"]["content"]).strip()
-        except (KeyError, IndexError, TypeError) as exc:
-            raise RuntimeError("模型接口返回格式不兼容。") from exc
+        content = self._extract_text(data).strip()
         if not content:
             raise RuntimeError("模型接口未返回有效文本，请检查模型名称或接口兼容性。")
         return content
 
     def chat_stream(self, system_prompt: str, user_prompt: str) -> Iterator[str]:
         yielded_content = False
+        assembled = ""
 
         try:
             with requests.post(
@@ -193,16 +268,21 @@ class LLMClient:
                     raise RuntimeError("模型网关返回了重定向，已拒绝继续请求。")
                 if not resp.ok:
                     raise self._http_error(resp)
+                if not resp.encoding:
+                    resp.encoding = "utf-8"
 
                 for raw_line in resp.iter_lines(decode_unicode=True):
                     if not raw_line:
                         continue
 
-                    line = raw_line.strip()
+                    if isinstance(raw_line, bytes):
+                        line = raw_line.decode("utf-8", errors="replace").strip()
+                    else:
+                        line = str(raw_line).strip()
                     if line.startswith("data:"):
                         line = line[5:].strip()
 
-                    if not line:
+                    if not line or line.startswith(":") or line.startswith("event:") or line.startswith("id:"):
                         continue
                     if line == "[DONE]":
                         break
@@ -217,20 +297,22 @@ class LLMClient:
                     if stream_error:
                         raise stream_error
 
-                    choices = data.get("choices") or []
-                    if not choices:
-                        continue
-
-                    choice = choices[0] or {}
-                    delta = choice.get("delta") or {}
-                    message = choice.get("message") or {}
-                    content = delta.get("content") or message.get("content") or choice.get("text") or ""
-
+                    content = self._extract_text(data)
                     if content:
-                        yielded_content = True
-                        yield str(content)
+                        if assembled and content.startswith(assembled):
+                            piece = content[len(assembled):]
+                            assembled = content
+                        elif assembled.startswith(content):
+                            piece = ""
+                        else:
+                            piece = content
+                            assembled += piece
 
-                    if choice.get("finish_reason") is not None:
+                        if piece:
+                            yielded_content = True
+                            yield piece
+
+                    if self._finish_reason(data) is not None:
                         break
         except requests.exceptions.Timeout as exc:
             raise RuntimeError("模型流式请求超时，请稍后重新生成。") from exc
@@ -242,5 +324,14 @@ class LLMClient:
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"模型流式请求失败：{str(exc)[:400]}") from exc
 
-        if not yielded_content:
-            raise RuntimeError("模型流式接口未返回有效文本，请检查模型名称或接口兼容性。")
+        if yielded_content:
+            return
+
+        # Some compatible gateways return valid non-streaming data but expose a
+        # proprietary or empty streaming envelope. Reuse the already-supported
+        # non-streaming endpoint instead of failing the whole business action.
+        fallback = self.chat(system_prompt, user_prompt)
+        if fallback:
+            yield fallback
+            return
+        raise RuntimeError("模型接口未返回有效文本，请检查模型名称或接口兼容性。")
