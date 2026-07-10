@@ -92,13 +92,28 @@ def _validate_base_url(base_url: str) -> str:
 class LLMClient:
     def __init__(self, config: Optional[LLMConfig] = None):
         self.config = config or LLMConfig.from_env()
-        self._base_url = _validate_base_url(self.config.base_url) if self.config.base_url else ""
+        self._base_url = ""
 
     @property
     def enabled(self) -> bool:
-        return bool(self.config.api_key and self._base_url and self.config.model)
+        return bool(
+            self.config.api_key.strip()
+            and self.config.base_url.strip()
+            and self.config.model.strip()
+        )
+
+    def _ensure_configured(self) -> None:
+        if not self.config.api_key.strip():
+            raise RuntimeError("未配置 API Key，请先在页面中填写 API Key、Base URL 和模型名称。")
+        if not self.config.base_url.strip():
+            raise RuntimeError("未配置 Base URL，请先填写模型接口地址。")
+        if not self.config.model.strip():
+            raise RuntimeError("未配置模型名称，请先填写模型名称。")
 
     def _url(self) -> str:
+        self._ensure_configured()
+        if not self._base_url:
+            self._base_url = _validate_base_url(self.config.base_url)
         return f"{self._base_url}/chat/completions"
 
     def _headers(self) -> Dict[str, str]:
@@ -130,10 +145,18 @@ class LLMClient:
         text = str(detail).replace("\n", " ")[:800]
         return RuntimeError(f"模型接口返回错误：HTTP {resp.status_code}，{text}")
 
-    def chat(self, system_prompt: str, user_prompt: str) -> str:
-        if not self.enabled:
-            raise RuntimeError("未配置 API Key，请先在页面中填写 API Key、Base URL 和模型名称。")
+    @staticmethod
+    def _stream_error(data: dict) -> RuntimeError | None:
+        error = data.get("error")
+        if not error:
+            return None
+        if isinstance(error, dict):
+            detail = error.get("message") or error.get("detail") or str(error)
+        else:
+            detail = str(error)
+        return RuntimeError(f"模型流式接口返回错误：{detail[:800]}")
 
+    def chat(self, system_prompt: str, user_prompt: str) -> str:
         resp = requests.post(
             self._url(),
             headers=self._headers(),
@@ -147,13 +170,15 @@ class LLMClient:
             raise self._http_error(resp)
         data = resp.json()
         try:
-            return str(data["choices"][0]["message"]["content"]).strip()
+            content = str(data["choices"][0]["message"]["content"]).strip()
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError("模型接口返回格式不兼容。") from exc
+        if not content:
+            raise RuntimeError("模型接口未返回有效文本，请检查模型名称或接口兼容性。")
+        return content
 
     def chat_stream(self, system_prompt: str, user_prompt: str) -> Iterator[str]:
-        if not self.enabled:
-            raise RuntimeError("未配置 API Key，请先在页面中填写 API Key、Base URL 和模型名称。")
+        yielded_content = False
 
         with requests.post(
             self._url(),
@@ -184,8 +209,12 @@ class LLMClient:
                 try:
                     data = json.loads(line)
                 except json.JSONDecodeError:
-                    # 部分兼容网关会塞心跳，丢掉就行。
+                    # 部分兼容网关会发送心跳或非 JSON 片段。
                     continue
+
+                stream_error = self._stream_error(data)
+                if stream_error:
+                    raise stream_error
 
                 choices = data.get("choices") or []
                 if not choices:
@@ -197,4 +226,8 @@ class LLMClient:
                 content = delta.get("content") or message.get("content") or choice.get("text") or ""
 
                 if content:
+                    yielded_content = True
                     yield str(content)
+
+        if not yielded_content:
+            raise RuntimeError("模型流式接口未返回有效文本，请检查模型名称或接口兼容性。")
