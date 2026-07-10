@@ -61,6 +61,7 @@
     let full = "";
     let buffer = "";
     let receivedDone = false;
+    let reachedCleanEof = false;
 
     try {
       const resp = await fetch(url, {
@@ -115,7 +116,10 @@
 
       while (!receivedDone) {
         const { value, done } = await reader.read();
-        if (done) break;
+        if (done) {
+          reachedCleanEof = true;
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const frames = buffer.split(/\r?\n\r?\n/);
@@ -134,20 +138,33 @@
         handleEvent(parseSseFrame(buffer));
       }
 
-      if (!receivedDone) {
-        throw new Error("模型连接提前中断，未收到完整结束事件，请重新生成。");
+      if (!full.trim()) {
+        throw new Error("模型接口未返回有效文本，请检查模型名称或接口兼容性。");
       }
+
+      // Some OpenAI-compatible gateways and reverse proxies close a valid SSE
+      // response without forwarding the final `done` frame. A clean browser EOF
+      // with usable text is accepted; actual network failures make reader.read()
+      // reject and are handled by the catch block below.
+      const completionMode = receivedDone
+        ? "AI模型流式模式"
+        : (reachedCleanEof ? "AI模型兼容流式模式" : "AI模型流式模式");
 
       try {
         await reader.cancel();
       } catch (_) {}
 
-      window.finishStreamingResult(key, full, "AI模型流式模式");
-      return { ok: true, content: full, mode: "AI模型流式模式" };
+      window.finishStreamingResult(key, full, completionMode);
+      return { ok: true, content: full, mode: completionMode };
     } catch (err) {
-      const message = err.name === "AbortError"
-        ? "请求超时，请缩短输入内容或检查模型接口后重试。"
-        : (err.message || String(err));
+      let message;
+      if (err.name === "AbortError") {
+        message = "请求超时，请缩短输入内容或检查模型接口后重试。";
+      } else if (err.name === "TypeError" && /fetch|network|load/i.test(err.message || "")) {
+        message = "模型流式连接异常中断，请检查网络或模型网关后重新生成。";
+      } else {
+        message = err.message || String(err);
+      }
       window.failStreamingResult(key, message);
       throw new Error(message);
     } finally {

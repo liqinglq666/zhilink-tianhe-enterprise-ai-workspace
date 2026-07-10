@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
+from pathlib import Path
 
 import pytest
 import requests
@@ -12,6 +13,7 @@ from zhilian_tianhe_agent.llm_client import LLMClient, LLMConfig
 
 
 client = TestClient(app)
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class _FakeStreamResponse:
@@ -143,6 +145,15 @@ def test_frontend_safeguards_are_loaded_before_and_after_app_script():
     assert '<script src="/assets/bugfixes.js" data-phase="post"></script>' in resp.text
     assert resp.text.index('data-phase="pre"') < resp.text.index('src="/assets/app.js"')
     assert resp.text.index('src="/assets/app.js"') < resp.text.index('data-phase="post"')
+
+
+def test_frontend_accepts_clean_eof_after_valid_deltas():
+    script = (ROOT / "frontend" / "assets" / "bugfixes.js").read_text(encoding="utf-8")
+
+    assert "let reachedCleanEof = false;" in script
+    assert "reachedCleanEof = true;" in script
+    assert "AI模型兼容流式模式" in script
+    assert "模型连接提前中断，未收到完整结束事件" not in script
 
 
 def test_report_export_does_not_require_model_configuration():
