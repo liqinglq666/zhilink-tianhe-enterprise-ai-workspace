@@ -179,63 +179,68 @@ class LLMClient:
 
     def chat_stream(self, system_prompt: str, user_prompt: str) -> Iterator[str]:
         yielded_content = False
-        received_terminal_event = False
 
-        with requests.post(
-            self._url(),
-            headers=self._headers(),
-            json=self._payload(system_prompt, user_prompt, stream=True),
-            timeout=self.config.timeout,
-            stream=True,
-            allow_redirects=False,
-        ) as resp:
-            if resp.is_redirect:
-                raise RuntimeError("模型网关返回了重定向，已拒绝继续请求。")
-            if not resp.ok:
-                raise self._http_error(resp)
+        try:
+            with requests.post(
+                self._url(),
+                headers=self._headers(),
+                json=self._payload(system_prompt, user_prompt, stream=True),
+                timeout=self.config.timeout,
+                stream=True,
+                allow_redirects=False,
+            ) as resp:
+                if resp.is_redirect:
+                    raise RuntimeError("模型网关返回了重定向，已拒绝继续请求。")
+                if not resp.ok:
+                    raise self._http_error(resp)
 
-            for raw_line in resp.iter_lines(decode_unicode=True):
-                if not raw_line:
-                    continue
+                for raw_line in resp.iter_lines(decode_unicode=True):
+                    if not raw_line:
+                        continue
 
-                line = raw_line.strip()
-                if line.startswith("data:"):
-                    line = line[5:].strip()
+                    line = raw_line.strip()
+                    if line.startswith("data:"):
+                        line = line[5:].strip()
 
-                if not line:
-                    continue
-                if line == "[DONE]":
-                    received_terminal_event = True
-                    break
+                    if not line:
+                        continue
+                    if line == "[DONE]":
+                        break
 
-                try:
-                    data = json.loads(line)
-                except json.JSONDecodeError:
-                    # 部分兼容网关会发送心跳或非 JSON 片段。
-                    continue
+                    try:
+                        data = json.loads(line)
+                    except json.JSONDecodeError:
+                        # 部分兼容网关会发送心跳或非 JSON 片段。
+                        continue
 
-                stream_error = self._stream_error(data)
-                if stream_error:
-                    raise stream_error
+                    stream_error = self._stream_error(data)
+                    if stream_error:
+                        raise stream_error
 
-                choices = data.get("choices") or []
-                if not choices:
-                    continue
+                    choices = data.get("choices") or []
+                    if not choices:
+                        continue
 
-                choice = choices[0] or {}
-                delta = choice.get("delta") or {}
-                message = choice.get("message") or {}
-                content = delta.get("content") or message.get("content") or choice.get("text") or ""
+                    choice = choices[0] or {}
+                    delta = choice.get("delta") or {}
+                    message = choice.get("message") or {}
+                    content = delta.get("content") or message.get("content") or choice.get("text") or ""
 
-                if content:
-                    yielded_content = True
-                    yield str(content)
+                    if content:
+                        yielded_content = True
+                        yield str(content)
 
-                if choice.get("finish_reason") is not None:
-                    received_terminal_event = True
-                    break
+                    if choice.get("finish_reason") is not None:
+                        break
+        except requests.exceptions.Timeout as exc:
+            raise RuntimeError("模型流式请求超时，请稍后重新生成。") from exc
+        except (
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.ConnectionError,
+        ) as exc:
+            raise RuntimeError("模型流式连接异常中断，请重新生成。") from exc
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(f"模型流式请求失败：{str(exc)[:400]}") from exc
 
         if not yielded_content:
             raise RuntimeError("模型流式接口未返回有效文本，请检查模型名称或接口兼容性。")
-        if not received_terminal_event:
-            raise RuntimeError("模型流式连接提前中断，未收到完整结束标记。")
