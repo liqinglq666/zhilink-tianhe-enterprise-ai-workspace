@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-"""FastAPI entrypoint for 智链天河：企业运营 AI 助手."""
-
 from __future__ import annotations
 
 import json
@@ -28,6 +26,7 @@ from zhilian_tianhe_agent.constants import (  # noqa: E402
 )
 from zhilian_tianhe_agent.llm_client import LLMClient, LLMConfig  # noqa: E402
 
+from .body_limit import BodyTooLarge, read_limited_body, replay_body  # noqa: E402
 from .schemas import (  # noqa: E402
     APIConfig,
     AgentResponse,
@@ -65,16 +64,10 @@ PROVIDER_PRESETS = {
     },
 }
 
-
-app = FastAPI(
-    title=APP_FULL_NAME,
-    description=APP_SUBTITLE,
-    version=APP_VERSION,
-)
+app = FastAPI(title=APP_FULL_NAME, description=APP_SUBTITLE, version=APP_VERSION)
 
 cors_env = os.getenv("CORS_ALLOW_ORIGINS", "*").strip()
-allow_origins = ["*"] if cors_env == "*" else [x.strip() for x in cors_env.split(",") if x.strip()]
-
+allow_origins = ["*"] if cors_env == "*" else [item.strip() for item in cors_env.split(",") if item.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
@@ -84,17 +77,29 @@ app.add_middleware(
 )
 
 
+def _too_large_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=413,
+        content={"detail": f"请求内容过大，请脱敏并精简到 {MAX_BODY_BYTES // 1024}KB 以内后再提交。"},
+    )
+
+
 @app.middleware("http")
 async def limit_request_size(request: Request, call_next):
-    """Prevent accidental huge contract/meeting payloads in public web deployments."""
+    if request.method not in {"POST", "PUT", "PATCH"}:
+        return await call_next(request)
 
-    if request.method in {"POST", "PUT", "PATCH"}:
-        content_length = request.headers.get("content-length")
-        if content_length and content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:
-            return JSONResponse(
-                status_code=413,
-                content={"detail": f"请求内容过大，请脱敏并精简到 {MAX_BODY_BYTES // 1024}KB 以内后再提交。"},
-            )
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:
+        return _too_large_response()
+
+    try:
+        body = await read_limited_body(request.receive, MAX_BODY_BYTES)
+    except BodyTooLarge:
+        return _too_large_response()
+
+    # Starlette 已经把流吃掉了，给下游重放一次。
+    request._receive = replay_body(body)
     return await call_next(request)
 
 
@@ -102,9 +107,11 @@ async def limit_request_size(request: Request, call_next):
 async def runtime_error_handler(request: Request, exc: RuntimeError):  # noqa: ARG001
     return JSONResponse(status_code=502, content={"detail": str(exc)})
 
+
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):  # noqa: ARG001
     return JSONResponse(status_code=400, content={"detail": str(exc)})
+
 
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
@@ -129,13 +136,10 @@ def defaults() -> DefaultsResponse:
 
 
 def _sse(data: dict) -> str:
-    """Encode one server-sent-event data frame."""
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
 def _stream_response(chunks) -> StreamingResponse:
-    """Wrap model token iterator as SSE stream for fetch ReadableStream."""
-
     def event_generator():
         full: list[str] = []
         yield _sse({"type": "meta", "mode": "AI模型流式模式"})
@@ -152,10 +156,7 @@ def _stream_response(chunks) -> StreamingResponse:
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream; charset=utf-8",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
@@ -185,7 +186,6 @@ def profile(req: ProfileRequest) -> AgentResponse:
     return agent_response(hub.profile.run(profile_to_dict(req.profile)))
 
 
-
 @app.post("/api/profile/stream")
 def profile_stream(req: ProfileRequest) -> StreamingResponse:
     hub = make_hub(req.config)
@@ -198,7 +198,6 @@ def meeting(req: TextRequest) -> AgentResponse:
         raise HTTPException(status_code=400, detail="会议内容过短，请补充会议背景、结论或待办事项。")
     hub = make_hub(req.config)
     return agent_response(hub.meeting.run(req.text, req.profile_summary))
-
 
 
 @app.post("/api/meeting/stream")
@@ -217,7 +216,6 @@ def contract(req: TextRequest) -> AgentResponse:
     return agent_response(hub.contract.run(req.text, req.profile_summary))
 
 
-
 @app.post("/api/contract/stream")
 def contract_stream(req: TextRequest) -> StreamingResponse:
     if len(req.text.strip()) < 12:
@@ -230,7 +228,6 @@ def contract_stream(req: TextRequest) -> StreamingResponse:
 def policy(req: PolicyRequest) -> AgentResponse:
     hub = make_hub(req.config)
     return agent_response(hub.policy.run(profile_to_dict(req.profile), req.demand))
-
 
 
 @app.post("/api/policy/stream")
@@ -247,7 +244,6 @@ def match(req: MatchRequest) -> AgentResponse:
     return agent_response(hub.match.run(profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario))
 
 
-
 @app.post("/api/match/stream")
 def match_stream(req: MatchRequest) -> StreamingResponse:
     if not any([req.offer.strip(), req.need.strip(), req.target.strip(), req.scenario.strip()]):
@@ -260,7 +256,6 @@ def match_stream(req: MatchRequest) -> StreamingResponse:
 def landing(req: LandingRequest) -> AgentResponse:
     hub = make_hub(req.config)
     return agent_response(hub.landing.run(profile_to_dict(req.profile), req.landing_info, req.existing_results))
-
 
 
 @app.post("/api/landing/stream")
@@ -277,7 +272,6 @@ def report(req: ReportRequest) -> AgentResponse:
     return AgentResponse(ok=True, content=build_markdown(req.results), mode="本地报告模式")
 
 
-
 @app.post("/api/report/stream")
 def report_stream(req: ReportRequest) -> StreamingResponse:
     if req.use_ai_summary:
@@ -288,9 +282,8 @@ def report_stream(req: ReportRequest) -> StreamingResponse:
 
 @app.post("/api/report/markdown")
 def report_markdown(req: ReportRequest) -> Response:
-    content = build_markdown(req.results)
     return Response(
-        content=content,
+        content=build_markdown(req.results),
         media_type="text/markdown; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=zhilian_tianhe_report.md"},
     )
@@ -298,9 +291,8 @@ def report_markdown(req: ReportRequest) -> Response:
 
 @app.post("/api/report/txt")
 def report_txt(req: ReportRequest) -> Response:
-    content = build_markdown(req.results)
     return Response(
-        content=content,
+        content=build_markdown(req.results),
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=zhilian_tianhe_report.txt"},
     )
