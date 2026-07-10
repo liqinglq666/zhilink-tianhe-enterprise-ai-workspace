@@ -105,6 +105,7 @@ class LLMClient:
         return {
             "Authorization": f"Bearer {self.config.api_key}",
             "Content-Type": "application/json",
+            "Accept": "text/event-stream, application/json",
         }
 
     def _messages(self, system_prompt: str, user_prompt: str) -> List[Dict[str, str]]:
@@ -168,7 +169,9 @@ class LLMClient:
             if not resp.ok:
                 raise self._http_error(resp)
 
-            for raw_line in resp.iter_lines(decode_unicode=True):
+            # requests defaults to a relatively large read buffer. A one-byte
+            # chunk size lets small SSE frames reach the browser immediately.
+            for raw_line in resp.iter_lines(chunk_size=1, decode_unicode=True):
                 if not raw_line:
                     continue
 
