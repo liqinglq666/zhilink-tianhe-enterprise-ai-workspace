@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from starlette.responses import StreamingResponse
 
 from backend.body_limit import BodyTooLarge, read_limited_body, replay_body
 
@@ -52,3 +53,33 @@ def test_replay_does_not_generate_endless_empty_http_requests():
     asyncio.run(receive())
 
     assert calls == 1
+
+
+def test_replayed_body_does_not_block_streaming_response():
+    async def run_stream():
+        sent_messages: list[dict] = []
+
+        async def upstream_receive():
+            await asyncio.Event().wait()
+
+        async def send(message: dict):
+            sent_messages.append(message)
+            await asyncio.sleep(0)
+
+        response = StreamingResponse(iter(["hello"]), media_type="text/event-stream")
+        scope = {
+            "type": "http",
+            "asgi": {"spec_version": "2.3"},
+            "method": "POST",
+            "path": "/stream",
+            "headers": [],
+        }
+        receive = replay_body(b"payload", upstream_receive)
+        await asyncio.wait_for(response(scope, receive, send), timeout=1.0)
+        return sent_messages
+
+    messages = asyncio.run(run_stream())
+    body = b"".join(message.get("body", b"") for message in messages)
+
+    assert body == b"hello"
+    assert messages[-1] == {"type": "http.response.body", "body": b"", "more_body": False}
