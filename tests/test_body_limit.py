@@ -28,11 +28,27 @@ def test_chunked_body_is_counted_without_content_length():
         asyncio.run(read_limited_body(receive, max_bytes=7))
 
 
-def test_replayed_body_is_delivered_once():
-    receive = replay_body(b"payload")
+def test_replayed_body_is_delivered_once_then_delegates_upstream():
+    upstream = _receiver([{"type": "http.disconnect"}])
+    receive = replay_body(b"payload", upstream)
 
     first = asyncio.run(receive())
     second = asyncio.run(receive())
 
-    assert first["body"] == b"payload"
-    assert second["body"] == b""
+    assert first == {"type": "http.request", "body": b"payload", "more_body": False}
+    assert second == {"type": "http.disconnect"}
+
+
+def test_replay_does_not_generate_endless_empty_http_requests():
+    calls = 0
+
+    async def upstream():
+        nonlocal calls
+        calls += 1
+        return {"type": "http.disconnect"}
+
+    receive = replay_body(b"payload", upstream)
+    asyncio.run(receive())
+    asyncio.run(receive())
+
+    assert calls == 1
