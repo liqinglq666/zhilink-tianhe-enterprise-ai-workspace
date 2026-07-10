@@ -31,6 +31,7 @@
   }
 
   const REQUEST_TIMEOUT_MS = 180000;
+  const STABLE_MODE_LABEL = "AI模型稳定模式";
 
   function parseSseFrame(frame) {
     const payload = frame
@@ -45,6 +46,78 @@
       return JSON.parse(payload);
     } catch (_) {
       return null;
+    }
+  }
+
+  async function readErrorDetail(resp) {
+    const text = await resp.text();
+    if (!text) return `HTTP ${resp.status}`;
+    try {
+      const data = JSON.parse(text);
+      return data.detail || data.error || text;
+    } catch (_) {
+      return text;
+    }
+  }
+
+  function stableEndpoint(streamUrl) {
+    return streamUrl.replace(/\/stream(?=\?|$)/, "");
+  }
+
+  async function requestStableGeneration(streamUrl, payload, key, streamError) {
+    const endpoint = stableEndpoint(streamUrl);
+    if (endpoint === streamUrl) throw streamError;
+
+    const target = document.getElementById(`${key}StreamContent`);
+    if (target) {
+      target.textContent = "流式通道暂不可用，正在自动切换稳定生成模式，请稍候...";
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!resp.ok) {
+        throw new Error(await readErrorDetail(resp));
+      }
+
+      let data;
+      try {
+        data = await resp.json();
+      } catch (_) {
+        throw new Error("模型接口返回了无法解析的数据，请检查接口兼容性。");
+      }
+
+      if (data && data.ok === false) {
+        throw new Error(data.error || "模型稳定生成失败。");
+      }
+
+      const content = String(data?.content || "").trim();
+      if (!content) {
+        throw new Error(data?.error || "模型接口未返回有效文本，请检查模型名称或接口兼容性。");
+      }
+
+      const mode = data?.mode || STABLE_MODE_LABEL;
+      window.finishStreamingResult(key, content, mode);
+      return { ok: true, content, mode };
+    } catch (fallbackError) {
+      const message = fallbackError?.name === "AbortError"
+        ? "稳定生成请求超时，请缩短输入内容或检查模型接口后重试。"
+        : (fallbackError?.message || String(fallbackError));
+      const original = streamError?.message || String(streamError || "");
+      if (original && original !== message) {
+        throw new Error(`流式通道失败，自动切换稳定模式后仍未完成：${message}`);
+      }
+      throw new Error(message);
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -72,12 +145,7 @@
       });
 
       if (!resp.ok) {
-        const text = await resp.text();
-        let detail = text;
-        try {
-          detail = JSON.parse(text).detail || text;
-        } catch (_) {}
-        throw new Error(detail);
+        throw new Error(await readErrorDetail(resp));
       }
       if (!resp.body) {
         throw new Error("当前浏览器不支持流式读取，请更新浏览器后重试。");
@@ -142,10 +210,8 @@
         throw new Error("模型接口未返回有效文本，请检查模型名称或接口兼容性。");
       }
 
-      // Some OpenAI-compatible gateways and reverse proxies close a valid SSE
-      // response without forwarding the final `done` frame. A clean browser EOF
-      // with usable text is accepted; actual network failures make reader.read()
-      // reject and are handled by the catch block below.
+      // Some compatible gateways and reverse proxies close a valid SSE response
+      // without forwarding the final done frame. Clean EOF with usable text is valid.
       const completionMode = receivedDone
         ? "AI模型流式模式"
         : (reachedCleanEof ? "AI模型兼容流式模式" : "AI模型流式模式");
@@ -157,16 +223,18 @@
       window.finishStreamingResult(key, full, completionMode);
       return { ok: true, content: full, mode: completionMode };
     } catch (err) {
-      let message;
-      if (err.name === "AbortError") {
-        message = "请求超时，请缩短输入内容或检查模型接口后重试。";
-      } else if (err.name === "TypeError" && /fetch|network|load/i.test(err.message || "")) {
-        message = "模型流式连接异常中断，请检查网络或模型网关后重新生成。";
-      } else {
-        message = err.message || String(err);
+      clearTimeout(timer);
+      try {
+        controller.abort();
+      } catch (_) {}
+
+      try {
+        return await requestStableGeneration(url, payload, key, err);
+      } catch (fallbackError) {
+        const message = fallbackError?.message || String(fallbackError);
+        window.failStreamingResult(key, message);
+        throw new Error(message);
       }
-      window.failStreamingResult(key, message);
-      throw new Error(message);
     } finally {
       clearTimeout(timer);
     }
