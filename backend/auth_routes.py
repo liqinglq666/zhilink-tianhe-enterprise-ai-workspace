@@ -20,7 +20,6 @@ from .auth_schemas import (
     MemberUpdateRequest,
     OrganizationCreateRequest,
     OrganizationResponse,
-    OrganizationUpdateRequest,
     RegisterRequest,
 )
 from .auth_store import (
@@ -41,6 +40,7 @@ try:
     SESSION_TTL_HOURS = max(1, min(int(os.getenv("SESSION_TTL_HOURS", "168")), 720))
 except ValueError:
     SESSION_TTL_HOURS = 168
+os.environ["SESSION_TTL_HOURS"] = str(SESSION_TTL_HOURS)
 SESSION_MAX_AGE = SESSION_TTL_HOURS * 3600
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -200,17 +200,6 @@ def create_organization(
     require_csrf(request, auth)
     return OrganizationResponse.model_validate(
         get_account_store().create_organization(auth.user_id, payload.name)
-    )
-
-
-@organizations_router.put("/{organization_id}", response_model=OrganizationResponse)
-def update_organization(
-    request: Request, organization_id: str, payload: OrganizationUpdateRequest
-) -> OrganizationResponse:
-    auth = require_auth(request)
-    require_csrf(request, auth)
-    return OrganizationResponse.model_validate(
-        get_account_store().update_organization(auth.user_id, organization_id, payload.name)
     )
 
 
