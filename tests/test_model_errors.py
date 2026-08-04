@@ -40,6 +40,23 @@ def make_client(monkeypatch):
     return LLMClient(LLMConfig(api_key="x", base_url="https://gateway.example/v1", model="demo"))
 
 
+def test_error_payload_is_stable():
+    error = ModelGatewayError(
+        code="MODEL_RATE_LIMITED",
+        user_message="请稍后重试。",
+        status_code=429,
+        retryable=True,
+        retry_after=12,
+    )
+
+    assert error.to_payload() == {
+        "detail": "请稍后重试。",
+        "code": "MODEL_RATE_LIMITED",
+        "retryable": True,
+        "retry_after": 12,
+    }
+
+
 def test_missing_config_does_not_require_dns(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: pytest.fail("DNS should not run"))
     client = LLMClient(LLMConfig(api_key="", base_url="https://gateway.example/v1", model="demo"))
