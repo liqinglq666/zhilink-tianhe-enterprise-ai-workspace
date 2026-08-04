@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Iterable
 
 from .utils import load_json
@@ -101,7 +102,9 @@ class ContractRuleScan:
                 ]
             )
             for item in self.matches:
-                evidence = "；".join(_escape_table_cell(value) for value in item.evidence)
+                evidence = "；".join(
+                    _escape_table_cell(value) for value in item.evidence
+                )
                 keywords = "、".join(item.matched_keywords)
                 lines.append(
                     "| {rule_id} | {name} | {severity} | {keywords} | {evidence} | {advice} |".format(
@@ -119,7 +122,9 @@ class ContractRuleScan:
         lines.extend(["", "### 待确认信息", ""])
         questions: list[str] = []
         for item in self.matches:
-            questions.extend(f"[{item.rule_id}] {question}" for question in item.confirm_questions)
+            questions.extend(
+                f"[{item.rule_id}] {question}" for question in item.confirm_questions
+            )
         for rule in self.uncovered_rules:
             questions.append(
                 f"[{rule.rule_id}] 未在文本中定位到“{rule.name}”关键词，请确认相关条款是否缺失、使用了其他表述或位于未提供的附件中。"
@@ -129,6 +134,7 @@ class ContractRuleScan:
         return "\n".join(lines).strip()
 
 
+@lru_cache(maxsize=1)
 def load_contract_rules() -> tuple[ContractRule, ...]:
     raw = load_json("contract_risk_rules.json")
     if not isinstance(raw, list) or not raw:
@@ -147,7 +153,9 @@ def load_contract_rules() -> tuple[ContractRule, ...]:
         advice = str(item.get("advice", "")).strip()
         questions = _clean_strings(item.get("confirm_questions", []))
         if not rule_id or rule_id in seen_ids or not name or not keywords or not advice:
-            raise RuntimeError(f"合同风险规则库第 {index} 项缺少必要字段或编号重复。")
+            raise RuntimeError(
+                f"合同风险规则库第 {index} 项缺少必要字段或编号重复。"
+            )
         if severity not in _VALID_SEVERITIES:
             raise RuntimeError(f"合同风险规则 {rule_id} 的风险等级不合法。")
         seen_ids.add(rule_id)
@@ -173,20 +181,27 @@ def scan_contract_rules(
     text = _normalize_text(raw_text)
     active_rules = tuple(rules or load_contract_rules())
     segments = _segments(raw_text)
+    folded_text = text.casefold()
     matches: list[ContractRuleMatch] = []
     uncovered: list[ContractRule] = []
 
     for rule in active_rules:
         matched_keywords = tuple(
-            keyword for keyword in rule.keywords if keyword.casefold() in text.casefold()
+            keyword
+            for keyword in rule.keywords
+            if keyword.casefold() in folded_text
         )
         if not matched_keywords:
             uncovered.append(rule)
             continue
         evidence = _evidence_for_rule(segments, matched_keywords)
+        evidence_text = " ".join(evidence).casefold()
         severity = (
             "高"
-            if any(pattern.casefold() in text.casefold() for pattern in rule.high_risk_patterns)
+            if any(
+                pattern.casefold() in evidence_text
+                for pattern in rule.high_risk_patterns
+            )
             else rule.severity
         )
         matches.append(
