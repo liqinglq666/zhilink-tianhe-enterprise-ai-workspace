@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Iterator, Optional
 
+from .errors import ModelGatewayError
 from .llm_client import LLMClient
 from .prompts import (
     SYSTEM_PROMPT,
@@ -36,20 +37,30 @@ class BaseAgent:
         self.llm = llm or LLMClient()
 
     def _run(self, prompt: str) -> AgentResult:
-        if not self.llm.enabled:
-            raise RuntimeError("请先配置 API Key、Base URL 和模型名称。")
         try:
             return AgentResult(content=self.llm.chat(SYSTEM_PROMPT, prompt), mode="AI模型模式")
+        except ModelGatewayError:
+            raise
         except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(f"模型调用失败：{exc}") from exc
+            raise ModelGatewayError(
+                code="MODEL_INTERNAL_ERROR",
+                user_message="模型处理过程发生异常，请稍后重试。",
+                status_code=502,
+                retryable=True,
+            ) from exc
 
     def _stream(self, prompt: str) -> Iterator[str]:
-        if not self.llm.enabled:
-            raise RuntimeError("请先配置 API Key、Base URL 和模型名称。")
         try:
             yield from self.llm.chat_stream(SYSTEM_PROMPT, prompt)
+        except ModelGatewayError:
+            raise
         except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(f"模型流式调用失败：{exc}") from exc
+            raise ModelGatewayError(
+                code="MODEL_INTERNAL_ERROR",
+                user_message="模型流式处理发生异常，请稍后重试。",
+                status_code=502,
+                retryable=True,
+            ) from exc
 
 
 class ProfileAgent(BaseAgent):
