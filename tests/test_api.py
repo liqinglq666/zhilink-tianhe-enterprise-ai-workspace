@@ -11,6 +11,7 @@ def test_health():
     data = resp.json()
     assert data['ok'] is True
     assert 'generation-controls' in data['version']
+    assert 'project-storage' in data['version']
 
 
 def test_defaults():
@@ -23,11 +24,13 @@ def test_defaults():
     assert 'demo_inputs' not in data
 
 
-def test_frontend_bundle_contains_generation_controls():
+def test_frontend_bundle_contains_generation_and_project_controls():
     resp = client.get('/assets/app.js')
     assert resp.status_code == 200
     assert 'GENERATION_CANCELLED' in resp.text
     assert 'data-cancel-generation' in resp.text
+    assert 'PROJECT_STORAGE_READY' in resp.text
+    assert 'X-Workspace-Key' in resp.text
     assert resp.headers['cache-control'] == 'no-cache'
     assert resp.headers['content-type'].startswith('application/javascript')
 
