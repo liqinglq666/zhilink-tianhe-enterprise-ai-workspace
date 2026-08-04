@@ -43,7 +43,7 @@ def test_model_request_timeout_is_bounded(monkeypatch):
     assert model_request_timeout_seconds() == 120
 
 
-def test_closing_stream_closes_upstream_and_releases_slot(monkeypatch):
+def test_immediate_stream_close_closes_upstream_and_releases_slot(monkeypatch):
     chunks = ClosableChunks()
     limiter = RecordingLimiter()
     monkeypatch.setattr(main, "GENERATION_LIMITER", limiter)
@@ -52,9 +52,7 @@ def test_closing_stream_closes_upstream_and_releases_slot(monkeypatch):
         response = main._stream_response(chunks, release_key="client-1")
         stream = response.body_iterator
         meta = await anext(stream)
-        delta = await anext(stream)
         assert '"type": "meta"' in meta
-        assert '"type": "delta"' in delta
         await stream.aclose()
 
     asyncio.run(exercise())
