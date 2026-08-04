@@ -10,7 +10,7 @@ def test_health():
     assert resp.status_code == 200
     data = resp.json()
     assert data['ok'] is True
-    assert 'fastapi' in data['version']
+    assert 'security' in data['version']
 
 
 def test_defaults():
@@ -56,3 +56,16 @@ def test_body_size_limit():
     body = b'{"x":"' + (b'a' * (MAX_BODY_BYTES + 10)) + b'"}'
     resp = client.post('/api/report/txt', content=body, headers={'content-type': 'application/json'})
     assert resp.status_code == 413
+
+
+def test_security_headers_are_applied_to_success_and_error_responses():
+    for resp in (client.get('/health'), client.get('/missing-page')):
+        assert resp.headers['x-content-type-options'] == 'nosniff'
+        assert resp.headers['x-frame-options'] == 'DENY'
+        assert resp.headers['content-security-policy'].startswith("default-src 'self'")
+
+
+def test_api_responses_are_not_cached():
+    resp = client.get('/api/defaults')
+    assert resp.headers['cache-control'] == 'no-store'
+    assert resp.headers['pragma'] == 'no-cache'
