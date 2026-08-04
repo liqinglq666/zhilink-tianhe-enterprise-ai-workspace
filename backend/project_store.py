@@ -110,8 +110,8 @@ def _record_to_dict(record: ProjectRecord, *, include_snapshot: bool = True) -> 
 
 class ProjectStore:
     def __init__(self, database_url: str):
-        self.database_url = normalize_database_url(database_url)
         try:
+            self.database_url = normalize_database_url(database_url)
             self.engine = _build_engine(self.database_url)
             Base.metadata.create_all(self.engine)
         except (SQLAlchemyError, OSError, ValueError) as exc:
@@ -204,10 +204,12 @@ class ProjectStore:
         try:
             with self.sessions.begin() as session:
                 record = session.scalar(
-                    select(ProjectRecord).where(
+                    select(ProjectRecord)
+                    .where(
                         ProjectRecord.id == project_id,
                         ProjectRecord.workspace_hash == workspace_hash,
                     )
+                    .with_for_update()
                 )
                 if record is None:
                     raise ProjectNotFound("项目不存在或无权访问。")
@@ -264,7 +266,10 @@ _STORE_LOCK = threading.Lock()
 
 def get_project_store() -> ProjectStore:
     global _STORE, _STORE_URL
-    configured_url = normalize_database_url(os.getenv("DATABASE_URL"))
+    try:
+        configured_url = normalize_database_url(os.getenv("DATABASE_URL"))
+    except ValueError as exc:
+        raise ProjectStoreUnavailable("项目数据库配置无效。") from exc
     with _STORE_LOCK:
         if _STORE is None or _STORE_URL != configured_url:
             if _STORE is not None:
