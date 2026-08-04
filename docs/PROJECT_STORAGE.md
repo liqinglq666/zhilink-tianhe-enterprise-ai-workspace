@@ -168,8 +168,11 @@ PostgreSQL：
 ## 测试
 
 ```bash
-PYTHONPATH=. pytest -q tests/test_project_store.py tests/test_project_routes.py
+PYTHONPATH=. pytest -q \
+  tests/test_project_store.py \
+  tests/test_project_routes.py \
+  tests/test_project_app_integration.py
 node --check frontend/assets/project-storage.js
 ```
 
-测试覆盖工作区隔离、密钥哈希、SQLite CRUD、归档过滤、乐观锁冲突、凭据字段拒绝和 API 错误契约。
+测试覆盖工作区隔离、密钥哈希、SQLite CRUD、归档过滤、乐观锁冲突、凭据字段拒绝、主应用限流/安全响应头接入和 API 错误契约。
