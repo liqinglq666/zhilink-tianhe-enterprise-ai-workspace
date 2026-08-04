@@ -20,7 +20,7 @@
 AUTH_COOKIE_SECURE=true
 ```
 
-当前账号界面按同源部署设计。建议让前端和 FastAPI 通过同一 HTTPS 域名访问，不要直接把 Cookie 登录接口暴露给任意跨域来源。
+账号与组织功能明确按同源部署设计：前端和 FastAPI 应通过同一 HTTPS 域名访问。当前不会为了跨域 Cookie 登录放宽 CORS 凭据策略；前后端分离部署应先通过同源反向代理统一入口，而不是把登录 Cookie 接口直接开放给其他来源。
 
 ## 环境变量
 
@@ -118,7 +118,7 @@ X-Workspace-Key: <browser-secret>
 
 ### 组织空间
 
-请求携带：
+同源工作台会携带：
 
 ```text
 X-Workspace-Key: <browser-secret>
