@@ -25,6 +25,7 @@ from zhilian_tianhe_agent.constants import (  # noqa: E402
     LEGAL_DISCLAIMER,
     MODULES,
 )
+from zhilian_tianhe_agent.errors import ModelGatewayError  # noqa: E402
 from zhilian_tianhe_agent.llm_client import LLMClient, LLMConfig  # noqa: E402
 
 from .body_limit import BodyTooLarge, read_limited_body, replay_body  # noqa: E402
@@ -50,7 +51,7 @@ from .security import (  # noqa: E402
 )
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
-APP_VERSION = "2.4.0-security-headers"
+APP_VERSION = "2.5.0-model-errors"
 MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "30"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
@@ -148,8 +149,6 @@ async def guard_requests(request: Request, call_next):
         if content_length and content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:
             return _too_large_response()
 
-        # Keep the original receiver so streaming responses can still wait for a
-        # genuine client disconnect after the consumed body has been replayed.
         upstream_receive = request.receive
         try:
             body = await read_limited_body(upstream_receive, MAX_BODY_BYTES)
@@ -179,9 +178,22 @@ async def secure_responses(request: Request, call_next):
     )
 
 
+@app.exception_handler(ModelGatewayError)
+async def model_gateway_error_handler(request: Request, exc: ModelGatewayError):  # noqa: ARG001
+    headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after is not None else None
+    return JSONResponse(status_code=exc.status_code, content=exc.to_payload(), headers=headers)
+
+
 @app.exception_handler(RuntimeError)
 async def runtime_error_handler(request: Request, exc: RuntimeError):  # noqa: ARG001
-    return JSONResponse(status_code=502, content={"detail": str(exc)})
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "服务处理过程中发生异常，请稍后重试。",
+            "code": "INTERNAL_RUNTIME_ERROR",
+            "retryable": True,
+        },
+    )
 
 
 @app.exception_handler(ValueError)
@@ -234,6 +246,25 @@ def _sse(data: dict) -> str:
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _stream_error_payload(exc: Exception) -> dict:
+    if isinstance(exc, ModelGatewayError):
+        payload = {
+            "type": "error",
+            "error": exc.user_message,
+            "code": exc.code,
+            "retryable": exc.retryable,
+        }
+        if exc.retry_after is not None:
+            payload["retry_after"] = exc.retry_after
+        return payload
+    return {
+        "type": "error",
+        "error": "生成过程中发生异常，请稍后重试。",
+        "code": "STREAM_INTERNAL_ERROR",
+        "retryable": True,
+    }
+
+
 def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResponse:
     def event_generator():
         full: list[str] = []
@@ -246,7 +277,7 @@ def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResp
                 yield _sse({"type": "delta", "content": chunk})
             yield _sse({"type": "done", "content": "".join(full), "mode": "AI模型流式模式"})
         except Exception as exc:  # noqa: BLE001
-            yield _sse({"type": "error", "error": str(exc)})
+            yield _sse(_stream_error_payload(exc))
         finally:
             if release_key is not None:
                 GENERATION_LIMITER.release(release_key)
@@ -274,22 +305,35 @@ def _start_generation_stream(request: Request, chunks_factory: Callable[[], obje
 @app.post("/api/test-connection", response_model=AgentResponse)
 def test_connection(config: APIConfig, request: Request) -> AgentResponse:
     def execute() -> AgentResponse:
-        client = LLMClient(
-            LLMConfig(
-                api_key=config.api_key.strip(),
-                base_url=config.base_url.strip(),
-                model=config.model.strip(),
-                temperature=config.temperature,
-                timeout=20,
-            )
-        )
-        if not client.enabled:
-            return AgentResponse(ok=False, mode="未配置", error="请先填写 API Key、Base URL 和模型名称。")
         try:
+            client = LLMClient(
+                LLMConfig(
+                    api_key=config.api_key.strip(),
+                    base_url=config.base_url.strip(),
+                    model=config.model.strip(),
+                    temperature=config.temperature,
+                    timeout=20,
+                )
+            )
             content = client.chat("你是接口连通性测试助手。", "请只回复：连接成功")
             return AgentResponse(ok=True, content=content, mode="AI模型模式")
-        except Exception as exc:  # noqa: BLE001
-            return AgentResponse(ok=False, mode="连接失败", error=str(exc))
+        except ModelGatewayError as exc:
+            return AgentResponse(
+                ok=False,
+                mode="连接失败",
+                error=exc.user_message,
+                error_code=exc.code,
+                retryable=exc.retryable,
+                retry_after=exc.retry_after,
+            )
+        except Exception:  # noqa: BLE001
+            return AgentResponse(
+                ok=False,
+                mode="连接失败",
+                error="连接测试发生异常，请检查配置后重试。",
+                error_code="MODEL_TEST_FAILED",
+                retryable=True,
+            )
 
     return _run_generation(request, execute)
 
