@@ -159,7 +159,9 @@ POST /api/projects/{project_id}/reviews/{module}/actions
 ## 测试
 
 ```bash
-PYTHONPATH=. pytest -q tests/test_review_workflow.py
+PYTHONPATH=. pytest -q \
+  tests/test_auth_rbac.py \
+  tests/test_review_workflow.py
 node --check frontend/assets/review-workflow.js
 python -m py_compile \
   backend/review_schemas.py \
@@ -169,4 +171,4 @@ python -m py_compile \
   backend/project_routes.py
 ```
 
-测试覆盖客户端伪造审批被拒绝、新内容使旧审核失效、匿名确认、编辑者提交、管理员批准和退回、意见必填、恢复原稿、版本递增、审核事件以及前端 bundle 接入。
+当前隔离组合环境中，账号/RBAC 与审核工作流联合测试结果为 `10 passed`。测试覆盖客户端伪造审批被拒绝、新内容使旧审核失效、匿名确认、编辑者提交、管理员批准和退回、意见必填、恢复原稿、版本递增、审核事件以及前端 bundle 接入。
