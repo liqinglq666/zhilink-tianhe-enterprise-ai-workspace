@@ -84,6 +84,18 @@ DATABASE_URL=postgresql+psycopg://user:password@host:5432/zhilink
 
 系统也会把常见的 `postgres://` 和 `postgresql://` 自动规范为 psycopg 连接地址。
 
+### Render 和其他托管平台
+
+Render 免费实例及其他不提供持久磁盘的托管环境，其容器文件系统可能在重启、重新部署或实例迁移后被清空。此时即使配置了本地 SQLite，项目也不能视为长期保存。
+
+在线 Demo 要保留项目数据，应至少满足一项：
+
+- 使用托管 PostgreSQL，并通过 `DATABASE_URL` 连接；
+- 为应用挂载平台提供的持久磁盘，并把 SQLite 文件放在该磁盘中；
+- 明确关闭项目保存入口，只把站点作为无持久化演示环境。
+
+不得把临时容器文件系统中的 SQLite 描述为可靠的生产归档。
+
 ## API
 
 所有接口都必须携带 `X-Workspace-Key`。
@@ -156,7 +168,7 @@ PostgreSQL：
 ## 测试
 
 ```bash
-pytest -q tests/test_project_store.py tests/test_project_routes.py
+PYTHONPATH=. pytest -q tests/test_project_store.py tests/test_project_routes.py
 node --check frontend/assets/project-storage.js
 ```
 
