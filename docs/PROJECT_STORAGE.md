@@ -1,6 +1,6 @@
 # 项目存储
 
-第二阶段第 7 项为工作台增加了可持久化项目。默认使用 SQLite，也可以通过同一套 SQLAlchemy 模型切换 PostgreSQL。
+第二阶段第 7 项为工作台增加了可持久化项目。默认使用 SQLite，也可以通过同一套 SQLAlchemy 模型切换 PostgreSQL。第二阶段第 8 项在此基础上增加了不可变项目与材料版本历史。
 
 ## 用户操作
 
@@ -10,7 +10,9 @@
 - 显式保存当前项目
 - 打开已有项目
 - 归档和恢复项目
-- 删除项目
+- 查看版本历史和只读材料摘要
+- 恢复历史业务快照
+- 删除项目及其版本历史
 - 显示当前项目是否存在未保存更改
 
 系统不会在用户输入时静默上传。只有点击“新建并保存”或“保存当前项目”时，项目快照才会写入数据库。
@@ -34,7 +36,7 @@
 - 生成温度
 - 浏览器工作区原始密钥
 
-项目 Schema 使用 `extra="forbid"`，即使客户端主动提交 `api_key` 等额外字段，也会被后端拒绝。
+项目 Schema 使用 `extra="forbid"`，即使客户端主动提交 `api_key` 等额外字段，也会被后端拒绝。历史版本保存同一类业务快照，因此也不会包含模型凭据。
 
 ## 匿名工作区隔离
 
@@ -44,7 +46,7 @@
 X-Workspace-Key: <browser-generated-secret>
 ```
 
-服务端只保存该密钥的 SHA-256 哈希，不保存原始值。所有项目查询、读取、更新和删除都同时校验项目 ID 与工作区哈希。
+服务端只保存该密钥的 SHA-256 哈希，不保存原始值。所有项目和版本查询、读取、恢复、更新和删除都同时校验项目 ID 与工作区哈希。
 
 该机制用于阶段性数据隔离，但不等同于正式账号认证：
 
@@ -62,7 +64,7 @@ X-Workspace-Key: <browser-generated-secret>
 DATABASE_URL=sqlite:///./runtime/zhilink.db
 ```
 
-本地启动时会自动创建 `runtime` 目录和 `projects` 表。
+本地启动时会自动创建 `runtime` 目录、`projects` 表和 `project_versions` 表。
 
 Docker Compose 默认使用：
 
@@ -86,7 +88,7 @@ DATABASE_URL=postgresql+psycopg://user:password@host:5432/zhilink
 
 ### Render 和其他托管平台
 
-Render 免费实例及其他不提供持久磁盘的托管环境，其容器文件系统可能在重启、重新部署或实例迁移后被清空。此时即使配置了本地 SQLite，项目也不能视为长期保存。
+Render 免费实例及其他不提供持久磁盘的托管环境，其容器文件系统可能在重启、重新部署或实例迁移后被清空。此时即使配置了本地 SQLite，项目和历史版本也不能视为长期保存。
 
 在线 Demo 要保留项目数据，应至少满足一项：
 
@@ -103,22 +105,26 @@ Render 免费实例及其他不提供持久磁盘的托管环境，其容器文�
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | `GET` | `/api/projects` | 列出当前工作区项目，默认不包含已归档项目 |
-| `POST` | `/api/projects` | 创建项目并保存当前快照 |
-| `GET` | `/api/projects/{project_id}` | 读取单个项目及完整快照 |
-| `PUT` | `/api/projects/{project_id}` | 更新名称、说明、状态或快照 |
-| `DELETE` | `/api/projects/{project_id}` | 永久删除项目 |
+| `POST` | `/api/projects` | 创建项目并保存当前快照，同时生成 v1 |
+| `GET` | `/api/projects/{project_id}` | 读取单个项目及当前完整快照 |
+| `PUT` | `/api/projects/{project_id}` | 更新名称、说明、状态或快照；有效变化生成新版本 |
+| `DELETE` | `/api/projects/{project_id}` | 永久删除项目及全部版本历史 |
+| `GET` | `/api/projects/{project_id}/versions` | 分页读取版本摘要 |
+| `GET` | `/api/projects/{project_id}/versions/{version_number}` | 读取版本详情及完整历史快照 |
+| `POST` | `/api/projects/{project_id}/versions/{version_number}/restore` | 把历史业务快照恢复为新的当前版本 |
 
-列表接口只返回项目摘要，不返回大体积快照。
+项目列表和版本列表只返回摘要，不返回大体积快照。完整快照只在读取当前项目或指定版本详情时返回。
 
-## 并发保存
+## 并发保存与版本号
 
-项目包含递增的 `lock_version`。更新时客户端必须提交当前版本：
+项目包含递增的 `lock_version`，同时作为当前项目版本号。更新或恢复时客户端必须提交当前版本：
 
 ```json
 {
   "lock_version": 3,
   "name": "项目名称",
-  "snapshot": {}
+  "snapshot": {},
+  "version_label": "补充合同复核结论"
 }
 ```
 
@@ -126,18 +132,20 @@ Render 免费实例及其他不提供持久磁盘的托管环境，其容器文�
 
 ```json
 {
-  "detail": "项目已在其他页面更新，请重新载入后再保存。",
+  "detail": "项目已在其他页面更新，请重新载入后再操作。",
   "code": "PROJECT_VERSION_CONFLICT",
   "retryable": false,
   "current_version": 4
 }
 ```
 
-当前阶段只防止覆盖，不保留旧版本。完整版本历史在下一项实现。
+有实际内容、元数据或状态变化的显式保存会生成下一版本。内容完全一致且没有版本说明时不会生成重复版本。恢复旧版不会覆盖或删除历史，而是生成带 `source_version_number` 的新版本。
+
+详细规则见 [`PROJECT_HISTORY.md`](PROJECT_HISTORY.md)。
 
 ## 数据表
 
-`projects` 表当前包含：
+`projects` 表保存当前项目状态：
 
 - `id`
 - `workspace_hash`
@@ -149,7 +157,25 @@ Render 免费实例及其他不提供持久磁盘的托管环境，其容器文�
 - `created_at`
 - `updated_at`
 
-应用首次访问项目接口时会创建初始表。后续正式修改表结构时应引入数据库迁移流程，不应仅依赖 `create_all` 修改既有生产表。
+`project_versions` 表保存不可变历史：
+
+- `id`
+- `project_id`
+- `workspace_hash`
+- `version_number`
+- `change_kind`
+- `label`
+- `changed_modules` JSON
+- `source_version_number`
+- 历史项目名称、说明和状态
+- `snapshot` JSON
+- `created_at`
+
+版本表对 `project_id + version_number` 设置唯一约束。删除项目时版本历史同步删除。
+
+版本功能上线前已经存在的项目，只能以升级时的当前快照建立一条 `baseline` 基线记录，不能伪造过去未保存的历史。
+
+应用首次访问项目接口时会创建缺失的新表。正式长期生产修改表结构时应引入数据库迁移流程，不应只依赖 `create_all` 修改既有表。
 
 ## 备份建议
 
@@ -157,13 +183,14 @@ SQLite：
 
 1. 停止应用写入或使用 SQLite 在线备份能力。
 2. 备份 `runtime/zhilink.db` 和 Docker 命名卷。
-3. 定期在独立环境验证恢复。
+3. 定期在独立环境验证项目和历史版本恢复。
 
 PostgreSQL：
 
 1. 使用云数据库自动备份或 `pg_dump`。
 2. 设置保留周期和异地备份。
 3. 在发布数据库结构变更前创建恢复点。
+4. 监控 `project_versions` 表增长。
 
 ## 测试
 
@@ -171,10 +198,11 @@ PostgreSQL：
 PYTHONPATH=. pytest -q \
   tests/test_project_store.py \
   tests/test_project_routes.py \
+  tests/test_project_history.py \
   tests/test_project_app_integration.py
 node --check frontend/assets/project-storage.js
 ```
 
-当前隔离环境已执行存储层和路由层测试，结果为 `6 passed`；主应用集成测试已写入仓库，等待完整依赖环境或 CI 执行。
+版本历史针对性隔离测试结果为 `6 passed`；主应用完整测试仍等待完整 checkout 或 GitHub Actions。
 
-测试覆盖工作区隔离、密钥哈希、SQLite CRUD、归档过滤、乐观锁冲突、空项目名、凭据字段拒绝、主应用限流/安全响应头接入和 API 错误契约。
+测试覆盖工作区隔离、密钥哈希、SQLite CRUD、归档过滤、乐观锁冲突、空项目名、凭据字段拒绝、版本创建、模块变更识别、版本详情、旧项目基线迁移、恢复生成新版本、历史删除和 API 错误契约。
