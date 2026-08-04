@@ -79,6 +79,17 @@ def test_project_crud(monkeypatch, tmp_path):
     assert updated.status_code == 200
     assert updated.json()["lock_version"] == 2
 
+    archived = client.put(
+        f"/api/projects/{project['id']}",
+        headers=headers,
+        json={"lock_version": 2, "status": "archived"},
+    )
+    assert archived.status_code == 200
+    assert client.get("/api/projects", headers=headers).json()["total"] == 0
+    assert client.get(
+        "/api/projects?include_archived=true", headers=headers
+    ).json()["total"] == 1
+
     conflict = client.put(
         f"/api/projects/{project['id']}",
         headers=headers,
@@ -86,7 +97,7 @@ def test_project_crud(monkeypatch, tmp_path):
     )
     assert conflict.status_code == 409
     assert conflict.json()["code"] == "PROJECT_VERSION_CONFLICT"
-    assert conflict.json()["current_version"] == 2
+    assert conflict.json()["current_version"] == 3
 
     deleted = client.delete(f"/api/projects/{project['id']}", headers=headers)
     assert deleted.status_code == 200
