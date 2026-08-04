@@ -5,6 +5,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Callable, TypeVar
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,24 +28,34 @@ from zhilian_tianhe_agent.constants import (  # noqa: E402
 from zhilian_tianhe_agent.llm_client import LLMClient, LLMConfig  # noqa: E402
 
 from .body_limit import BodyTooLarge, read_limited_body, replay_body  # noqa: E402
+from .limits import ClientConcurrencyLimiter, SlidingWindowRateLimiter  # noqa: E402
 from .schemas import (  # noqa: E402
     APIConfig,
     AgentResponse,
+    ContractRequest,
     DefaultsResponse,
     HealthResponse,
     LandingRequest,
     MatchRequest,
+    MeetingRequest,
     PolicyRequest,
     ProfileRequest,
     ReportRequest,
-    TextRequest,
 )
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
-APP_VERSION = "2.2.1-fastapi-streaming-fix"
+APP_VERSION = "2.3.0-request-guards"
 MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
+RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "30"))
+RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+MAX_CONCURRENT_GENERATIONS_PER_CLIENT = int(os.getenv("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", "1"))
+TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "").strip().lower() in {"1", "true", "yes", "on"}
 FRONTEND_DIR = ROOT / "frontend"
 ASSETS_DIR = FRONTEND_DIR / "assets"
+
+RATE_LIMITER = SlidingWindowRateLimiter(RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW_SECONDS)
+GENERATION_LIMITER = ClientConcurrencyLimiter(MAX_CONCURRENT_GENERATIONS_PER_CLIENT)
+T = TypeVar("T")
 
 PROVIDER_PRESETS = {
     "通义千问 DashScope": {
@@ -77,6 +88,16 @@ app.add_middleware(
 )
 
 
+def _client_key(request: Request) -> str:
+    if TRUST_PROXY_HEADERS:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        if forwarded:
+            return forwarded.split(",", 1)[0].strip() or "unknown"
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
 def _too_large_response() -> JSONResponse:
     return JSONResponse(
         status_code=413,
@@ -84,25 +105,46 @@ def _too_large_response() -> JSONResponse:
     )
 
 
+def _rate_limited_response(retry_after: int) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "请求过于频繁，请稍后再试。"},
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
 @app.middleware("http")
-async def limit_request_size(request: Request, call_next):
-    if request.method not in {"POST", "PUT", "PATCH"}:
-        return await call_next(request)
+async def guard_requests(request: Request, call_next):
+    is_write = request.method in {"POST", "PUT", "PATCH"}
+    is_api_write = is_write and request.url.path.startswith("/api/")
+    rate_decision = None
 
-    content_length = request.headers.get("content-length")
-    if content_length and content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:
-        return _too_large_response()
+    if is_api_write:
+        rate_decision = RATE_LIMITER.check(_client_key(request))
+        if not rate_decision.allowed:
+            return _rate_limited_response(rate_decision.retry_after)
 
-    # Keep the original receiver so streaming responses can still wait for a
-    # genuine client disconnect after the consumed body has been replayed.
-    upstream_receive = request.receive
-    try:
-        body = await read_limited_body(upstream_receive, MAX_BODY_BYTES)
-    except BodyTooLarge:
-        return _too_large_response()
+    if is_write:
+        content_length = request.headers.get("content-length")
+        if content_length and content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:
+            return _too_large_response()
 
-    request._receive = replay_body(body, upstream_receive)
-    return await call_next(request)
+        # Keep the original receiver so streaming responses can still wait for a
+        # genuine client disconnect after the consumed body has been replayed.
+        upstream_receive = request.receive
+        try:
+            body = await read_limited_body(upstream_receive, MAX_BODY_BYTES)
+        except BodyTooLarge:
+            return _too_large_response()
+
+        request._receive = replay_body(body, upstream_receive)
+
+    response = await call_next(request)
+    if rate_decision is not None and RATE_LIMIT_REQUESTS > 0:
+        response.headers["X-RateLimit-Limit"] = str(RATE_LIMIT_REQUESTS)
+        response.headers["X-RateLimit-Remaining"] = str(rate_decision.remaining)
+        response.headers["X-RateLimit-Window"] = str(RATE_LIMIT_WINDOW_SECONDS)
+    return response
 
 
 @app.exception_handler(RuntimeError)
@@ -137,11 +179,30 @@ def defaults() -> DefaultsResponse:
     )
 
 
+def _acquire_generation(request: Request) -> str:
+    key = _client_key(request)
+    if not GENERATION_LIMITER.try_acquire(key):
+        raise HTTPException(
+            status_code=429,
+            detail="当前已有生成任务正在运行，请等待完成或取消后再试。",
+            headers={"Retry-After": "2"},
+        )
+    return key
+
+
+def _run_generation(request: Request, callback: Callable[[], T]) -> T:
+    key = _acquire_generation(request)
+    try:
+        return callback()
+    finally:
+        GENERATION_LIMITER.release(key)
+
+
 def _sse(data: dict) -> str:
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-def _stream_response(chunks) -> StreamingResponse:
+def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResponse:
     def event_generator():
         full: list[str] = []
         yield _sse({"type": "meta", "mode": "AI模型流式模式"})
@@ -154,6 +215,9 @@ def _stream_response(chunks) -> StreamingResponse:
             yield _sse({"type": "done", "content": "".join(full), "mode": "AI模型流式模式"})
         except Exception as exc:  # noqa: BLE001
             yield _sse({"type": "error", "error": str(exc)})
+        finally:
+            if release_key is not None:
+                GENERATION_LIMITER.release(release_key)
 
     return StreamingResponse(
         event_generator(),
@@ -165,123 +229,176 @@ def _stream_response(chunks) -> StreamingResponse:
     )
 
 
-@app.post("/api/test-connection", response_model=AgentResponse)
-def test_connection(config: APIConfig) -> AgentResponse:
-    client = LLMClient(
-        LLMConfig(
-            api_key=config.api_key.strip(),
-            base_url=config.base_url.strip(),
-            model=config.model.strip(),
-            temperature=config.temperature,
-            timeout=20,
-        )
-    )
-    if not client.enabled:
-        return AgentResponse(ok=False, mode="未配置", error="请先填写 API Key、Base URL 和模型名称。")
+def _start_generation_stream(request: Request, chunks_factory: Callable[[], object]) -> StreamingResponse:
+    key = _acquire_generation(request)
     try:
-        content = client.chat("你是接口连通性测试助手。", "请只回复：连接成功")
-        return AgentResponse(ok=True, content=content, mode="AI模型模式")
-    except Exception as exc:  # noqa: BLE001
-        return AgentResponse(ok=False, mode="连接失败", error=str(exc))
+        chunks = chunks_factory()
+    except Exception:
+        GENERATION_LIMITER.release(key)
+        raise
+    return _stream_response(chunks, release_key=key)
+
+
+@app.post("/api/test-connection", response_model=AgentResponse)
+def test_connection(config: APIConfig, request: Request) -> AgentResponse:
+    def execute() -> AgentResponse:
+        client = LLMClient(
+            LLMConfig(
+                api_key=config.api_key.strip(),
+                base_url=config.base_url.strip(),
+                model=config.model.strip(),
+                temperature=config.temperature,
+                timeout=20,
+            )
+        )
+        if not client.enabled:
+            return AgentResponse(ok=False, mode="未配置", error="请先填写 API Key、Base URL 和模型名称。")
+        try:
+            content = client.chat("你是接口连通性测试助手。", "请只回复：连接成功")
+            return AgentResponse(ok=True, content=content, mode="AI模型模式")
+        except Exception as exc:  # noqa: BLE001
+            return AgentResponse(ok=False, mode="连接失败", error=str(exc))
+
+    return _run_generation(request, execute)
 
 
 @app.post("/api/profile", response_model=AgentResponse)
-def profile(req: ProfileRequest) -> AgentResponse:
-    hub = make_hub(req.config)
-    return agent_response(hub.profile.run(profile_to_dict(req.profile)))
+def profile(req: ProfileRequest, request: Request) -> AgentResponse:
+    return _run_generation(
+        request,
+        lambda: agent_response(make_hub(req.config).profile.run(profile_to_dict(req.profile))),
+    )
 
 
 @app.post("/api/profile/stream")
-def profile_stream(req: ProfileRequest) -> StreamingResponse:
-    hub = make_hub(req.config)
-    return _stream_response(hub.profile.stream(profile_to_dict(req.profile)))
+def profile_stream(req: ProfileRequest, request: Request) -> StreamingResponse:
+    return _start_generation_stream(
+        request,
+        lambda: make_hub(req.config).profile.stream(profile_to_dict(req.profile)),
+    )
 
 
 @app.post("/api/meeting", response_model=AgentResponse)
-def meeting(req: TextRequest) -> AgentResponse:
+def meeting(req: MeetingRequest, request: Request) -> AgentResponse:
     if len(req.text.strip()) < 8:
         raise HTTPException(status_code=400, detail="会议内容过短，请补充会议背景、结论或待办事项。")
-    hub = make_hub(req.config)
-    return agent_response(hub.meeting.run(req.text, req.profile_summary))
+    return _run_generation(
+        request,
+        lambda: agent_response(make_hub(req.config).meeting.run(req.text, req.profile_summary)),
+    )
 
 
 @app.post("/api/meeting/stream")
-def meeting_stream(req: TextRequest) -> StreamingResponse:
+def meeting_stream(req: MeetingRequest, request: Request) -> StreamingResponse:
     if len(req.text.strip()) < 8:
         raise HTTPException(status_code=400, detail="会议内容过短，请补充会议背景、结论或待办事项。")
-    hub = make_hub(req.config)
-    return _stream_response(hub.meeting.stream(req.text, req.profile_summary))
+    return _start_generation_stream(
+        request,
+        lambda: make_hub(req.config).meeting.stream(req.text, req.profile_summary),
+    )
 
 
 @app.post("/api/contract", response_model=AgentResponse)
-def contract(req: TextRequest) -> AgentResponse:
+def contract(req: ContractRequest, request: Request) -> AgentResponse:
     if len(req.text.strip()) < 12:
         raise HTTPException(status_code=400, detail="合同文本过短，请粘贴关键条款后再生成风险提示。")
-    hub = make_hub(req.config)
-    return agent_response(hub.contract.run(req.text, req.profile_summary))
+    return _run_generation(
+        request,
+        lambda: agent_response(make_hub(req.config).contract.run(req.text, req.profile_summary)),
+    )
 
 
 @app.post("/api/contract/stream")
-def contract_stream(req: TextRequest) -> StreamingResponse:
+def contract_stream(req: ContractRequest, request: Request) -> StreamingResponse:
     if len(req.text.strip()) < 12:
         raise HTTPException(status_code=400, detail="合同文本过短，请粘贴关键条款后再生成风险提示。")
-    hub = make_hub(req.config)
-    return _stream_response(hub.contract.stream(req.text, req.profile_summary))
+    return _start_generation_stream(
+        request,
+        lambda: make_hub(req.config).contract.stream(req.text, req.profile_summary),
+    )
 
 
 @app.post("/api/policy", response_model=AgentResponse)
-def policy(req: PolicyRequest) -> AgentResponse:
-    hub = make_hub(req.config)
-    return agent_response(hub.policy.run(profile_to_dict(req.profile), req.demand))
+def policy(req: PolicyRequest, request: Request) -> AgentResponse:
+    return _run_generation(
+        request,
+        lambda: agent_response(make_hub(req.config).policy.run(profile_to_dict(req.profile), req.demand)),
+    )
 
 
 @app.post("/api/policy/stream")
-def policy_stream(req: PolicyRequest) -> StreamingResponse:
-    hub = make_hub(req.config)
-    return _stream_response(hub.policy.stream(profile_to_dict(req.profile), req.demand))
+def policy_stream(req: PolicyRequest, request: Request) -> StreamingResponse:
+    return _start_generation_stream(
+        request,
+        lambda: make_hub(req.config).policy.stream(profile_to_dict(req.profile), req.demand),
+    )
 
 
 @app.post("/api/match", response_model=AgentResponse)
-def match(req: MatchRequest) -> AgentResponse:
+def match(req: MatchRequest, request: Request) -> AgentResponse:
     if not any([req.offer.strip(), req.need.strip(), req.target.strip(), req.scenario.strip()]):
         raise HTTPException(status_code=400, detail="请至少填写供给、需求、目标对象或业务场景中的一项。")
-    hub = make_hub(req.config)
-    return agent_response(hub.match.run(profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario))
+    return _run_generation(
+        request,
+        lambda: agent_response(
+            make_hub(req.config).match.run(
+                profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario
+            )
+        ),
+    )
 
 
 @app.post("/api/match/stream")
-def match_stream(req: MatchRequest) -> StreamingResponse:
+def match_stream(req: MatchRequest, request: Request) -> StreamingResponse:
     if not any([req.offer.strip(), req.need.strip(), req.target.strip(), req.scenario.strip()]):
         raise HTTPException(status_code=400, detail="请至少填写供给、需求、目标对象或业务场景中的一项。")
-    hub = make_hub(req.config)
-    return _stream_response(hub.match.stream(profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario))
+    return _start_generation_stream(
+        request,
+        lambda: make_hub(req.config).match.stream(
+            profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario
+        ),
+    )
 
 
 @app.post("/api/landing", response_model=AgentResponse)
-def landing(req: LandingRequest) -> AgentResponse:
-    hub = make_hub(req.config)
-    return agent_response(hub.landing.run(profile_to_dict(req.profile), req.landing_info, req.existing_results))
+def landing(req: LandingRequest, request: Request) -> AgentResponse:
+    return _run_generation(
+        request,
+        lambda: agent_response(
+            make_hub(req.config).landing.run(
+                profile_to_dict(req.profile), req.landing_info, req.existing_results
+            )
+        ),
+    )
 
 
 @app.post("/api/landing/stream")
-def landing_stream(req: LandingRequest) -> StreamingResponse:
-    hub = make_hub(req.config)
-    return _stream_response(hub.landing.stream(profile_to_dict(req.profile), req.landing_info, req.existing_results))
+def landing_stream(req: LandingRequest, request: Request) -> StreamingResponse:
+    return _start_generation_stream(
+        request,
+        lambda: make_hub(req.config).landing.stream(
+            profile_to_dict(req.profile), req.landing_info, req.existing_results
+        ),
+    )
 
 
 @app.post("/api/report", response_model=AgentResponse)
-def report(req: ReportRequest) -> AgentResponse:
+def report(req: ReportRequest, request: Request) -> AgentResponse:
     if req.use_ai_summary:
-        hub = make_hub(req.config)
-        return agent_response(hub.report.run(req.results))
+        return _run_generation(
+            request,
+            lambda: agent_response(make_hub(req.config).report.run(req.results)),
+        )
     return AgentResponse(ok=True, content=build_markdown(req.results), mode="本地报告模式")
 
 
 @app.post("/api/report/stream")
-def report_stream(req: ReportRequest) -> StreamingResponse:
+def report_stream(req: ReportRequest, request: Request) -> StreamingResponse:
     if req.use_ai_summary:
-        hub = make_hub(req.config)
-        return _stream_response(hub.report.stream(req.results))
+        return _start_generation_stream(
+            request,
+            lambda: make_hub(req.config).report.stream(req.results),
+        )
     return _stream_response(iter([build_markdown(req.results)]))
 
 
