@@ -38,6 +38,13 @@ def test_scan_returns_exact_evidence_and_high_risk_matches():
     )
 
 
+def test_high_risk_pattern_must_be_in_matching_evidence():
+    scan = scan_contract_rules("付款期限为30日。项目范围以后续通知为准。")
+    matches = {item.rule_id: item for item in scan.matches}
+
+    assert matches["CR-PAYMENT"].severity == "中"
+
+
 def test_uncovered_rules_are_pending_confirmation_not_declared_missing():
     scan = scan_contract_rules("付款金额为一万元。")
     payload = scan.to_prompt_dict()
