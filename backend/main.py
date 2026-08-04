@@ -42,14 +42,25 @@ from .schemas import (  # noqa: E402
     ProfileRequest,
     ReportRequest,
 )
+from .security import (  # noqa: E402
+    DEFAULT_CONTENT_SECURITY_POLICY,
+    DEFAULT_PERMISSIONS_POLICY,
+    apply_security_headers,
+    parse_cors_origins,
+)
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
-APP_VERSION = "2.3.0-request-guards"
+APP_VERSION = "2.4.0-security-headers"
 MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "30"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 MAX_CONCURRENT_GENERATIONS_PER_CLIENT = int(os.getenv("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", "1"))
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "").strip().lower() in {"1", "true", "yes", "on"}
+ALLOW_WILDCARD_CORS = os.getenv("ALLOW_WILDCARD_CORS", "").strip().lower() in {"1", "true", "yes", "on"}
+ENABLE_HSTS = os.getenv("ENABLE_HSTS", "").strip().lower() in {"1", "true", "yes", "on"}
+HSTS_MAX_AGE = int(os.getenv("HSTS_MAX_AGE", "31536000"))
+CONTENT_SECURITY_POLICY = os.getenv("CONTENT_SECURITY_POLICY", DEFAULT_CONTENT_SECURITY_POLICY).strip()
+PERMISSIONS_POLICY = os.getenv("PERMISSIONS_POLICY", DEFAULT_PERMISSIONS_POLICY).strip()
 FRONTEND_DIR = ROOT / "frontend"
 ASSETS_DIR = FRONTEND_DIR / "assets"
 
@@ -77,15 +88,23 @@ PROVIDER_PRESETS = {
 
 app = FastAPI(title=APP_FULL_NAME, description=APP_SUBTITLE, version=APP_VERSION)
 
-cors_env = os.getenv("CORS_ALLOW_ORIGINS", "*").strip()
-allow_origins = ["*"] if cors_env == "*" else [item.strip() for item in cors_env.split(",") if item.strip()]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allow_origins,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+cors_env = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
+allow_origins = parse_cors_origins(cors_env, allow_wildcard=ALLOW_WILDCARD_CORS)
+if allow_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allow_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type"],
+        expose_headers=[
+            "Retry-After",
+            "X-RateLimit-Limit",
+            "X-RateLimit-Remaining",
+            "X-RateLimit-Window",
+        ],
+        max_age=600,
+    )
 
 
 def _client_key(request: Request) -> str:
@@ -145,6 +164,19 @@ async def guard_requests(request: Request, call_next):
         response.headers["X-RateLimit-Remaining"] = str(rate_decision.remaining)
         response.headers["X-RateLimit-Window"] = str(RATE_LIMIT_WINDOW_SECONDS)
     return response
+
+
+@app.middleware("http")
+async def secure_responses(request: Request, call_next):
+    response = await call_next(request)
+    return apply_security_headers(
+        response,
+        path=request.url.path,
+        content_security_policy=CONTENT_SECURITY_POLICY,
+        permissions_policy=PERMISSIONS_POLICY,
+        enable_hsts=ENABLE_HSTS,
+        hsts_max_age=HSTS_MAX_AGE,
+    )
 
 
 @app.exception_handler(RuntimeError)
