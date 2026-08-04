@@ -284,8 +284,8 @@ def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResp
     async def event_generator():
         full: list[str] = []
         iterator = iter(chunks)
-        yield _sse({"type": "meta", "mode": "AI模型流式模式"})
         try:
+            yield _sse({"type": "meta", "mode": "AI模型流式模式"})
             async for chunk in iterate_in_threadpool(iterator):
                 if not chunk:
                     continue
