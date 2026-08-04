@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from backend.auth_store import reset_account_store_for_tests
 from backend.main import RATE_LIMITER, app
 from backend.project_store import reset_project_store_for_tests
 
@@ -10,6 +11,7 @@ WORKSPACE_KEY = "integration-" + ("z" * 40)
 
 def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'main-app.db'}")
+    reset_account_store_for_tests()
     reset_project_store_for_tests()
     RATE_LIMITER.reset()
     client = TestClient(app)
@@ -18,6 +20,12 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         bundle = client.get("/assets/app.js")
         assert bundle.status_code == 200
         assert "PROJECT_STORAGE_READY" in bundle.text
+        assert "ACCOUNT_ACCESS_READY" in bundle.text
+
+        session = client.get("/api/auth/session")
+        assert session.status_code == 200
+        assert session.json()["authenticated"] is False
+        assert session.headers["cache-control"] == "no-store"
 
         response = client.post(
             "/api/projects",
@@ -49,4 +57,5 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         assert deleted.headers["x-ratelimit-limit"]
     finally:
         RATE_LIMITER.reset()
+        reset_account_store_for_tests()
         reset_project_store_for_tests()
