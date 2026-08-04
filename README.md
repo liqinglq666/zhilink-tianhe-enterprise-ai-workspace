@@ -60,12 +60,17 @@
 - 使用者需在网页左侧自行填写 OpenAI-Compatible API Key；
 - API Key 默认仅保存在浏览器当前会话中；
 - 业务文本和生成结果默认保存在浏览器会话，只有用户主动点击“新建并保存”或“保存当前项目”时才写入配置的项目数据库；
-- Render 免费实例等无持久磁盘环境不能依赖本地 SQLite 长期保存项目，在线部署应配置 PostgreSQL 或持久磁盘；
+- 项目可保存在匿名浏览器工作区，也可登录后迁移到受 RBAC 保护的组织空间；
+- Render 免费实例等无持久磁盘环境不能依赖本地 SQLite 长期保存项目、账号或版本历史，在线部署应配置 PostgreSQL 或持久磁盘；
 - 当前版本主要用于功能验证、场景演示和产品原型展示。
 
-项目存储的完整边界、匿名工作区隔离、SQLite/PostgreSQL 配置和备份要求见 [`docs/PROJECT_STORAGE.md`](docs/PROJECT_STORAGE.md)。
+项目存储与账号权限边界见：
 
-> 说明：项目快照不会保存模型 API Key、Base URL、模型名称或生成温度。
+- [`docs/PROJECT_STORAGE.md`](docs/PROJECT_STORAGE.md)
+- [`docs/PROJECT_HISTORY.md`](docs/PROJECT_HISTORY.md)
+- [`docs/AUTH_RBAC.md`](docs/AUTH_RBAC.md)
+
+> 说明：项目快照和版本历史不会保存模型 API Key、Base URL、模型名称或生成温度。
 
 ### 面向企业正式部署的建议方案
 
@@ -75,12 +80,12 @@
 |---|---|
 | 部署环境 | 使用云服务器、企业内网服务器、容器平台或专属 PaaS，避免免费实例休眠 |
 | 访问稳定性 | 采用付费实例、自动扩缩容、健康检查、服务监控和异常告警 |
-| 域名与安全 | 绑定企业专属域名，启用 HTTPS、访问控制和安全网关 |
+| 域名与安全 | 绑定企业专属域名，启用 HTTPS、同源反向代理、Secure Cookie、访问控制和安全网关 |
 | 模型接口 | 接入企业统一大模型网关，或由企业集中配置模型 API Key |
-| 用户权限 | 增加账号体系、角色权限、组织空间和操作审计 |
+| 用户权限 | 使用账号、组织空间和 RBAC，并继续补充邮箱验证、密码重置和审计日志 |
 | 数据治理 | 增加数据脱敏、敏感字段过滤、日志分级、数据留存周期和删除机制 |
 | 结果归档 | 使用 PostgreSQL、持久磁盘或对象存储，支持项目、历史报告、服务台账和版本追踪 |
-| 运维保障 | 增加备份策略、部署流水线、监控面板和故障恢复方案 |
+| 运维保障 | 增加备份策略、数据库迁移、部署流水线、监控面板和故障恢复方案 |
 
 因此，当前在线地址可以理解为 **公开演示版 / Demo Deployment**；正式企业落地时，可升级为 **私有化部署 / 专属云部署 / 企业内网部署**，以满足稳定性、安全性、权限管理和数据合规要求。
 
@@ -162,7 +167,7 @@ mindmap
 
 ### 3.2 轻量身份入口
 
-不做复杂注册登录系统，但支持设置当前使用身份：
+支持设置当前使用身份：
 
 - 单位 / 团队名称
 - 使用角色
@@ -174,7 +179,7 @@ mindmap
 企业用户 / 园区服务人员 / 商圈运营人员 / 项目管理员
 ```
 
-这使系统具备企业软件的上下文感，同时避免用户系统带来的复杂权限、数据库和安全成本。
+该轻量业务身份与正式登录账号分离：业务身份进入项目材料，登录账号和组织角色用于访问控制。
 
 ### 3.3 API 必填与用户自主管理
 
@@ -218,15 +223,24 @@ Markdown / TXT / Word DOCX
 - 政策材料整理
 - 企业数字化服务记录
 
-### 3.7 显式项目存储
+### 3.7 显式项目存储与版本历史
 
 页面顶部的“项目”入口支持创建、保存、打开、归档、恢复和删除项目。默认不会在输入过程中静默上传，只有用户主动保存时才把业务表单和生成结果写入 SQLite 或 PostgreSQL。
 
-- 浏览器生成独立匿名工作区密钥；
-- 服务端只保存密钥哈希；
-- 项目列表按工作区隔离；
-- 项目更新使用 `lock_version` 防止多页面覆盖；
-- 模型 API Key 和接口配置不进入项目快照。
+- 每次有效保存生成不可变版本；
+- `lock_version` 防止多页面覆盖；
+- 历史恢复会生成新版本，不改写已有记录；
+- 模型 API Key 和接口配置不进入项目快照或历史。
+
+### 3.8 账号、组织空间与 RBAC
+
+- 支持邮箱密码注册和登录；
+- 会话令牌使用 HttpOnly Cookie，密码使用带随机盐的 scrypt 哈希；
+- 组织写操作需要 CSRF 令牌；
+- 提供所有者、管理员、编辑者和只读成员四种角色；
+- 组织成员可以跨设备访问同一组织项目；
+- 所有者或管理员可以把当前浏览器匿名项目迁移到组织；
+- 账号功能按同源 HTTPS 部署设计。
 
 ---
 
@@ -252,6 +266,7 @@ flowchart LR
         Browser["Browser UI<br/>HTML / CSS / JavaScript"]
         Session["Session Storage<br/>API Key + Draft"]
         Workspace["Anonymous Workspace Key"]
+        AuthCookie["HttpOnly Session Cookie"]
     end
 
     subgraph App["Application Layer"]
@@ -259,12 +274,15 @@ flowchart LR
         Schemas["Pydantic Schemas"]
         Service["Service Orchestration"]
         Static["Static Assets"]
-        ProjectAPI["Project CRUD API"]
+        AuthAPI["Account + Organization RBAC"]
+        ProjectAPI["Scoped Project + History API"]
     end
 
-    subgraph Storage["Project Storage"]
+    subgraph Storage["Persistent Storage"]
         SQLite["SQLite · Single Instance"]
         Postgres["PostgreSQL · Production"]
+        Accounts["Users · Organizations · Sessions"]
+        Projects["Projects · Versions"]
     end
 
     subgraph Agent["Agent Layer"]
@@ -292,12 +310,18 @@ flowchart LR
     Browser --> Session
     Browser --> FastAPI
     Workspace --> ProjectAPI
+    AuthCookie --> AuthAPI
     FastAPI --> Static
     FastAPI --> Schemas
     FastAPI --> Service
+    FastAPI --> AuthAPI
     FastAPI --> ProjectAPI
-    ProjectAPI --> SQLite
-    ProjectAPI --> Postgres
+    AuthAPI --> Accounts
+    ProjectAPI --> Projects
+    Accounts --> SQLite
+    Accounts --> Postgres
+    Projects --> SQLite
+    Projects --> Postgres
     Service --> Hub
     Hub --> A1
     Hub --> A2
@@ -321,36 +345,31 @@ flowchart LR
 sequenceDiagram
     autonumber
     participant User as 用户
-    participant UI as 前端工作台
+    participant UI as 同源工作台
     participant API as FastAPI
+    participant Auth as 账号与组织权限
     participant Project as 项目数据库
     participant Agent as 业务 Agent
     participant LLM as LLM Provider
-    participant Export as 导出模块
 
-    User->>UI: 配置 API Key / Base URL / Model
-    UI->>API: POST /api/test-connection
-    API->>LLM: 连接测试
-    LLM-->>API: 连接成功
-    API-->>UI: 更新 API 状态
+    User->>UI: 注册或登录
+    UI->>API: POST /api/auth/login
+    API->>Auth: 校验 scrypt 密码哈希
+    Auth-->>UI: HttpOnly 会话 Cookie + CSRF 令牌
 
-    User->>UI: 选择业务模块并输入材料
-    UI->>API: POST /api/{module}
+    User->>UI: 选择组织和业务模块
+    UI->>API: 业务输入 + 组织作用域
+    API->>Auth: 校验成员角色
     API->>Agent: 调用对应 Agent
     Agent->>LLM: 发送结构化提示词
     LLM-->>Agent: 返回业务材料
-    Agent-->>API: AgentResponse
-    API-->>UI: 渲染结构化结果
+    Agent-->>UI: 结构化结果
 
     User->>UI: 主动保存项目
-    UI->>API: POST 或 PUT /api/projects
-    API->>Project: 保存业务快照，不保存模型凭据
-    Project-->>UI: 返回项目与 lock_version
-
-    User->>UI: 下载当前模块
-    UI->>API: POST /api/report/{format}
-    API->>Export: 封装单模块内容
-    Export-->>UI: 下载 MD / TXT / DOCX
+    UI->>API: 项目快照 + 组织 + CSRF
+    API->>Auth: 校验 project:update 权限
+    API->>Project: 保存新版本，不保存模型凭据
+    Project-->>UI: 返回项目和 lock_version
 ```
 
 ---
@@ -368,7 +387,7 @@ flowchart TD
     E --> F[返回生成结果]
     F --> G[浏览器会话结果]
     G --> H[用户手动导出]
-    G -->|用户主动保存| P[SQLite / PostgreSQL 项目快照]
+    G -->|用户主动保存| P[SQLite / PostgreSQL 项目与版本]
 
     B -.不写入.-> P
     C -.不记录 API Key.-> Log[日志]
@@ -379,7 +398,10 @@ flowchart TD
 
 | 对象 | 处理方式 |
 |---|---|
-| API Key | 默认会话级保存，不写入项目数据库、后端文件或报告 |
+| API Key | 默认会话级保存，不写入项目数据库、版本历史、后端文件或报告 |
+| 密码 | scrypt 加盐哈希，不保存明文 |
+| 登录会话 | HttpOnly、SameSite=Lax Cookie；数据库只保存令牌哈希 |
+| 组织写操作 | Cookie 会话 + CSRF Cookie/Header 双重校验 |
 | 业务表单与 AI 结果 | 默认保存在浏览器会话；用户主动保存项目时才写入配置的数据库 |
 | 匿名工作区密钥 | 原始值仅保存在浏览器，服务端只保存 SHA-256 哈希 |
 | 合同文本 | 建议用户脱敏后输入；保存项目意味着用户明确选择持久化该表单内容 |
@@ -394,14 +416,20 @@ flowchart TD
 ```mermaid
 flowchart TB
     Home["运营总览 / Hero 首页"] --> Status["工作台状态"]
-    Home --> Identity["设置身份"]
+    Home --> Account["登录 / 组织"]
+    Home --> Identity["业务身份"]
     Home --> API["配置模型接口"]
     Home --> Projects["项目管理"]
     Home --> Modules["业务模块"]
 
+    Account --> Login["注册 / 登录"]
+    Account --> Org["组织空间切换"]
+    Account --> Members["成员和角色"]
+    Account --> Claim["匿名项目迁移"]
+
     Projects --> Create["新建并保存"]
     Projects --> Save["保存当前项目"]
-    Projects --> Open["打开项目"]
+    Projects --> History["版本历史"]
     Projects --> Archive["归档 / 恢复"]
 
     Modules --> Profile["企业档案"]
@@ -422,9 +450,7 @@ flowchart TB
     Result --> MD["下载 Markdown"]
     Result --> TXT["下载 TXT"]
     Result --> DOCX["下载 Word"]
-
-    Result --> Recent["最近生成材料"]
-    Recent --> Report["报告归档"]
+    Result --> Report["报告归档"]
 ```
 
 ---
@@ -436,43 +462,38 @@ zhilian_tianhe_agent_fastapi_enterprise_ui_final/
 ├── backend/
 │   ├── main.py                 # FastAPI app, routes, middleware
 │   ├── schemas.py              # AI request/response models
-│   ├── project_schemas.py      # Persistent project API models
-│   ├── project_routes.py       # Project CRUD endpoints
-│   ├── project_store.py        # SQLite / PostgreSQL store
+│   ├── auth_schemas.py         # Account and organization API models
+│   ├── auth_routes.py          # Login, session, organization and member endpoints
+│   ├── auth_store.py           # Password hashing, sessions, RBAC and scoped projects
+│   ├── project_schemas.py      # Persistent project and history models
+│   ├── project_routes.py       # Scoped project CRUD and history endpoints
+│   ├── project_store.py        # SQLite / PostgreSQL project store
 │   └── service.py              # Agent hub creation and export helpers
 │
 ├── frontend/
 │   ├── index.html              # Enterprise SaaS single-page UI
 │   └── assets/
 │       ├── app.js              # State management, API calls, export
-│       ├── project-storage.js  # Project create/save/open/archive/delete
+│       ├── account-access.js   # Login, organizations, members and CSRF headers
+│       ├── account-access.css  # Account and organization UI
+│       ├── project-storage.js  # Project and version management
 │       ├── project-storage.css # Project manager UI
+│       ├── project-history.css # Version history UI
 │       ├── style.css           # Enterprise UI design system
 │       └── hero-enterprise-ai.png
 │
-├── src/
-│   └── zhilian_tianhe_agent/
-│       ├── agents.py
-│       ├── prompts.py
-│       ├── llm_client.py
-│       ├── reporting.py
-│       ├── constants.py
-│       └── utils.py
-│
-├── data/
-│   ├── contract_risk_rules.json
-│   ├── policy_directions.json
-│   └── tianhe_knowledge.json
-│
 ├── docs/
-│   └── PROJECT_STORAGE.md
+│   ├── AUTH_RBAC.md
+│   ├── PROJECT_STORAGE.md
+│   └── PROJECT_HISTORY.md
+├── data/
+├── src/
 ├── tests/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
 ├── pyproject.toml
 ├── .env.example
-├── .dockerignore
 ├── LICENSE
 └── README.md
 ```
@@ -487,18 +508,21 @@ zhilian_tianhe_agent_fastapi_enterprise_ui_final/
 python -m pip install -r requirements.txt
 ```
 
-### 10.2 Configure Project Storage
-
-SQLite default:
+### 10.2 Configure Storage and Accounts
 
 ```env
 DATABASE_URL=sqlite:///./runtime/zhilink.db
+AUTH_ALLOW_REGISTRATION=true
+PASSWORD_MIN_LENGTH=10
+SESSION_TTL_HOURS=168
+AUTH_COOKIE_SECURE=false
 ```
 
-PostgreSQL production example:
+PostgreSQL production example：
 
 ```env
 DATABASE_URL=postgresql+psycopg://user:password@host:5432/zhilink
+AUTH_COOKIE_SECURE=true
 ```
 
 ### 10.3 Run Locally
@@ -526,11 +550,13 @@ Default recommended configuration:
 | Model | `qwen-plus` |
 | Temperature | `0.35` |
 
-The platform also supports any OpenAI-compatible endpoint. Model interface configuration is not written into project snapshots.
+The platform also supports any OpenAI-compatible endpoint. Model interface configuration is not written into projects or version history.
 
 ---
 
 ## 12. Backend API Reference
+
+### AI and export
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -548,20 +574,29 @@ The platform also supports any OpenAI-compatible endpoint. Model interface confi
 | `POST` | `/api/report/markdown` | Export Markdown |
 | `POST` | `/api/report/txt` | Export TXT |
 | `POST` | `/api/report/docx` | Export Word DOCX |
-| `POST` | `/api/profile/stream` | 流式生成企业档案 |
-| `POST` | `/api/meeting/stream` | 流式生成会议纪要 |
-| `POST` | `/api/contract/stream` | 流式生成合同风险提示 |
-| `POST` | `/api/policy/stream` | 流式生成政策准备建议 |
-| `POST` | `/api/match/stream` | 流式生成供需协作方案 |
-| `POST` | `/api/landing/stream` | 流式生成实施计划 |
-| `POST` | `/api/report/stream` | 流式生成综合运营报告 |
-| `GET` | `/api/projects` | 列出当前匿名工作区项目 |
-| `POST` | `/api/projects` | 新建项目并保存工作区快照 |
-| `GET` | `/api/projects/{project_id}` | 读取项目快照 |
-| `PUT` | `/api/projects/{project_id}` | 保存、重命名、归档或恢复项目 |
-| `DELETE` | `/api/projects/{project_id}` | 永久删除项目 |
 
-项目接口必须携带 `X-Workspace-Key`。详细错误契约与部署要求见项目存储文档。
+### Accounts and organizations
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/auth/register` | Register and create an owner organization |
+| `POST` | `/api/auth/login` | Login and create HttpOnly session |
+| `GET` | `/api/auth/session` | Read current session and organizations |
+| `POST` | `/api/auth/logout` | Revoke current session |
+| `GET/POST` | `/api/organizations` | List or create organizations |
+| `GET/POST` | `/api/organizations/{id}/members` | List or add registered members |
+| `PUT/DELETE` | `/api/organizations/{id}/members/{user_id}` | Change role or remove member |
+| `POST` | `/api/organizations/{id}/claim-workspace-projects` | Move current anonymous projects into organization |
+
+### Projects and history
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET/POST` | `/api/projects` | List or create projects in current scope |
+| `GET/PUT/DELETE` | `/api/projects/{project_id}` | Read, save/archive, or delete project |
+| `GET` | `/api/projects/{project_id}/versions` | List immutable versions |
+| `GET` | `/api/projects/{project_id}/versions/{version}` | Read historical snapshot |
+| `POST` | `/api/projects/{project_id}/versions/{version}/restore` | Restore historical material as a new version |
 
 ---
 
@@ -575,33 +610,16 @@ docker compose up -d --build
 
 Compose 默认将 SQLite 放入 `zhilink_project_data` 命名卷。正式多实例部署应将 `DATABASE_URL` 切换为 PostgreSQL。
 
-Render 免费实例等无持久磁盘环境不能依赖容器内 SQLite 长期保存项目；应配置托管 PostgreSQL、持久磁盘，或关闭项目持久化能力。
+生产账号部署必须使用：
 
-### Deployment Topology
-
-```mermaid
-flowchart TD
-    Browser[User Browser] --> Nginx[Nginx / Reverse Proxy]
-    Nginx --> App[FastAPI Container]
-    App --> Static[Static Frontend Assets]
-    App --> LLM[External or Private LLM Gateway]
-    App --> Export[Report Export Engine]
-    App --> DB[(SQLite Volume / PostgreSQL)]
-
-    subgraph Security
-        S1[HTTPS]
-        S2[No Model Key Persistence]
-        S3[Input Desensitization]
-        S4[Manual Review]
-        S5[Workspace Isolation]
-    end
-
-    Nginx --> S1
-    App --> S2
-    Browser --> S3
-    Export --> S4
-    DB --> S5
+```env
+AUTH_COOKIE_SECURE=true
+ENABLE_HSTS=true
 ```
+
+账号功能要求同源 HTTPS。前后端分离时应使用 Nginx、云网关或平台 rewrites 把 UI 和 FastAPI 统一到同一公开域名。
+
+Render 免费实例等无持久磁盘环境不能依赖容器内 SQLite 长期保存项目、账号或版本历史；应配置托管 PostgreSQL、持久磁盘，或关闭持久化和账号能力。
 
 ---
 
@@ -613,16 +631,22 @@ Run tests:
 pytest -q
 ```
 
-Run project storage tests directly:
+Targeted account and project tests:
 
 ```bash
-PYTHONPATH=. pytest -q tests/test_project_store.py tests/test_project_routes.py
+PYTHONPATH=. pytest -q \
+  tests/test_project_store.py \
+  tests/test_project_routes.py \
+  tests/test_project_history.py \
+  tests/test_auth_rbac.py \
+  tests/test_project_app_integration.py
 ```
 
 Check frontend JavaScript:
 
 ```bash
 node --check frontend/assets/app.js
+node --check frontend/assets/account-access.js
 node --check frontend/assets/project-storage.js
 ```
 
@@ -639,7 +663,7 @@ python -m compileall backend src tests
 - Not a generic chatbot.
 - Not a heavy ERP system.
 - Not a simple form demo.
-- A lightweight enterprise AI workspace with structured output, explicit project storage and export capability.
+- A lightweight enterprise AI workspace with evidence-grounded output, explicit versioned storage, organization RBAC and export capability.
 
 ---
 
@@ -650,14 +674,26 @@ python -m compileall backend src tests
 ```text
 frontend/index.html
 frontend/assets/style.css
+frontend/assets/account-access.css
 frontend/assets/project-storage.css
+frontend/assets/project-history.css
 ```
 
 ### Modify Interactions
 
 ```text
 frontend/assets/app.js
+frontend/assets/account-access.js
 frontend/assets/project-storage.js
+```
+
+### Modify Accounts and RBAC
+
+```text
+backend/auth_schemas.py
+backend/auth_routes.py
+backend/auth_store.py
+docs/AUTH_RBAC.md
 ```
 
 ### Modify Project Storage
@@ -667,6 +703,7 @@ backend/project_schemas.py
 backend/project_routes.py
 backend/project_store.py
 docs/PROJECT_STORAGE.md
+docs/PROJECT_HISTORY.md
 ```
 
 ### Modify Agent Outputs
@@ -699,9 +736,9 @@ gantt
 
     section V2 Operational Layer
     SQLite/PostgreSQL 项目存储         :done, v2a, 2026-08-04, 1d
-    项目和材料版本历史                 :active, v2b, 2026-08-05, 5d
-    组织空间与角色权限                 :v2c, 2026-08-10, 7d
-    人工编辑、确认和审核               :v2d, 2026-08-17, 7d
+    项目和材料版本历史                 :done, v2b, 2026-08-04, 1d
+    账号、组织空间与 RBAC              :done, v2c, 2026-08-04, 1d
+    人工编辑、确认和审核               :active, v2d, 2026-08-05, 7d
 
     section V3 Enterprise Deployment
     私有模型网关适配                   :v3a, 2026-08-24, 7d
@@ -765,4 +802,4 @@ All Rights Reserved.
 
 ## 20. Final Statement
 
-> **智链天河 · 企业运营 AI 工作台** 以企业运营材料为核心对象，以大模型为生成引擎，以结构化输出、显式项目存储和报告归档为交付形态，面向真实企业服务场景，提供一套轻量、可部署、可复核、可扩展的 AI 工作台解决方案。
+> **智链天河 · 企业运营 AI 工作台** 以企业运营材料为核心对象，以大模型为生成引擎，以证据化输出、显式版本存储、组织权限和报告归档为交付形态，面向真实企业服务场景，提供一套轻量、可部署、可复核、可扩展的 AI 工作台解决方案。
