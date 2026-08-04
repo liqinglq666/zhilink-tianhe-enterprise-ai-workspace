@@ -81,6 +81,23 @@
 
 ---
 
+## 安全部署要点
+
+当前版本默认按同域方式提供前端与 API，因此 `CORS_ALLOW_ORIGINS` 留空，不开放跨域访问。前后端分离部署时，应填写明确的前端来源，不要使用 `*`；系统会校验来源格式并默认拒绝通配符。
+
+所有页面和 API 响应默认增加 CSP、禁止 MIME 嗅探、禁止被第三方页面嵌入、Referrer Policy、Permissions Policy、跨源隔离和敏感响应不缓存等安全头。正式 HTTPS 域名确认稳定后，可设置 `ENABLE_HSTS=true` 启用 HSTS。
+
+建议生产环境配置：
+
+```env
+CORS_ALLOW_ORIGINS=https://your-domain.example.com
+ALLOW_WILDCARD_CORS=false
+ENABLE_HSTS=true
+HSTS_MAX_AGE=31536000
+```
+
+---
+
 
 ## 0. Executive Summary
 
