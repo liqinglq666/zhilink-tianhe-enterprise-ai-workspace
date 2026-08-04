@@ -172,6 +172,9 @@ class AgentResponse(BaseModel):
     content: str = ""
     mode: str = "AI模型模式"
     error: str = ""
+    error_code: str = ""
+    retryable: bool = False
+    retry_after: int | None = None
 
 
 class HealthResponse(BaseModel):
