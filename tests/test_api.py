@@ -10,7 +10,7 @@ def test_health():
     assert resp.status_code == 200
     data = resp.json()
     assert data['ok'] is True
-    assert 'security' in data['version']
+    assert 'model-errors' in data['version']
 
 
 def test_defaults():
@@ -28,8 +28,25 @@ def test_profile_requires_api():
         'config': {'api_key': '', 'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1', 'model': 'qwen-plus', 'temperature': 0.35},
         'profile': {'name': '测试企业', 'industry': '现代商贸', 'location': '天河路商圈', 'scale': '10-50人', 'stage': '成长扩张期', 'contact_role': '负责人', 'demands': '需要政策、合同、会议和供需协作'}
     })
-    assert resp.status_code == 502
-    assert '请先配置' in resp.json()['detail']
+    assert resp.status_code == 400
+    data = resp.json()
+    assert data['code'] == 'MODEL_NOT_CONFIGURED'
+    assert data['retryable'] is False
+    assert 'API Key' in data['detail']
+
+
+def test_connection_test_returns_error_metadata():
+    resp = client.post('/api/test-connection', json={
+        'api_key': '',
+        'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        'model': 'qwen-plus',
+        'temperature': 0.35,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['ok'] is False
+    assert data['error_code'] == 'MODEL_NOT_CONFIGURED'
+    assert data['retryable'] is False
 
 
 def test_meeting_validation():
