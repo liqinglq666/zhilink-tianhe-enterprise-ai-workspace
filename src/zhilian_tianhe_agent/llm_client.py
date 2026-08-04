@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""OpenAI-compatible client."""
+"""OpenAI-compatible client with stable, user-safe error classification."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import requests
 
 from .constants import DEFAULT_BASE_URL, DEFAULT_MODEL
+from .errors import ModelGatewayError, configuration_error, unavailable_error
 
 
 @dataclass
@@ -57,23 +58,23 @@ def _validate_base_url(base_url: str) -> str:
     parsed = urlparse(value)
 
     if parsed.scheme not in {"https", "http"}:
-        raise RuntimeError("Base URL 只允许 http/https。")
+        raise configuration_error("Base URL 只允许 http/https。")
     if parsed.scheme == "http" and os.getenv("ALLOW_INSECURE_LLM_HTTP", "").lower() not in {
         "1",
         "true",
         "yes",
         "on",
     }:
-        raise RuntimeError("Base URL 必须使用 HTTPS。")
+        raise configuration_error("Base URL 必须使用 HTTPS。")
     if not parsed.hostname or parsed.username or parsed.password:
-        raise RuntimeError("Base URL 格式不合法。")
+        raise configuration_error("Base URL 格式不合法。")
     if parsed.query or parsed.fragment:
-        raise RuntimeError("Base URL 不能带 query 或 fragment。")
+        raise configuration_error("Base URL 不能带 query 或 fragment。")
 
     host = parsed.hostname.lower()
     allowlist = _allowed_hosts()
     if allowlist and host not in allowlist:
-        raise RuntimeError("该模型网关不在服务端允许列表中。")
+        raise configuration_error("该模型网关不在服务端允许列表中。")
 
     try:
         addresses = {
@@ -81,12 +82,96 @@ def _validate_base_url(base_url: str) -> str:
             for item in socket.getaddrinfo(host, parsed.port or 443, type=socket.SOCK_STREAM)
         }
     except socket.gaierror as exc:
-        raise RuntimeError("模型网关域名解析失败。") from exc
+        raise ModelGatewayError(
+            code="MODEL_GATEWAY_UNREACHABLE",
+            user_message="模型网关域名解析失败，请检查 Base URL。",
+            status_code=502,
+            retryable=True,
+        ) from exc
 
     if not addresses or any(_is_blocked_ip(address) for address in addresses):
-        raise RuntimeError("Base URL 不能指向本机、内网或保留地址。")
+        raise configuration_error("Base URL 不能指向本机、内网或保留地址。")
 
     return value
+
+
+def _retry_after_seconds(response: requests.Response, default: int = 30) -> int:
+    raw = response.headers.get("Retry-After", "").strip()
+    if raw.isdigit():
+        return max(1, min(int(raw), 3600))
+    return default
+
+
+def _request_error(exc: requests.RequestException) -> ModelGatewayError:
+    if isinstance(exc, requests.Timeout):
+        return ModelGatewayError(
+            code="MODEL_TIMEOUT",
+            user_message="模型响应超时，请缩短输入内容或稍后重试。",
+            status_code=504,
+            retryable=True,
+        )
+    if isinstance(exc, requests.ConnectionError):
+        return ModelGatewayError(
+            code="MODEL_CONNECTION_FAILED",
+            user_message="无法连接模型服务，请检查 Base URL 或稍后重试。",
+            status_code=502,
+            retryable=True,
+        )
+    return ModelGatewayError(
+        code="MODEL_REQUEST_FAILED",
+        user_message="模型请求发送失败，请检查网络和模型配置。",
+        status_code=502,
+        retryable=True,
+    )
+
+
+def _http_error(response: requests.Response) -> ModelGatewayError:
+    status = response.status_code
+    if status == 401:
+        return ModelGatewayError(
+            code="MODEL_AUTH_FAILED",
+            user_message="模型接口鉴权失败，请检查 API Key。",
+            status_code=401,
+            retryable=False,
+        )
+    if status == 403:
+        return ModelGatewayError(
+            code="MODEL_PERMISSION_DENIED",
+            user_message="当前 API Key 无权使用该模型或接口。",
+            status_code=403,
+            retryable=False,
+        )
+    if status == 429:
+        retry_after = _retry_after_seconds(response)
+        return ModelGatewayError(
+            code="MODEL_RATE_LIMITED",
+            user_message=f"模型服务请求过于频繁，请在 {retry_after} 秒后重试。",
+            status_code=429,
+            retryable=True,
+            retry_after=retry_after,
+        )
+    if status in {400, 404, 409, 422}:
+        return ModelGatewayError(
+            code="MODEL_REQUEST_REJECTED",
+            user_message="模型拒绝了请求，请检查模型名称、Base URL 和输入内容。",
+            status_code=400,
+            retryable=False,
+        )
+    if status in {408, 504}:
+        return ModelGatewayError(
+            code="MODEL_TIMEOUT",
+            user_message="模型响应超时，请缩短输入内容或稍后重试。",
+            status_code=504,
+            retryable=True,
+        )
+    if status in {500, 502, 503}:
+        return unavailable_error()
+    return ModelGatewayError(
+        code="MODEL_GATEWAY_ERROR",
+        user_message="模型网关返回异常，请检查配置或稍后重试。",
+        status_code=502,
+        retryable=False,
+    )
 
 
 class LLMClient:
@@ -122,82 +207,122 @@ class LLMClient:
             "stream": stream,
         }
 
-    @staticmethod
-    def _http_error(resp: requests.Response) -> RuntimeError:
+    def _post(self, system_prompt: str, user_prompt: str, *, stream: bool) -> requests.Response:
         try:
-            detail = resp.json()
-        except Exception:
-            detail = resp.text
-        text = str(detail).replace("\n", " ")[:800]
-        return RuntimeError(f"模型接口返回错误：HTTP {resp.status_code}，{text}")
+            response = requests.post(
+                self._url(),
+                headers=self._headers(),
+                json=self._payload(system_prompt, user_prompt, stream=stream),
+                timeout=self.config.timeout,
+                stream=stream,
+                allow_redirects=False,
+            )
+        except requests.RequestException as exc:
+            raise _request_error(exc) from exc
+
+        if response.is_redirect:
+            response.close()
+            raise ModelGatewayError(
+                code="MODEL_REDIRECT_REJECTED",
+                user_message="模型网关返回了不安全的重定向，请检查 Base URL。",
+                status_code=502,
+                retryable=False,
+            )
+        if not response.ok:
+            error = _http_error(response)
+            response.close()
+            raise error
+        return response
+
+    def _require_enabled(self) -> None:
+        if not self.enabled:
+            raise ModelGatewayError(
+                code="MODEL_NOT_CONFIGURED",
+                user_message="请先填写 API Key、Base URL 和模型名称。",
+                status_code=400,
+                retryable=False,
+            )
 
     def chat(self, system_prompt: str, user_prompt: str) -> str:
-        if not self.enabled:
-            raise RuntimeError("未配置 API Key，请先在页面中填写 API Key、Base URL 和模型名称。")
-
-        resp = requests.post(
-            self._url(),
-            headers=self._headers(),
-            json=self._payload(system_prompt, user_prompt, stream=False),
-            timeout=self.config.timeout,
-            allow_redirects=False,
-        )
-        if resp.is_redirect:
-            raise RuntimeError("模型网关返回了重定向，已拒绝继续请求。")
-        if not resp.ok:
-            raise self._http_error(resp)
-        data = resp.json()
+        self._require_enabled()
+        response = self._post(system_prompt, user_prompt, stream=False)
         try:
-            return str(data["choices"][0]["message"]["content"]).strip()
-        except (KeyError, IndexError, TypeError) as exc:
-            raise RuntimeError("模型接口返回格式不兼容。") from exc
+            try:
+                data = response.json()
+            except ValueError as exc:
+                raise ModelGatewayError(
+                    code="MODEL_BAD_RESPONSE",
+                    user_message="模型返回了无法解析的数据，请更换模型或接口后重试。",
+                    status_code=502,
+                    retryable=False,
+                ) from exc
+            try:
+                content = str(data["choices"][0]["message"]["content"]).strip()
+            except (KeyError, IndexError, TypeError) as exc:
+                raise ModelGatewayError(
+                    code="MODEL_BAD_RESPONSE",
+                    user_message="模型返回格式不兼容，请检查模型接口。",
+                    status_code=502,
+                    retryable=False,
+                ) from exc
+            if not content:
+                raise ModelGatewayError(
+                    code="MODEL_EMPTY_RESPONSE",
+                    user_message="模型没有返回有效内容，请重新生成或更换模型。",
+                    status_code=502,
+                    retryable=True,
+                )
+            return content
+        finally:
+            response.close()
 
     def chat_stream(self, system_prompt: str, user_prompt: str) -> Iterator[str]:
-        if not self.enabled:
-            raise RuntimeError("未配置 API Key，请先在页面中填写 API Key、Base URL 和模型名称。")
-
-        with requests.post(
-            self._url(),
-            headers=self._headers(),
-            json=self._payload(system_prompt, user_prompt, stream=True),
-            timeout=self.config.timeout,
-            stream=True,
-            allow_redirects=False,
-        ) as resp:
-            if resp.is_redirect:
-                raise RuntimeError("模型网关返回了重定向，已拒绝继续请求。")
-            if not resp.ok:
-                raise self._http_error(resp)
-
-            # requests defaults to a relatively large read buffer. A one-byte
-            # chunk size lets small SSE frames reach the browser immediately.
-            for raw_line in resp.iter_lines(chunk_size=1, decode_unicode=True):
-                if not raw_line:
-                    continue
-
-                line = raw_line.strip()
-                if line.startswith("data:"):
-                    line = line[5:].strip()
-
-                if not line or line == "[DONE]":
-                    if line == "[DONE]":
-                        break
-                    continue
-
-                try:
-                    data = json.loads(line)
-                except json.JSONDecodeError:
-                    # 部分兼容网关会塞心跳，丢掉就行。
-                    continue
-
-                choices = data.get("choices") or []
-                if not choices:
-                    continue
-
-                choice = choices[0] or {}
-                delta = choice.get("delta") or {}
-                message = choice.get("message") or {}
-                content = delta.get("content") or message.get("content") or choice.get("text") or ""
-
-                if content:
-                    yield str(content)
+        self._require_enabled()
+        response = self._post(system_prompt, user_prompt, stream=True)
+        yielded = False
+        try:
+            try:
+                for raw_line in response.iter_lines(chunk_size=1, decode_unicode=True):
+                    if not raw_line:
+                        continue
+                    if isinstance(raw_line, bytes):
+                        raw_line = raw_line.decode("utf-8", errors="replace")
+                    line = raw_line.strip()
+                    if line.startswith("data:"):
+                        line = line[5:].strip()
+                    if not line or line == "[DONE]":
+                        if line == "[DONE]":
+                            break
+                        continue
+                    try:
+                        data = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if data.get("error"):
+                        raise ModelGatewayError(
+                            code="MODEL_GATEWAY_ERROR",
+                            user_message="模型网关在生成过程中返回异常，请稍后重试。",
+                            status_code=502,
+                            retryable=True,
+                        )
+                    choices = data.get("choices") or []
+                    if not choices:
+                        continue
+                    choice = choices[0] or {}
+                    delta = choice.get("delta") or {}
+                    message = choice.get("message") or {}
+                    content = delta.get("content") or message.get("content") or choice.get("text") or ""
+                    if content:
+                        yielded = True
+                        yield str(content)
+            except requests.RequestException as exc:
+                raise _request_error(exc) from exc
+            if not yielded:
+                raise ModelGatewayError(
+                    code="MODEL_EMPTY_RESPONSE",
+                    user_message="模型没有返回有效内容，请重新生成或更换模型。",
+                    status_code=502,
+                    retryable=True,
+                )
+        finally:
+            response.close()
