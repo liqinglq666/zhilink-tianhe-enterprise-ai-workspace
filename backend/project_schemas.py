@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Validated API schemas for persistent projects and immutable history."""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -8,13 +7,12 @@ from typing import Dict, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .review_schemas import ProjectReviewState
+
 ProjectStatus = Literal["active", "archived"]
-ProjectModule = Literal[
-    "project", "identity", "profile", "meeting", "contract", "policy", "match", "landing", "report"
-]
-ProjectChangeKind = Literal[
-    "create", "baseline", "save", "metadata", "archive", "unarchive", "restore"
-]
+ProjectModule = Literal["project", "identity", "profile", "meeting", "contract", "policy", "match", "landing", "report"]
+ProjectChangeKind = Literal["create", "baseline", "save", "metadata", "archive", "unarchive", "restore"]
+REVIEW_MODULES = {"profile", "meeting", "contract", "policy", "match", "landing", "report"}
 
 
 def _validate_string_mapping(
@@ -62,61 +60,45 @@ class ProjectResultMeta(StrictModel):
 
 class ProjectSnapshot(StrictModel):
     """Persistable workspace state. Model credentials are intentionally absent."""
-
     identity: Dict[str, str] = Field(default_factory=dict)
     profile: StoredProfile = Field(default_factory=StoredProfile)
     forms: Dict[str, str] = Field(default_factory=dict)
     results: Dict[str, str] = Field(default_factory=dict)
     meta: Dict[str, ProjectResultMeta] = Field(default_factory=dict)
-    current_section: Literal[
-        "home", "profile", "meeting", "contract", "policy", "match", "landing", "report"
-    ] = "home"
+    reviews: Dict[str, ProjectReviewState] = Field(default_factory=dict)
+    current_section: Literal["home", "profile", "meeting", "contract", "policy", "match", "landing", "report"] = "home"
 
     @field_validator("identity")
     @classmethod
     def validate_identity(cls, value: Dict[str, str]) -> Dict[str, str]:
-        return _validate_string_mapping(
-            value,
-            label="使用身份",
-            max_items=10,
-            max_key_chars=50,
-            max_value_chars=500,
-            max_total_chars=3000,
-        )
+        return _validate_string_mapping(value, label="使用身份", max_items=10, max_key_chars=50, max_value_chars=500, max_total_chars=3000)
 
     @field_validator("forms")
     @classmethod
     def validate_forms(cls, value: Dict[str, str]) -> Dict[str, str]:
-        return _validate_string_mapping(
-            value,
-            label="项目表单",
-            max_items=40,
-            max_key_chars=100,
-            max_value_chars=50000,
-            max_total_chars=180000,
-        )
+        return _validate_string_mapping(value, label="项目表单", max_items=40, max_key_chars=100, max_value_chars=50000, max_total_chars=180000)
 
     @field_validator("results")
     @classmethod
     def validate_results(cls, value: Dict[str, str]) -> Dict[str, str]:
-        return _validate_string_mapping(
-            value,
-            label="项目结果",
-            max_items=12,
-            max_key_chars=100,
-            max_value_chars=80000,
-            max_total_chars=300000,
-        )
+        return _validate_string_mapping(value, label="项目结果", max_items=12, max_key_chars=100, max_value_chars=80000, max_total_chars=300000)
 
     @field_validator("meta")
     @classmethod
-    def validate_meta(
-        cls, value: Dict[str, ProjectResultMeta]
-    ) -> Dict[str, ProjectResultMeta]:
+    def validate_meta(cls, value: Dict[str, ProjectResultMeta]) -> Dict[str, ProjectResultMeta]:
         if len(value) > 12:
             raise ValueError("结果元数据最多允许 12 项。")
         if any(len(key) > 100 for key in value):
             raise ValueError("结果元数据字段名称过长。")
+        return value
+
+    @field_validator("reviews")
+    @classmethod
+    def validate_reviews(cls, value: Dict[str, ProjectReviewState]) -> Dict[str, ProjectReviewState]:
+        if len(value) > len(REVIEW_MODULES):
+            raise ValueError("审核状态数量超过允许范围。")
+        if set(value) - REVIEW_MODULES:
+            raise ValueError("审核状态包含不支持的业务模块。")
         return value
 
 
@@ -170,10 +152,7 @@ class ProjectUpdateRequest(StrictModel):
 
     @model_validator(mode="after")
     def require_change(self) -> "ProjectUpdateRequest":
-        if (
-            all(value is None for value in (self.name, self.description, self.status, self.snapshot))
-            and not self.version_label
-        ):
+        if all(value is None for value in (self.name, self.description, self.status, self.snapshot)) and not self.version_label:
             raise ValueError("请至少提交一个需要更新的项目字段或版本说明。")
         return self
 
