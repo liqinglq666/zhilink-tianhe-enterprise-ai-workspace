@@ -79,6 +79,18 @@ class OrganizationCreateRequest(StrictModel):
         return cleaned
 
 
+class OrganizationUpdateRequest(StrictModel):
+    name: str = Field(min_length=1, max_length=120)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("组织名称不能为空。")
+        return cleaned
+
+
 class MemberCreateRequest(StrictModel):
     email: str = Field(min_length=3, max_length=320)
     role: Role = "viewer"
