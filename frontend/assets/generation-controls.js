@@ -7,34 +7,13 @@
 
   window.__activeGenerations = activeGenerations;
 
-  const style = document.createElement("style");
-  style.textContent = `
-    .cancel-generation {
-      min-height: 34px;
-      border: 1px solid #fda29b;
-      border-radius: 10px;
-      padding: 7px 12px;
-      background: #fff5f4;
-      color: #b42318;
-      font-weight: 850;
-      cursor: pointer;
-    }
-    .cancel-generation:hover { background: #fee4e2; }
-    .cancel-generation:focus-visible { outline: 3px solid rgba(180,35,24,.18); outline-offset: 2px; }
-    .stream-status { min-width: 110px; justify-content: center; }
-    .partial-result-note {
-      margin: 0 0 12px;
-      border: 1px solid #fedf89;
-      border-radius: 12px;
-      padding: 10px 12px;
-      background: #fffaeb;
-      color: #7a2e0e;
-      line-height: 1.6;
-      font-size: 13px;
-      font-weight: 750;
-    }
-  `;
-  document.head.appendChild(style);
+  if (!document.querySelector('link[data-generation-controls]')) {
+    const stylesheet = document.createElement("link");
+    stylesheet.rel = "stylesheet";
+    stylesheet.href = "/assets/generation-controls.css";
+    stylesheet.dataset.generationControls = "true";
+    document.head.appendChild(stylesheet);
+  }
 
   function createGenerationError(message, code, retryable = false) {
     const error = new Error(message);
@@ -44,7 +23,7 @@
   }
 
   function setStreamStatus(key, message) {
-    const target = document.querySelector(`[data-stream-status="${CSS.escape(key)}"]`);
+    const target = document.querySelector(`[data-stream-status="${key}"]`);
     if (target) target.textContent = message;
   }
 
@@ -178,7 +157,7 @@
           try { event = JSON.parse(raw); } catch (_) { continue; }
 
           if (event.type === "meta") {
-            setStreamStatus(key, "模型已连接");
+            setStreamStatus(key, "请求已发送");
           } else if (event.type === "delta") {
             task.full += event.content || "";
             setStreamStatus(key, "正在生成");
