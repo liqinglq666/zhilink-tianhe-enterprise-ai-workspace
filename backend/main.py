@@ -31,6 +31,7 @@ from zhilian_tianhe_agent.llm_client import LLMClient, LLMConfig  # noqa: E402
 
 from .body_limit import BodyTooLarge, read_limited_body, replay_body  # noqa: E402
 from .limits import ClientConcurrencyLimiter, SlidingWindowRateLimiter  # noqa: E402
+from .project_routes import register_project_routes  # noqa: E402
 from .schemas import (  # noqa: E402
     APIConfig,
     AgentResponse,
@@ -52,7 +53,7 @@ from .security import (  # noqa: E402
 )
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
-APP_VERSION = "2.6.0-generation-controls"
+APP_VERSION = "2.7.0-generation-controls-project-storage"
 MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "30"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
@@ -98,8 +99,8 @@ if allow_origins:
         CORSMiddleware,
         allow_origins=allow_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "X-Workspace-Key"],
         expose_headers=[
             "Retry-After",
             "X-RateLimit-Limit",
@@ -108,6 +109,8 @@ if allow_origins:
         ],
         max_age=600,
     )
+
+register_project_routes(app)
 
 
 def _client_key(request: Request) -> str:
@@ -137,7 +140,8 @@ def _rate_limited_response(retry_after: int) -> JSONResponse:
 
 @app.middleware("http")
 async def guard_requests(request: Request, call_next):
-    is_write = request.method in {"POST", "PUT", "PATCH"}
+    is_write = request.method in {"POST", "PUT", "PATCH", "DELETE"}
+    has_body = request.method in {"POST", "PUT", "PATCH"}
     is_api_write = is_write and request.url.path.startswith("/api/")
     rate_decision = None
 
@@ -146,7 +150,7 @@ async def guard_requests(request: Request, call_next):
         if not rate_decision.allowed:
             return _rate_limited_response(rate_decision.retry_after)
 
-    if is_write:
+    if has_body:
         content_length = request.headers.get("content-length")
         if content_length and content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:
             return _too_large_response()
@@ -205,12 +209,13 @@ async def value_error_handler(request: Request, exc: ValueError):  # noqa: ARG00
 
 @app.get("/assets/app.js", include_in_schema=False)
 def frontend_app_bundle() -> Response:
-    """Serve the base application plus generation controls as one same-origin bundle."""
+    """Serve the base application and same-origin feature extensions as one bundle."""
 
     base_script = (ASSETS_DIR / "app.js").read_text(encoding="utf-8")
     controls_script = (ASSETS_DIR / "generation-controls.js").read_text(encoding="utf-8")
+    projects_script = (ASSETS_DIR / "project-storage.js").read_text(encoding="utf-8")
     return Response(
-        content=f"{base_script}\n\n{controls_script}\n",
+        content=f"{base_script}\n\n{controls_script}\n\n{projects_script}\n",
         media_type="application/javascript",
         headers={"Cache-Control": "no-cache"},
     )
