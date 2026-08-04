@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import iterate_in_threadpool
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -280,11 +281,12 @@ def _stream_error_payload(exc: Exception) -> dict:
 
 
 def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResponse:
-    def event_generator():
+    async def event_generator():
         full: list[str] = []
+        iterator = iter(chunks)
         yield _sse({"type": "meta", "mode": "AI模型流式模式"})
         try:
-            for chunk in chunks:
+            async for chunk in iterate_in_threadpool(iterator):
                 if not chunk:
                     continue
                 full.append(chunk)
@@ -293,6 +295,12 @@ def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResp
         except Exception as exc:  # noqa: BLE001
             yield _sse(_stream_error_payload(exc))
         finally:
+            close = getattr(iterator, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:  # noqa: BLE001
+                    pass
             if release_key is not None:
                 GENERATION_LIMITER.release(release_key)
 
