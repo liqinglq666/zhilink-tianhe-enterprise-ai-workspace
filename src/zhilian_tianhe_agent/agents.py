@@ -12,6 +12,16 @@ from typing import Dict, Iterator, Optional
 
 from .contract_rules import ContractRuleScan, scan_contract_rules
 from .errors import ModelGatewayError
+from .evidence import (
+    EvidenceBundle,
+    append_evidence_appendix,
+    build_landing_evidence,
+    build_match_evidence,
+    build_meeting_evidence,
+    build_policy_evidence,
+    build_profile_evidence,
+    build_report_evidence,
+)
 from .llm_client import LLMClient
 from .prompts import (
     SYSTEM_PROMPT,
@@ -63,27 +73,68 @@ class BaseAgent:
                 retryable=True,
             ) from exc
 
+    def _run_grounded(
+        self,
+        prompt: str,
+        bundle: EvidenceBundle,
+    ) -> AgentResult:
+        result = self._run(prompt)
+        return AgentResult(
+            content=append_evidence_appendix(result.content, bundle),
+            mode="AI模型模式（含证据索引）",
+            error=result.error,
+        )
+
+    def _stream_grounded(
+        self,
+        prompt: str,
+        bundle: EvidenceBundle,
+    ) -> Iterator[str]:
+        yield from self._stream(prompt)
+        yield f"\n\n{bundle.to_markdown()}"
+
 
 class ProfileAgent(BaseAgent):
-    def run(self, profile: Dict[str, str]) -> AgentResult:
+    def _prepare(self, profile: Dict[str, str]) -> tuple[str, EvidenceBundle]:
         knowledge = load_json("tianhe_knowledge.json")
-        prompt = profile_prompt(profile, knowledge["tianhe_context"])
-        return self._run(prompt)
+        bundle = build_profile_evidence(profile)
+        prompt = profile_prompt(
+            profile,
+            knowledge["tianhe_context"],
+            bundle.to_prompt_dict(),
+        )
+        return prompt, bundle
+
+    def run(self, profile: Dict[str, str]) -> AgentResult:
+        prompt, bundle = self._prepare(profile)
+        return self._run_grounded(prompt, bundle)
 
     def stream(self, profile: Dict[str, str]) -> Iterator[str]:
-        knowledge = load_json("tianhe_knowledge.json")
-        prompt = profile_prompt(profile, knowledge["tianhe_context"])
-        yield from self._stream(prompt)
+        prompt, bundle = self._prepare(profile)
+        yield from self._stream_grounded(prompt, bundle)
 
 
 class MeetingAgent(BaseAgent):
+    def _prepare(
+        self,
+        meeting_text: str,
+        profile_summary: str,
+    ) -> tuple[str, EvidenceBundle]:
+        bundle = build_meeting_evidence(meeting_text, profile_summary)
+        prompt = meeting_prompt(
+            meeting_text,
+            profile_summary,
+            bundle.to_prompt_dict(),
+        )
+        return prompt, bundle
+
     def run(self, meeting_text: str, profile_summary: str = "") -> AgentResult:
-        prompt = meeting_prompt(meeting_text, profile_summary)
-        return self._run(prompt)
+        prompt, bundle = self._prepare(meeting_text, profile_summary)
+        return self._run_grounded(prompt, bundle)
 
     def stream(self, meeting_text: str, profile_summary: str = "") -> Iterator[str]:
-        prompt = meeting_prompt(meeting_text, profile_summary)
-        yield from self._stream(prompt)
+        prompt, bundle = self._prepare(meeting_text, profile_summary)
+        yield from self._stream_grounded(prompt, bundle)
 
 
 class ContractAgent(BaseAgent):
@@ -116,18 +167,50 @@ class ContractAgent(BaseAgent):
 
 
 class PolicyAgent(BaseAgent):
-    def run(self, profile: Dict[str, str], demand: str = "") -> AgentResult:
+    def _prepare(
+        self,
+        profile: Dict[str, str],
+        demand: str,
+    ) -> tuple[str, EvidenceBundle]:
         directions = load_json("policy_directions.json")
-        prompt = policy_prompt(profile, directions, demand)
-        return self._run(prompt)
+        bundle = build_policy_evidence(profile, demand, directions)
+        prompt = policy_prompt(
+            profile,
+            directions,
+            demand,
+            bundle.to_prompt_dict(),
+        )
+        return prompt, bundle
+
+    def run(self, profile: Dict[str, str], demand: str = "") -> AgentResult:
+        prompt, bundle = self._prepare(profile, demand)
+        return self._run_grounded(prompt, bundle)
 
     def stream(self, profile: Dict[str, str], demand: str = "") -> Iterator[str]:
-        directions = load_json("policy_directions.json")
-        prompt = policy_prompt(profile, directions, demand)
-        yield from self._stream(prompt)
+        prompt, bundle = self._prepare(profile, demand)
+        yield from self._stream_grounded(prompt, bundle)
 
 
 class MatchAgent(BaseAgent):
+    def _prepare(
+        self,
+        profile: Dict[str, str],
+        offer: str,
+        need: str,
+        target: str,
+        scenario: str,
+    ) -> tuple[str, EvidenceBundle]:
+        bundle = build_match_evidence(profile, offer, need, target, scenario)
+        prompt = match_prompt(
+            profile,
+            offer,
+            need,
+            target,
+            scenario,
+            bundle.to_prompt_dict(),
+        )
+        return prompt, bundle
+
     def run(
         self,
         profile: Dict[str, str],
@@ -136,8 +219,8 @@ class MatchAgent(BaseAgent):
         target: str,
         scenario: str,
     ) -> AgentResult:
-        prompt = match_prompt(profile, offer, need, target, scenario)
-        return self._run(prompt)
+        prompt, bundle = self._prepare(profile, offer, need, target, scenario)
+        return self._run_grounded(prompt, bundle)
 
     def stream(
         self,
@@ -147,19 +230,34 @@ class MatchAgent(BaseAgent):
         target: str,
         scenario: str,
     ) -> Iterator[str]:
-        prompt = match_prompt(profile, offer, need, target, scenario)
-        yield from self._stream(prompt)
+        prompt, bundle = self._prepare(profile, offer, need, target, scenario)
+        yield from self._stream_grounded(prompt, bundle)
 
 
 class LandingAgent(BaseAgent):
+    def _prepare(
+        self,
+        profile: Dict[str, str],
+        landing_info: Dict[str, str],
+        existing_results: Dict[str, str],
+    ) -> tuple[str, EvidenceBundle]:
+        bundle = build_landing_evidence(profile, landing_info, existing_results)
+        prompt = landing_prompt(
+            profile,
+            landing_info,
+            existing_results,
+            bundle.to_prompt_dict(),
+        )
+        return prompt, bundle
+
     def run(
         self,
         profile: Dict[str, str],
         landing_info: Dict[str, str],
         existing_results: Dict[str, str],
     ) -> AgentResult:
-        prompt = landing_prompt(profile, landing_info, existing_results)
-        return self._run(prompt)
+        prompt, bundle = self._prepare(profile, landing_info, existing_results)
+        return self._run_grounded(prompt, bundle)
 
     def stream(
         self,
@@ -167,18 +265,26 @@ class LandingAgent(BaseAgent):
         landing_info: Dict[str, str],
         existing_results: Dict[str, str],
     ) -> Iterator[str]:
-        prompt = landing_prompt(profile, landing_info, existing_results)
-        yield from self._stream(prompt)
+        prompt, bundle = self._prepare(profile, landing_info, existing_results)
+        yield from self._stream_grounded(prompt, bundle)
 
 
 class ReportAgent(BaseAgent):
+    def _prepare(
+        self,
+        all_results: Dict[str, str],
+    ) -> tuple[str, EvidenceBundle]:
+        bundle = build_report_evidence(all_results)
+        prompt = report_prompt(all_results, bundle.to_prompt_dict())
+        return prompt, bundle
+
     def run(self, all_results: Dict[str, str]) -> AgentResult:
-        prompt = report_prompt(all_results)
-        return self._run(prompt)
+        prompt, bundle = self._prepare(all_results)
+        return self._run_grounded(prompt, bundle)
 
     def stream(self, all_results: Dict[str, str]) -> Iterator[str]:
-        prompt = report_prompt(all_results)
-        yield from self._stream(prompt)
+        prompt, bundle = self._prepare(all_results)
+        yield from self._stream_grounded(prompt, bundle)
 
 
 class ZhilianAgentHub:
