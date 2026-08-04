@@ -15,6 +15,10 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
     client = TestClient(app)
 
     try:
+        bundle = client.get("/assets/app.js")
+        assert bundle.status_code == 200
+        assert "PROJECT_STORAGE_READY" in bundle.text
+
         response = client.post(
             "/api/projects",
             headers={"X-Workspace-Key": WORKSPACE_KEY},
