@@ -20,6 +20,7 @@ from .auth_schemas import (
     MemberUpdateRequest,
     OrganizationCreateRequest,
     OrganizationResponse,
+    OrganizationUpdateRequest,
     RegisterRequest,
 )
 from .auth_store import (
@@ -199,6 +200,17 @@ def create_organization(
     require_csrf(request, auth)
     return OrganizationResponse.model_validate(
         get_account_store().create_organization(auth.user_id, payload.name)
+    )
+
+
+@organizations_router.put("/{organization_id}", response_model=OrganizationResponse)
+def update_organization(
+    request: Request, organization_id: str, payload: OrganizationUpdateRequest
+) -> OrganizationResponse:
+    auth = require_auth(request)
+    require_csrf(request, auth)
+    return OrganizationResponse.model_validate(
+        get_account_store().update_organization(auth.user_id, organization_id, payload.name)
     )
 
 
