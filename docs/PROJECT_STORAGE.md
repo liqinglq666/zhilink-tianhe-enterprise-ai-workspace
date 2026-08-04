@@ -1,6 +1,6 @@
 # 项目存储
 
-第二阶段第 7 项为工作台增加了可持久化项目。默认使用 SQLite，也可以通过同一套 SQLAlchemy 模型切换 PostgreSQL。第二阶段第 8 项在此基础上增加了不可变项目与材料版本历史。
+第二阶段第 7 项为工作台增加了可持久化项目。默认使用 SQLite，也可以通过同一套 SQLAlchemy 模型切换 PostgreSQL。第 9 项进一步增加账号、组织空间和 RBAC；完整账号权限边界见 [`AUTH_RBAC.md`](AUTH_RBAC.md)。
 
 ## 用户操作
 
@@ -10,9 +10,7 @@
 - 显式保存当前项目
 - 打开已有项目
 - 归档和恢复项目
-- 查看版本历史和只读材料摘要
-- 恢复历史业务快照
-- 删除项目及其版本历史
+- 删除项目
 - 显示当前项目是否存在未保存更改
 
 系统不会在用户输入时静默上传。只有点击“新建并保存”或“保存当前项目”时，项目快照才会写入数据库。
@@ -36,23 +34,27 @@
 - 生成温度
 - 浏览器工作区原始密钥
 
-项目 Schema 使用 `extra="forbid"`，即使客户端主动提交 `api_key` 等额外字段，也会被后端拒绝。历史版本保存同一类业务快照，因此也不会包含模型凭据。
+项目 Schema 使用 `extra="forbid"`，即使客户端主动提交 `api_key` 等额外字段，也会被后端拒绝。
 
-## 匿名工作区隔离
+## 匿名工作区与组织空间
 
-账号系统将在后续阶段实现。当前阶段为避免公开 Demo 中不同使用者互相看到材料，浏览器会生成一个 256 位随机工作区密钥，并通过请求头发送：
+未登录或主动选择匿名空间时，浏览器会生成一个 256 位随机工作区密钥，并通过请求头发送：
 
 ```text
 X-Workspace-Key: <browser-generated-secret>
 ```
 
-服务端只保存该密钥的 SHA-256 哈希，不保存原始值。所有项目和版本查询、读取、恢复、更新和删除都同时校验项目 ID 与工作区哈希。
+服务端只保存该密钥的 SHA-256 哈希，不保存原始值。匿名项目的查询、读取、更新和删除都同时校验项目 ID 与工作区哈希。
 
-该机制用于阶段性数据隔离，但不等同于正式账号认证：
+登录后可以切换组织空间。组织项目通过 `organization_projects` 绑定到组织，后端根据登录用户的组织成员关系和角色执行读取、编辑、恢复和删除权限。组织项目不再依赖某一台浏览器的匿名密钥。
+
+组织所有者或管理员可以显式把当前浏览器尚未绑定组织的匿名项目迁移到组织。迁移后原匿名空间不再能够访问这些项目，项目 ID、当前快照和全部版本历史保持不变。
+
+匿名工作区仍有以下边界：
 
 - 清除浏览器网站数据后，用户将失去匿名项目的访问密钥。
 - 复制项目 URL 不会把访问权限转移给其他浏览器。
-- 账号、组织和角色权限完成后，应把匿名项目迁移到正式用户或组织。
+- 需要长期、多设备或多人协作时，应登录并迁移到组织空间。
 
 ## 数据库配置
 
@@ -64,7 +66,7 @@ X-Workspace-Key: <browser-generated-secret>
 DATABASE_URL=sqlite:///./runtime/zhilink.db
 ```
 
-本地启动时会自动创建 `runtime` 目录、`projects` 表和 `project_versions` 表。
+本地启动时会自动创建 `runtime` 目录和所需数据表。
 
 Docker Compose 默认使用：
 
@@ -88,43 +90,39 @@ DATABASE_URL=postgresql+psycopg://user:password@host:5432/zhilink
 
 ### Render 和其他托管平台
 
-Render 免费实例及其他不提供持久磁盘的托管环境，其容器文件系统可能在重启、重新部署或实例迁移后被清空。此时即使配置了本地 SQLite，项目和历史版本也不能视为长期保存。
+Render 免费实例及其他不提供持久磁盘的托管环境，其容器文件系统可能在重启、重新部署或实例迁移后被清空。此时即使配置了本地 SQLite，项目、账号、组织和版本历史也不能视为长期保存。
 
-在线 Demo 要保留项目数据，应至少满足一项：
+在线 Demo 要保留数据，应至少满足一项：
 
 - 使用托管 PostgreSQL，并通过 `DATABASE_URL` 连接；
 - 为应用挂载平台提供的持久磁盘，并把 SQLite 文件放在该磁盘中；
-- 明确关闭项目保存入口，只把站点作为无持久化演示环境。
+- 明确关闭项目保存和账号能力，只把站点作为无持久化演示环境。
 
 不得把临时容器文件系统中的 SQLite 描述为可靠的生产归档。
 
 ## API
 
-所有接口都必须携带 `X-Workspace-Key`。
+匿名项目接口必须携带 `X-Workspace-Key`。组织项目还会携带 `X-Organization-Id`、登录 Cookie，并在写操作中携带 CSRF 令牌。
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/api/projects` | 列出当前工作区项目，默认不包含已归档项目 |
-| `POST` | `/api/projects` | 创建项目并保存当前快照，同时生成 v1 |
-| `GET` | `/api/projects/{project_id}` | 读取单个项目及当前完整快照 |
-| `PUT` | `/api/projects/{project_id}` | 更新名称、说明、状态或快照；有效变化生成新版本 |
-| `DELETE` | `/api/projects/{project_id}` | 永久删除项目及全部版本历史 |
-| `GET` | `/api/projects/{project_id}/versions` | 分页读取版本摘要 |
-| `GET` | `/api/projects/{project_id}/versions/{version_number}` | 读取版本详情及完整历史快照 |
-| `POST` | `/api/projects/{project_id}/versions/{version_number}/restore` | 把历史业务快照恢复为新的当前版本 |
+| `GET` | `/api/projects` | 列出当前匿名或组织空间项目，默认不包含已归档项目 |
+| `POST` | `/api/projects` | 创建项目并保存当前快照 |
+| `GET` | `/api/projects/{project_id}` | 读取单个项目及完整快照 |
+| `PUT` | `/api/projects/{project_id}` | 更新名称、说明、状态或快照 |
+| `DELETE` | `/api/projects/{project_id}` | 永久删除项目 |
 
-项目列表和版本列表只返回摘要，不返回大体积快照。完整快照只在读取当前项目或指定版本详情时返回。
+列表接口只返回项目摘要，不返回大体积快照。
 
-## 并发保存与版本号
+## 并发保存
 
-项目包含递增的 `lock_version`，同时作为当前项目版本号。更新或恢复时客户端必须提交当前版本：
+项目包含递增的 `lock_version`。更新时客户端必须提交当前版本：
 
 ```json
 {
   "lock_version": 3,
   "name": "项目名称",
-  "snapshot": {},
-  "version_label": "补充合同复核结论"
+  "snapshot": {}
 }
 ```
 
@@ -132,50 +130,31 @@ Render 免费实例及其他不提供持久磁盘的托管环境，其容器文�
 
 ```json
 {
-  "detail": "项目已在其他页面更新，请重新载入后再操作。",
+  "detail": "项目已在其他页面更新，请重新载入后再保存。",
   "code": "PROJECT_VERSION_CONFLICT",
   "retryable": false,
   "current_version": 4
 }
 ```
 
-有实际内容、元数据或状态变化的显式保存会生成下一版本。内容完全一致且没有版本说明时不会生成重复版本。恢复旧版不会覆盖或删除历史，而是生成带 `source_version_number` 的新版本。
-
-详细规则见 [`PROJECT_HISTORY.md`](PROJECT_HISTORY.md)。
+项目和材料的不可变版本历史见 [`PROJECT_HISTORY.md`](PROJECT_HISTORY.md)。
 
 ## 数据表
 
-`projects` 表保存当前项目状态：
+项目存储与归属主要使用：
 
-- `id`
-- `workspace_hash`
-- `name`
-- `description`
-- `status`
-- `snapshot` JSON
-- `lock_version`
-- `created_at`
-- `updated_at`
+- `projects`
+- `project_versions`
+- `organization_projects`
 
-`project_versions` 表保存不可变历史：
+账号和组织还使用：
 
-- `id`
-- `project_id`
-- `workspace_hash`
-- `version_number`
-- `change_kind`
-- `label`
-- `changed_modules` JSON
-- `source_version_number`
-- 历史项目名称、说明和状态
-- `snapshot` JSON
-- `created_at`
+- `users`
+- `organizations`
+- `organization_memberships`
+- `auth_sessions`
 
-版本表对 `project_id + version_number` 设置唯一约束。删除项目时版本历史同步删除。
-
-版本功能上线前已经存在的项目，只能以升级时的当前快照建立一条 `baseline` 基线记录，不能伪造过去未保存的历史。
-
-应用首次访问项目接口时会创建缺失的新表。正式长期生产修改表结构时应引入数据库迁移流程，不应只依赖 `create_all` 修改既有表。
+应用首次访问存储时会通过 `create_all` 创建缺失表。正式长期生产迭代应引入 Alembic 等迁移流程，不应依赖 `create_all` 修改既有表结构。
 
 ## 备份建议
 
@@ -183,14 +162,13 @@ SQLite：
 
 1. 停止应用写入或使用 SQLite 在线备份能力。
 2. 备份 `runtime/zhilink.db` 和 Docker 命名卷。
-3. 定期在独立环境验证项目和历史版本恢复。
+3. 定期在独立环境验证账号、组织、项目和版本恢复。
 
 PostgreSQL：
 
 1. 使用云数据库自动备份或 `pg_dump`。
 2. 设置保留周期和异地备份。
 3. 在发布数据库结构变更前创建恢复点。
-4. 监控 `project_versions` 表增长。
 
 ## 测试
 
@@ -199,10 +177,10 @@ PYTHONPATH=. pytest -q \
   tests/test_project_store.py \
   tests/test_project_routes.py \
   tests/test_project_history.py \
+  tests/test_auth_rbac.py \
   tests/test_project_app_integration.py
 node --check frontend/assets/project-storage.js
+node --check frontend/assets/account-access.js
 ```
 
-版本历史针对性隔离测试结果为 `6 passed`；主应用完整测试仍等待完整 checkout 或 GitHub Actions。
-
-测试覆盖工作区隔离、密钥哈希、SQLite CRUD、归档过滤、乐观锁冲突、空项目名、凭据字段拒绝、版本创建、模块变更识别、版本详情、旧项目基线迁移、恢复生成新版本、历史删除和 API 错误契约。
+测试覆盖匿名工作区隔离、组织 RBAC、SQLite CRUD、归档过滤、乐观锁冲突、版本历史、匿名项目迁移、凭据字段拒绝、主应用限流/安全响应头接入和 API 错误契约。
