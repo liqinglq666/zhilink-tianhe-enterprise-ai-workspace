@@ -10,16 +10,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Iterator, Optional
 
+from .contract_rules import ContractRuleScan, scan_contract_rules
 from .errors import ModelGatewayError
 from .llm_client import LLMClient
 from .prompts import (
     SYSTEM_PROMPT,
-    profile_prompt,
-    meeting_prompt,
     contract_prompt,
-    policy_prompt,
-    match_prompt,
     landing_prompt,
+    match_prompt,
+    meeting_prompt,
+    policy_prompt,
+    profile_prompt,
     report_prompt,
 )
 from .utils import load_json
@@ -86,13 +87,32 @@ class MeetingAgent(BaseAgent):
 
 
 class ContractAgent(BaseAgent):
+    def _prepare(
+        self,
+        contract_text: str,
+        profile_summary: str,
+    ) -> tuple[str, ContractRuleScan]:
+        scan = scan_contract_rules(contract_text)
+        prompt = contract_prompt(contract_text, profile_summary, scan.to_prompt_dict())
+        return prompt, scan
+
+    @staticmethod
+    def _with_local_scan(content: str, scan: ContractRuleScan) -> str:
+        return f"{content.rstrip()}\n\n{scan.to_markdown()}".strip()
+
     def run(self, contract_text: str, profile_summary: str = "") -> AgentResult:
-        prompt = contract_prompt(contract_text, profile_summary)
-        return self._run(prompt)
+        prompt, scan = self._prepare(contract_text, profile_summary)
+        result = self._run(prompt)
+        return AgentResult(
+            content=self._with_local_scan(result.content, scan),
+            mode="AI模型模式（含本地规则预检）",
+            error=result.error,
+        )
 
     def stream(self, contract_text: str, profile_summary: str = "") -> Iterator[str]:
-        prompt = contract_prompt(contract_text, profile_summary)
+        prompt, scan = self._prepare(contract_text, profile_summary)
         yield from self._stream(prompt)
+        yield f"\n\n{scan.to_markdown()}"
 
 
 class PolicyAgent(BaseAgent):
@@ -108,21 +128,45 @@ class PolicyAgent(BaseAgent):
 
 
 class MatchAgent(BaseAgent):
-    def run(self, profile: Dict[str, str], offer: str, need: str, target: str, scenario: str) -> AgentResult:
+    def run(
+        self,
+        profile: Dict[str, str],
+        offer: str,
+        need: str,
+        target: str,
+        scenario: str,
+    ) -> AgentResult:
         prompt = match_prompt(profile, offer, need, target, scenario)
         return self._run(prompt)
 
-    def stream(self, profile: Dict[str, str], offer: str, need: str, target: str, scenario: str) -> Iterator[str]:
+    def stream(
+        self,
+        profile: Dict[str, str],
+        offer: str,
+        need: str,
+        target: str,
+        scenario: str,
+    ) -> Iterator[str]:
         prompt = match_prompt(profile, offer, need, target, scenario)
         yield from self._stream(prompt)
 
 
 class LandingAgent(BaseAgent):
-    def run(self, profile: Dict[str, str], landing_info: Dict[str, str], existing_results: Dict[str, str]) -> AgentResult:
+    def run(
+        self,
+        profile: Dict[str, str],
+        landing_info: Dict[str, str],
+        existing_results: Dict[str, str],
+    ) -> AgentResult:
         prompt = landing_prompt(profile, landing_info, existing_results)
         return self._run(prompt)
 
-    def stream(self, profile: Dict[str, str], landing_info: Dict[str, str], existing_results: Dict[str, str]) -> Iterator[str]:
+    def stream(
+        self,
+        profile: Dict[str, str],
+        landing_info: Dict[str, str],
+        existing_results: Dict[str, str],
+    ) -> Iterator[str]:
         prompt = landing_prompt(profile, landing_info, existing_results)
         yield from self._stream(prompt)
 
