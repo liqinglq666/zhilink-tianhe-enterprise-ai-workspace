@@ -177,7 +177,16 @@ def _http_error(response: requests.Response) -> ModelGatewayError:
 class LLMClient:
     def __init__(self, config: Optional[LLMConfig] = None):
         self.config = config or LLMConfig.from_env()
-        self._base_url = _validate_base_url(self.config.base_url) if self.config.base_url else ""
+        complete = bool(
+            self.config.api_key.strip()
+            and self.config.base_url.strip()
+            and self.config.model.strip()
+        )
+        self._base_url = (
+            _validate_base_url(self.config.base_url)
+            if complete
+            else self.config.base_url.strip().rstrip("/")
+        )
 
     @property
     def enabled(self) -> bool:
