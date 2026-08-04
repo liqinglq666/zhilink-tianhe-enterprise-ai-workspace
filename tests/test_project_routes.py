@@ -7,6 +7,7 @@ from backend.project_routes import register_project_routes
 from backend.project_store import reset_project_store_for_tests
 
 KEY = "workspace-" + ("x" * 40)
+OTHER_KEY = "workspace-" + ("y" * 40)
 
 
 def make_client(monkeypatch, tmp_path) -> TestClient:
@@ -52,6 +53,16 @@ def test_project_crud(monkeypatch, tmp_path):
     assert listed.status_code == 200
     assert listed.json()["total"] == 1
     assert "snapshot" not in listed.json()["items"][0]
+
+    isolated_list = client.get(
+        "/api/projects", headers={"X-Workspace-Key": OTHER_KEY}
+    )
+    assert isolated_list.status_code == 200
+    assert isolated_list.json()["total"] == 0
+    assert client.get(
+        f"/api/projects/{project['id']}",
+        headers={"X-Workspace-Key": OTHER_KEY},
+    ).status_code == 404
 
     loaded = client.get(f"/api/projects/{project['id']}", headers=headers)
     assert loaded.status_code == 200
