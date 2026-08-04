@@ -10,7 +10,7 @@ def test_health():
     assert resp.status_code == 200
     data = resp.json()
     assert data['ok'] is True
-    assert 'model-errors' in data['version']
+    assert 'generation-controls' in data['version']
 
 
 def test_defaults():
@@ -21,6 +21,15 @@ def test_defaults():
     assert 'modules' in data
     assert 'demo_profile' not in data
     assert 'demo_inputs' not in data
+
+
+def test_frontend_bundle_contains_generation_controls():
+    resp = client.get('/assets/app.js')
+    assert resp.status_code == 200
+    assert 'GENERATION_CANCELLED' in resp.text
+    assert 'data-cancel-generation' in resp.text
+    assert resp.headers['cache-control'] == 'no-cache'
+    assert resp.headers['content-type'].startswith('application/javascript')
 
 
 def test_profile_requires_api():
