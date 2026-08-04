@@ -59,8 +59,13 @@
 - 不在服务端内置或保存大模型 API Key；
 - 使用者需在网页左侧自行填写 OpenAI-Compatible API Key；
 - API Key 默认仅保存在浏览器当前会话中；
-- 业务文本和生成结果不作为生产数据持久化存储；
+- 业务文本和生成结果默认保存在浏览器会话，只有用户主动点击“新建并保存”或“保存当前项目”时才写入配置的项目数据库；
+- Render 免费实例等无持久磁盘环境不能依赖本地 SQLite 长期保存项目，在线部署应配置 PostgreSQL 或持久磁盘；
 - 当前版本主要用于功能验证、场景演示和产品原型展示。
+
+项目存储的完整边界、匿名工作区隔离、SQLite/PostgreSQL 配置和备份要求见 [`docs/PROJECT_STORAGE.md`](docs/PROJECT_STORAGE.md)。
+
+> 说明：项目快照不会保存模型 API Key、Base URL、模型名称或生成温度。
 
 ### 面向企业正式部署的建议方案
 
@@ -74,13 +79,12 @@
 | 模型接口 | 接入企业统一大模型网关，或由企业集中配置模型 API Key |
 | 用户权限 | 增加账号体系、角色权限、组织空间和操作审计 |
 | 数据治理 | 增加数据脱敏、敏感字段过滤、日志分级、数据留存周期和删除机制 |
-| 结果归档 | 引入数据库或对象存储，支持历史报告、服务台账和版本追踪 |
+| 结果归档 | 使用 PostgreSQL、持久磁盘或对象存储，支持项目、历史报告、服务台账和版本追踪 |
 | 运维保障 | 增加备份策略、部署流水线、监控面板和故障恢复方案 |
 
 因此，当前在线地址可以理解为 **公开演示版 / Demo Deployment**；正式企业落地时，可升级为 **私有化部署 / 专属云部署 / 企业内网部署**，以满足稳定性、安全性、权限管理和数据合规要求。
 
 ---
-
 
 ## 0. Executive Summary
 
@@ -214,6 +218,16 @@ Markdown / TXT / Word DOCX
 - 政策材料整理
 - 企业数字化服务记录
 
+### 3.7 显式项目存储
+
+页面顶部的“项目”入口支持创建、保存、打开、归档、恢复和删除项目。默认不会在输入过程中静默上传，只有用户主动保存时才把业务表单和生成结果写入 SQLite 或 PostgreSQL。
+
+- 浏览器生成独立匿名工作区密钥；
+- 服务端只保存密钥哈希；
+- 项目列表按工作区隔离；
+- 项目更新使用 `lock_version` 防止多页面覆盖；
+- 模型 API Key 和接口配置不进入项目快照。
+
 ---
 
 ## 4. Capability Matrix
@@ -236,7 +250,8 @@ Markdown / TXT / Word DOCX
 flowchart LR
     subgraph Client["Client Layer"]
         Browser["Browser UI<br/>HTML / CSS / JavaScript"]
-        Session["Session Storage<br/>API Key + Form Draft + Results"]
+        Session["Session Storage<br/>API Key + Draft"]
+        Workspace["Anonymous Workspace Key"]
     end
 
     subgraph App["Application Layer"]
@@ -244,6 +259,12 @@ flowchart LR
         Schemas["Pydantic Schemas"]
         Service["Service Orchestration"]
         Static["Static Assets"]
+        ProjectAPI["Project CRUD API"]
+    end
+
+    subgraph Storage["Project Storage"]
+        SQLite["SQLite · Single Instance"]
+        Postgres["PostgreSQL · Production"]
     end
 
     subgraph Agent["Agent Layer"]
@@ -270,9 +291,13 @@ flowchart LR
 
     Browser --> Session
     Browser --> FastAPI
+    Workspace --> ProjectAPI
     FastAPI --> Static
     FastAPI --> Schemas
     FastAPI --> Service
+    FastAPI --> ProjectAPI
+    ProjectAPI --> SQLite
+    ProjectAPI --> Postgres
     Service --> Hub
     Hub --> A1
     Hub --> A2
@@ -298,6 +323,7 @@ sequenceDiagram
     participant User as 用户
     participant UI as 前端工作台
     participant API as FastAPI
+    participant Project as 项目数据库
     participant Agent as 业务 Agent
     participant LLM as LLM Provider
     participant Export as 导出模块
@@ -308,8 +334,7 @@ sequenceDiagram
     LLM-->>API: 连接成功
     API-->>UI: 更新 API 状态
 
-    User->>UI: 选择业务模块
-    User->>UI: 输入材料或点击快速填入
+    User->>UI: 选择业务模块并输入材料
     UI->>API: POST /api/{module}
     API->>Agent: 调用对应 Agent
     Agent->>LLM: 发送结构化提示词
@@ -317,45 +342,47 @@ sequenceDiagram
     Agent-->>API: AgentResponse
     API-->>UI: 渲染结构化结果
 
+    User->>UI: 主动保存项目
+    UI->>API: POST 或 PUT /api/projects
+    API->>Project: 保存业务快照，不保存模型凭据
+    Project-->>UI: 返回项目与 lock_version
+
     User->>UI: 下载当前模块
     UI->>API: POST /api/report/{format}
     API->>Export: 封装单模块内容
     Export-->>UI: 下载 MD / TXT / DOCX
-
-    User->>UI: 报告归档
-    UI->>API: POST /api/report
-    API->>Agent: 汇总多模块结果
-    Agent->>LLM: 生成综合报告
-    Agent-->>UI: 综合运营报告
 ```
 
 ---
 
 ## 7. Data Governance
 
-系统采取 **默认不持久化敏感材料** 的设计方式：
+系统采用 **默认会话保存、用户主动项目持久化** 的设计方式：
 
 ```mermaid
 flowchart TD
     A[用户输入 API Key] --> B[浏览器 sessionStorage]
-    B --> C[随请求发送至 FastAPI]
-    C --> D[仅当前请求内存使用]
+    B --> C[随模型请求发送至 FastAPI]
+    C --> D[仅当前模型请求内存使用]
     D --> E[调用大模型接口]
     E --> F[返回生成结果]
+    F --> G[浏览器会话结果]
+    G --> H[用户手动导出]
+    G -->|用户主动保存| P[SQLite / PostgreSQL 项目快照]
 
-    B -.不写入.-> DB[(数据库)]
-    C -.不记录.-> Log[日志]
-    F -.不包含.-> Key[API Key]
-    F --> G[用户浏览器会话结果]
-    G --> H[用户手动导出文档]
+    B -.不写入.-> P
+    C -.不记录 API Key.-> Log[日志]
+    P -.不包含.-> Key[API Key / Base URL / Model]
 ```
 
 ### 安全边界
 
 | 对象 | 处理方式 |
 |---|---|
-| API Key | 默认会话级保存，不写入后端文件、数据库或报告 |
-| 合同文本 | 建议用户脱敏后输入 |
+| API Key | 默认会话级保存，不写入项目数据库、后端文件或报告 |
+| 业务表单与 AI 结果 | 默认保存在浏览器会话；用户主动保存项目时才写入配置的数据库 |
+| 匿名工作区密钥 | 原始值仅保存在浏览器，服务端只保存 SHA-256 哈希 |
+| 合同文本 | 建议用户脱敏后输入；保存项目意味着用户明确选择持久化该表单内容 |
 | 客户数据 | 不建议输入完整手机号、身份证号、银行卡号等敏感信息 |
 | AI 输出 | 作为初稿与辅助判断，必须人工复核 |
 | 导出报告 | 只包含生成结果，不包含 API Key 和模型配置 |
@@ -369,7 +396,13 @@ flowchart TB
     Home["运营总览 / Hero 首页"] --> Status["工作台状态"]
     Home --> Identity["设置身份"]
     Home --> API["配置模型接口"]
+    Home --> Projects["项目管理"]
     Home --> Modules["业务模块"]
+
+    Projects --> Create["新建并保存"]
+    Projects --> Save["保存当前项目"]
+    Projects --> Open["打开项目"]
+    Projects --> Archive["归档 / 恢复"]
 
     Modules --> Profile["企业档案"]
     Modules --> Meeting["会议纪要"]
@@ -391,8 +424,7 @@ flowchart TB
     Result --> DOCX["下载 Word"]
 
     Result --> Recent["最近生成材料"]
-    Recent --> Archive["报告归档"]
-    Archive --> FullReport["综合运营报告"]
+    Recent --> Report["报告归档"]
 ```
 
 ---
@@ -402,24 +434,29 @@ flowchart TB
 ```text
 zhilian_tianhe_agent_fastapi_enterprise_ui_final/
 ├── backend/
-│   ├── main.py              # FastAPI app, routes, middleware
-│   ├── schemas.py           # Pydantic request/response models
-│   └── service.py           # Agent hub creation and export helpers
+│   ├── main.py                 # FastAPI app, routes, middleware
+│   ├── schemas.py              # AI request/response models
+│   ├── project_schemas.py      # Persistent project API models
+│   ├── project_routes.py       # Project CRUD endpoints
+│   ├── project_store.py        # SQLite / PostgreSQL store
+│   └── service.py              # Agent hub creation and export helpers
 │
 ├── frontend/
-│   ├── index.html           # Enterprise SaaS single-page UI
+│   ├── index.html              # Enterprise SaaS single-page UI
 │   └── assets/
-│       ├── app.js           # State management, API calls, quick fill, export
-│       ├── style.css        # Enterprise UI design system
+│       ├── app.js              # State management, API calls, export
+│       ├── project-storage.js  # Project create/save/open/archive/delete
+│       ├── project-storage.css # Project manager UI
+│       ├── style.css           # Enterprise UI design system
 │       └── hero-enterprise-ai.png
 │
 ├── src/
 │   └── zhilian_tianhe_agent/
-│       ├── agents.py        # Agent orchestration
-│       ├── prompts.py       # Prompt templates
-│       ├── llm_client.py    # OpenAI-compatible LLM client
-│       ├── reporting.py     # Markdown / TXT / DOCX builders
-│       ├── constants.py     # App constants
+│       ├── agents.py
+│       ├── prompts.py
+│       ├── llm_client.py
+│       ├── reporting.py
+│       ├── constants.py
 │       └── utils.py
 │
 ├── data/
@@ -427,9 +464,9 @@ zhilian_tianhe_agent_fastapi_enterprise_ui_final/
 │   ├── policy_directions.json
 │   └── tianhe_knowledge.json
 │
+├── docs/
+│   └── PROJECT_STORAGE.md
 ├── tests/
-│   └── test_api.py
-│
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
@@ -450,7 +487,21 @@ zhilian_tianhe_agent_fastapi_enterprise_ui_final/
 python -m pip install -r requirements.txt
 ```
 
-### 10.2 Run Locally
+### 10.2 Configure Project Storage
+
+SQLite default:
+
+```env
+DATABASE_URL=sqlite:///./runtime/zhilink.db
+```
+
+PostgreSQL production example:
+
+```env
+DATABASE_URL=postgresql+psycopg://user:password@host:5432/zhilink
+```
+
+### 10.3 Run Locally
 
 ```bash
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
@@ -460,12 +511,6 @@ Open:
 
 ```text
 http://127.0.0.1:8000
-```
-
-### 10.3 Run with Conda Interpreter
-
-```bash
-C:\anaconda3\envs\ecc_sim\python.exe -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ---
@@ -481,20 +526,7 @@ Default recommended configuration:
 | Model | `qwen-plus` |
 | Temperature | `0.35` |
 
-The platform also supports any OpenAI-compatible endpoint.
-
-```mermaid
-flowchart LR
-    UI[前端配置区] --> Key[API Key]
-    UI --> BaseURL[Base URL]
-    UI --> Model[Model Name]
-    UI --> Temp[Temperature]
-    Key --> Request[当前请求]
-    BaseURL --> Request
-    Model --> Request
-    Temp --> Request
-    Request --> Gateway[OpenAI-Compatible Gateway]
-```
+The platform also supports any OpenAI-compatible endpoint. Model interface configuration is not written into project snapshots.
 
 ---
 
@@ -523,6 +555,13 @@ flowchart LR
 | `POST` | `/api/match/stream` | 流式生成供需协作方案 |
 | `POST` | `/api/landing/stream` | 流式生成实施计划 |
 | `POST` | `/api/report/stream` | 流式生成综合运营报告 |
+| `GET` | `/api/projects` | 列出当前匿名工作区项目 |
+| `POST` | `/api/projects` | 新建项目并保存工作区快照 |
+| `GET` | `/api/projects/{project_id}` | 读取项目快照 |
+| `PUT` | `/api/projects/{project_id}` | 保存、重命名、归档或恢复项目 |
+| `DELETE` | `/api/projects/{project_id}` | 永久删除项目 |
+
+项目接口必须携带 `X-Workspace-Key`。详细错误契约与部署要求见项目存储文档。
 
 ---
 
@@ -534,17 +573,9 @@ flowchart LR
 docker compose up -d --build
 ```
 
-Open:
+Compose 默认将 SQLite 放入 `zhilink_project_data` 命名卷。正式多实例部署应将 `DATABASE_URL` 切换为 PostgreSQL。
 
-```text
-http://localhost:8000
-```
-
-Stop:
-
-```bash
-docker compose down
-```
+Render 免费实例等无持久磁盘环境不能依赖容器内 SQLite 长期保存项目；应配置托管 PostgreSQL、持久磁盘，或关闭项目持久化能力。
 
 ### Deployment Topology
 
@@ -555,40 +586,44 @@ flowchart TD
     App --> Static[Static Frontend Assets]
     App --> LLM[External or Private LLM Gateway]
     App --> Export[Report Export Engine]
+    App --> DB[(SQLite Volume / PostgreSQL)]
 
     subgraph Security
         S1[HTTPS]
-        S2[No Backend Key Persistence]
+        S2[No Model Key Persistence]
         S3[Input Desensitization]
         S4[Manual Review]
+        S5[Workspace Isolation]
     end
 
     Nginx --> S1
     App --> S2
     Browser --> S3
     Export --> S4
+    DB --> S5
 ```
 
 ---
 
 ## 14. Testing
 
-Run API tests:
+Run tests:
 
 ```bash
 pytest -q
 ```
 
-Expected:
+Run project storage tests directly:
 
-```text
-6 passed
+```bash
+PYTHONPATH=. pytest -q tests/test_project_store.py tests/test_project_routes.py
 ```
 
 Check frontend JavaScript:
 
 ```bash
 node --check frontend/assets/app.js
+node --check frontend/assets/project-storage.js
 ```
 
 Check Python compilation:
@@ -601,27 +636,10 @@ python -m compileall backend src tests
 
 ## 15. Design Principles
 
-```mermaid
-quadrantChart
-    title Product Design Positioning
-    x-axis Low Business Fit --> High Business Fit
-    y-axis Demo Toy --> Enterprise Workspace
-    quadrant-1 Enterprise AI Platform
-    quadrant-2 Complex Legacy System
-    quadrant-3 Toy Demo
-    quadrant-4 Lightweight Utility
-    "智链天河": [0.82, 0.78]
-    "普通聊天框": [0.35, 0.28]
-    "传统OA表单": [0.62, 0.45]
-    "重型ERP": [0.75, 0.62]
-```
-
-Design choices:
-
 - Not a generic chatbot.
 - Not a heavy ERP system.
 - Not a simple form demo.
-- A lightweight enterprise AI workspace with structured output and export capability.
+- A lightweight enterprise AI workspace with structured output, explicit project storage and export capability.
 
 ---
 
@@ -632,12 +650,23 @@ Design choices:
 ```text
 frontend/index.html
 frontend/assets/style.css
+frontend/assets/project-storage.css
 ```
 
 ### Modify Interactions
 
 ```text
 frontend/assets/app.js
+frontend/assets/project-storage.js
+```
+
+### Modify Project Storage
+
+```text
+backend/project_schemas.py
+backend/project_routes.py
+backend/project_store.py
+docs/PROJECT_STORAGE.md
 ```
 
 ### Modify Agent Outputs
@@ -650,14 +679,6 @@ src/zhilian_tianhe_agent/prompts.py
 
 ```text
 src/zhilian_tianhe_agent/llm_client.py
-```
-
-### Modify Export Format
-
-```text
-src/zhilian_tianhe_agent/reporting.py
-backend/main.py
-frontend/assets/app.js
 ```
 
 ---
@@ -677,14 +698,15 @@ gantt
     天河场景快速填入                   :done, v1e, 2026-07-05, 2d
 
     section V2 Operational Layer
-    历史报告管理                       :active, v2a, 2026-07-08, 5d
-    本地 SQLite 服务台账                :v2b, 2026-07-13, 5d
-    组织空间与角色权限                 :v2c, 2026-07-18, 7d
+    SQLite/PostgreSQL 项目存储         :done, v2a, 2026-08-04, 1d
+    项目和材料版本历史                 :active, v2b, 2026-08-05, 5d
+    组织空间与角色权限                 :v2c, 2026-08-10, 7d
+    人工编辑、确认和审核               :v2d, 2026-08-17, 7d
 
     section V3 Enterprise Deployment
-    私有模型网关适配                   :v3a, 2026-07-25, 7d
-    管理后台与审计日志                 :v3b, 2026-08-01, 10d
-    内网部署与权限策略                 :v3c, 2026-08-12, 10d
+    私有模型网关适配                   :v3a, 2026-08-24, 7d
+    管理后台与审计日志                 :v3b, 2026-09-01, 10d
+    内网部署与权限策略                 :v3c, 2026-09-12, 10d
 ```
 
 ---
@@ -743,4 +765,4 @@ All Rights Reserved.
 
 ## 20. Final Statement
 
-> **智链天河 · 企业运营 AI 工作台** 以企业运营材料为核心对象，以大模型为生成引擎，以结构化输出和报告归档为交付形态，面向真实企业服务场景，提供一套轻量、可部署、可复核、可扩展的 AI 工作台解决方案。
+> **智链天河 · 企业运营 AI 工作台** 以企业运营材料为核心对象，以大模型为生成引擎，以结构化输出、显式项目存储和报告归档为交付形态，面向真实企业服务场景，提供一套轻量、可部署、可复核、可扩展的 AI 工作台解决方案。
