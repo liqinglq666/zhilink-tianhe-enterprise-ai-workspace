@@ -102,6 +102,13 @@ def test_workspace_key_required_and_snapshot_rejects_credentials(monkeypatch, tm
     assert missing.status_code == 400
     assert missing.json()["code"] == "WORKSPACE_KEY_REQUIRED"
 
+    blank_name = client.post(
+        "/api/projects",
+        headers={"X-Workspace-Key": KEY},
+        json={"name": "   ", "snapshot": snapshot()},
+    )
+    assert blank_name.status_code == 422
+
     invalid = client.post(
         "/api/projects",
         headers={"X-Workspace-Key": KEY},
