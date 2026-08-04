@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Validated API schemas for persistent project workspaces."""
+"""Validated API schemas for persistent projects and immutable history."""
 
 from __future__ import annotations
 
@@ -7,6 +7,14 @@ from datetime import datetime
 from typing import Dict, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+ProjectStatus = Literal["active", "archived"]
+ProjectModule = Literal[
+    "project", "identity", "profile", "meeting", "contract", "policy", "match", "landing", "report"
+]
+ProjectChangeKind = Literal[
+    "create", "baseline", "save", "metadata", "archive", "unarchive", "restore"
+]
 
 
 def _validate_string_mapping(
@@ -116,6 +124,7 @@ class ProjectCreateRequest(StrictModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=2000)
     snapshot: ProjectSnapshot = Field(default_factory=ProjectSnapshot)
+    version_label: str = Field(default="", max_length=200)
 
     @field_validator("name")
     @classmethod
@@ -125,9 +134,9 @@ class ProjectCreateRequest(StrictModel):
             raise ValueError("项目名称不能为空。")
         return cleaned
 
-    @field_validator("description")
+    @field_validator("description", "version_label")
     @classmethod
-    def strip_description(cls, value: str) -> str:
+    def strip_text(cls, value: str) -> str:
         return value.strip()
 
 
@@ -135,8 +144,9 @@ class ProjectUpdateRequest(StrictModel):
     lock_version: int = Field(ge=1)
     name: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=2000)
-    status: Literal["active", "archived"] | None = None
+    status: ProjectStatus | None = None
     snapshot: ProjectSnapshot | None = None
+    version_label: str = Field(default="", max_length=200)
 
     @field_validator("name")
     @classmethod
@@ -153,21 +163,36 @@ class ProjectUpdateRequest(StrictModel):
     def strip_optional_description(cls, value: str | None) -> str | None:
         return value.strip() if value is not None else None
 
+    @field_validator("version_label")
+    @classmethod
+    def strip_version_label(cls, value: str) -> str:
+        return value.strip()
+
     @model_validator(mode="after")
     def require_change(self) -> "ProjectUpdateRequest":
-        if all(
-            value is None
-            for value in (self.name, self.description, self.status, self.snapshot)
+        if (
+            all(value is None for value in (self.name, self.description, self.status, self.snapshot))
+            and not self.version_label
         ):
-            raise ValueError("请至少提交一个需要更新的项目字段。")
+            raise ValueError("请至少提交一个需要更新的项目字段或版本说明。")
         return self
+
+
+class ProjectRestoreRequest(StrictModel):
+    lock_version: int = Field(ge=1)
+    version_label: str = Field(default="", max_length=200)
+
+    @field_validator("version_label")
+    @classmethod
+    def strip_version_label(cls, value: str) -> str:
+        return value.strip()
 
 
 class ProjectSummary(StrictModel):
     id: str
     name: str
     description: str
-    status: Literal["active", "archived"]
+    status: ProjectStatus
     lock_version: int
     created_at: datetime
     updated_at: datetime
@@ -185,3 +210,26 @@ class ProjectListResponse(StrictModel):
 class ProjectDeleteResponse(StrictModel):
     ok: bool = True
     id: str
+
+
+class ProjectVersionSummary(StrictModel):
+    id: str
+    project_id: str
+    version_number: int
+    change_kind: ProjectChangeKind
+    label: str
+    changed_modules: list[ProjectModule]
+    source_version_number: int | None = None
+    created_at: datetime
+
+
+class ProjectVersionResponse(ProjectVersionSummary):
+    name: str
+    description: str
+    status: ProjectStatus
+    snapshot: ProjectSnapshot
+
+
+class ProjectVersionListResponse(StrictModel):
+    items: list[ProjectVersionSummary]
+    total: int
