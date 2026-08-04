@@ -86,9 +86,11 @@ def test_project_crud(monkeypatch, tmp_path):
     )
     assert archived.status_code == 200
     assert client.get("/api/projects", headers=headers).json()["total"] == 0
-    assert client.get(
+    archived_list = client.get(
         "/api/projects?include_archived=true", headers=headers
-    ).json()["total"] == 1
+    ).json()
+    assert archived_list["total"] == 1
+    assert "snapshot" not in archived_list["items"][0]
 
     conflict = client.put(
         f"/api/projects/{project['id']}",
