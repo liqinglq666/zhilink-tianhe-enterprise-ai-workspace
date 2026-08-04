@@ -117,9 +117,17 @@ class ProjectCreateRequest(StrictModel):
     description: str = Field(default="", max_length=2000)
     snapshot: ProjectSnapshot = Field(default_factory=ProjectSnapshot)
 
-    @field_validator("name", "description")
+    @field_validator("name")
     @classmethod
-    def strip_text(cls, value: str) -> str:
+    def strip_name(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("项目名称不能为空。")
+        return cleaned
+
+    @field_validator("description")
+    @classmethod
+    def strip_description(cls, value: str) -> str:
         return value.strip()
 
 
@@ -130,9 +138,19 @@ class ProjectUpdateRequest(StrictModel):
     status: Literal["active", "archived"] | None = None
     snapshot: ProjectSnapshot | None = None
 
-    @field_validator("name", "description")
+    @field_validator("name")
     @classmethod
-    def strip_optional_text(cls, value: str | None) -> str | None:
+    def strip_optional_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("项目名称不能为空。")
+        return cleaned
+
+    @field_validator("description")
+    @classmethod
+    def strip_optional_description(cls, value: str | None) -> str | None:
         return value.strip() if value is not None else None
 
     @model_validator(mode="after")
