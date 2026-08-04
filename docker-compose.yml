@@ -7,5 +7,9 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - MAX_BODY_BYTES=1500000
+      - RATE_LIMIT_REQUESTS=30
+      - RATE_LIMIT_WINDOW_SECONDS=60
+      - MAX_CONCURRENT_GENERATIONS_PER_CLIENT=1
+      - TRUST_PROXY_HEADERS=false
       - CORS_ALLOW_ORIGINS=*
     restart: unless-stopped
