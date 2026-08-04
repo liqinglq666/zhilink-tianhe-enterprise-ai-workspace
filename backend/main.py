@@ -51,11 +51,12 @@ from .security import (  # noqa: E402
 )
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
-APP_VERSION = "2.5.0-model-errors"
+APP_VERSION = "2.6.0-generation-controls"
 MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "30"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 MAX_CONCURRENT_GENERATIONS_PER_CLIENT = int(os.getenv("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", "1"))
+MODEL_TEST_TIMEOUT_SECONDS = max(5, min(int(os.getenv("MODEL_TEST_TIMEOUT_SECONDS", "20")), 120))
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "").strip().lower() in {"1", "true", "yes", "on"}
 ALLOW_WILDCARD_CORS = os.getenv("ALLOW_WILDCARD_CORS", "").strip().lower() in {"1", "true", "yes", "on"}
 ENABLE_HSTS = os.getenv("ENABLE_HSTS", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -201,6 +202,19 @@ async def value_error_handler(request: Request, exc: ValueError):  # noqa: ARG00
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
+@app.get("/assets/app.js", include_in_schema=False)
+def frontend_app_bundle() -> Response:
+    """Serve the base application plus generation controls as one same-origin bundle."""
+
+    base_script = (ASSETS_DIR / "app.js").read_text(encoding="utf-8")
+    controls_script = (ASSETS_DIR / "generation-controls.js").read_text(encoding="utf-8")
+    return Response(
+        content=f"{base_script}\n\n{controls_script}\n",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
 
@@ -312,7 +326,7 @@ def test_connection(config: APIConfig, request: Request) -> AgentResponse:
                     base_url=config.base_url.strip(),
                     model=config.model.strip(),
                     temperature=config.temperature,
-                    timeout=20,
+                    timeout=MODEL_TEST_TIMEOUT_SECONDS,
                 )
             )
             content = client.chat("你是接口连通性测试助手。", "请只回复：连接成功")
