@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
-"""Project persistence and immutable version-history API."""
+"""Project APIs with anonymous-workspace compatibility and organization RBAC."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, FastAPI, Query, Request
-from fastapi.responses import JSONResponse
+from pathlib import Path
 
+from fastapi import APIRouter, FastAPI, Query, Request
+from fastapi.responses import JSONResponse, Response
+
+from .auth_routes import register_auth_routes, require_auth, require_csrf
+from .auth_store import get_account_store
 from .project_schemas import (
     ProjectCreateRequest,
     ProjectDeleteResponse,
@@ -23,10 +27,11 @@ from .project_store import (
     ProjectNotFound,
     ProjectStoreUnavailable,
     ProjectVersionConflict,
-    get_project_store,
     hash_workspace_key,
 )
 
+ROOT = Path(__file__).resolve().parents[1]
+ASSETS_DIR = ROOT / "frontend" / "assets"
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
@@ -38,7 +43,7 @@ class ProjectAPIError(Exception):
         message: str,
         *,
         current_version: int | None = None,
-    ):
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.code = code
@@ -59,11 +64,22 @@ def _workspace_key(request: Request) -> str:
     return value
 
 
+def _scope(request: Request, permission: str, *, write: bool = False):
+    organization_id = request.headers.get("x-organization-id", "").strip()
+    store = get_account_store()
+    if organization_id:
+        auth = require_auth(request)
+        if write:
+            require_csrf(request, auth)
+        return store.organization_scope(auth.user_id, organization_id, permission)
+    return store.anonymous_scope(_workspace_key(request))
+
+
 def _store_error(exc: Exception) -> ProjectAPIError:
     if isinstance(exc, ProjectNotFound):
         return ProjectAPIError(404, "PROJECT_NOT_FOUND", "项目不存在或无权访问。")
     if isinstance(exc, ProjectHistoryNotFound):
-        return ProjectAPIError(404, "PROJECT_HISTORY_NOT_FOUND", "指定的项目版本不存在。")
+        return ProjectAPIError(404, "PROJECT_HISTORY_NOT_FOUND", "项目版本不存在。")
     if isinstance(exc, ProjectVersionConflict):
         return ProjectAPIError(
             409,
@@ -94,8 +110,8 @@ def list_projects(
     include_archived: bool = False,
 ) -> ProjectListResponse:
     try:
-        items, total = get_project_store().list(
-            _workspace_key(request),
+        items, total = get_account_store().list_projects(
+            _scope(request, "project:read"),
             limit=limit,
             offset=offset,
             include_archived=include_archived,
@@ -110,8 +126,8 @@ def list_projects(
 @router.post("", response_model=ProjectResponse, status_code=201)
 def create_project(request: Request, payload: ProjectCreateRequest) -> ProjectResponse:
     try:
-        record = get_project_store().create(
-            _workspace_key(request),
+        record = get_account_store().create_project(
+            _scope(request, "project:create", write=True),
             name=payload.name,
             description=payload.description,
             snapshot=payload.snapshot.model_dump(mode="json"),
@@ -130,14 +146,16 @@ def list_project_versions(
     offset: int = Query(default=0, ge=0),
 ) -> ProjectVersionListResponse:
     try:
-        items, total = get_project_store().list_history(
-            _workspace_key(request), project_id, limit=limit, offset=offset
+        items, total = get_account_store().list_history(
+            _scope(request, "history:read"),
+            project_id,
+            limit=limit,
+            offset=offset,
         )
     except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
     return ProjectVersionListResponse(
-        items=[ProjectVersionSummary.model_validate(item) for item in items],
-        total=total,
+        items=[ProjectVersionSummary.model_validate(item) for item in items], total=total
     )
 
 
@@ -149,8 +167,8 @@ def get_project_version(
     request: Request, project_id: str, version_number: int
 ) -> ProjectVersionResponse:
     try:
-        record = get_project_store().get_history(
-            _workspace_key(request), project_id, version_number
+        record = get_account_store().get_history(
+            _scope(request, "history:read"), project_id, version_number
         )
     except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
@@ -168,8 +186,8 @@ def restore_project_version(
     payload: ProjectRestoreRequest,
 ) -> ProjectResponse:
     try:
-        record = get_project_store().restore_history(
-            _workspace_key(request),
+        record = get_account_store().restore_history(
+            _scope(request, "history:restore", write=True),
             project_id,
             version_number,
             expected_lock_version=payload.lock_version,
@@ -183,7 +201,9 @@ def restore_project_version(
 @router.get("/{project_id}", response_model=ProjectResponse)
 def get_project(request: Request, project_id: str) -> ProjectResponse:
     try:
-        record = get_project_store().get(_workspace_key(request), project_id)
+        record = get_account_store().get_project(
+            _scope(request, "project:read"), project_id
+        )
     except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
     return ProjectResponse.model_validate(record)
@@ -196,8 +216,8 @@ def update_project(
     payload: ProjectUpdateRequest,
 ) -> ProjectResponse:
     try:
-        record = get_project_store().update(
-            _workspace_key(request),
+        record = get_account_store().update_project(
+            _scope(request, "project:update", write=True),
             project_id,
             expected_lock_version=payload.lock_version,
             name=payload.name,
@@ -214,18 +234,38 @@ def update_project(
 @router.delete("/{project_id}", response_model=ProjectDeleteResponse)
 def delete_project(request: Request, project_id: str) -> ProjectDeleteResponse:
     try:
-        get_project_store().delete(_workspace_key(request), project_id)
+        get_account_store().delete_project(
+            _scope(request, "project:delete", write=True), project_id
+        )
     except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
     return ProjectDeleteResponse(id=project_id)
 
 
 def register_project_routes(app: FastAPI) -> None:
+    register_auth_routes(app)
     app.include_router(router)
 
+    @app.get("/assets/app.js", include_in_schema=False)
+    def workspace_app_bundle() -> Response:
+        scripts = [
+            "app.js",
+            "generation-controls.js",
+            "account-access.js",
+            "project-storage.js",
+        ]
+        content = "\n\n".join(
+            (ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts
+        )
+        return Response(
+            content=f"{content}\n",
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-cache"},
+        )
+
     @app.exception_handler(ProjectAPIError)
-    async def project_api_error_handler(
-        request: Request, exc: ProjectAPIError  # noqa: ARG001
+    async def project_api_error_handler(  # noqa: ARG001
+        request: Request, exc: ProjectAPIError
     ) -> JSONResponse:
         payload: dict[str, object] = {
             "detail": exc.message,
