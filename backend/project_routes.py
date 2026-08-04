@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Project persistence API, scoped by an anonymous browser workspace key."""
+"""Project persistence and immutable version-history API."""
 
 from __future__ import annotations
 
@@ -11,10 +11,15 @@ from .project_schemas import (
     ProjectDeleteResponse,
     ProjectListResponse,
     ProjectResponse,
+    ProjectRestoreRequest,
     ProjectSummary,
     ProjectUpdateRequest,
+    ProjectVersionListResponse,
+    ProjectVersionResponse,
+    ProjectVersionSummary,
 )
 from .project_store import (
+    ProjectHistoryNotFound,
     ProjectNotFound,
     ProjectStoreUnavailable,
     ProjectVersionConflict,
@@ -57,11 +62,13 @@ def _workspace_key(request: Request) -> str:
 def _store_error(exc: Exception) -> ProjectAPIError:
     if isinstance(exc, ProjectNotFound):
         return ProjectAPIError(404, "PROJECT_NOT_FOUND", "项目不存在或无权访问。")
+    if isinstance(exc, ProjectHistoryNotFound):
+        return ProjectAPIError(404, "PROJECT_HISTORY_NOT_FOUND", "指定的项目版本不存在。")
     if isinstance(exc, ProjectVersionConflict):
         return ProjectAPIError(
             409,
             "PROJECT_VERSION_CONFLICT",
-            "项目已在其他页面更新，请重新载入后再保存。",
+            "项目已在其他页面更新，请重新载入后再操作。",
             current_version=exc.current_version,
         )
     return ProjectAPIError(
@@ -69,6 +76,14 @@ def _store_error(exc: Exception) -> ProjectAPIError:
         "PROJECT_STORAGE_UNAVAILABLE",
         "项目存储暂时不可用，请稍后重试。",
     )
+
+
+_STORE_EXCEPTIONS = (
+    ProjectNotFound,
+    ProjectHistoryNotFound,
+    ProjectVersionConflict,
+    ProjectStoreUnavailable,
+)
 
 
 @router.get("", response_model=ProjectListResponse)
@@ -85,7 +100,7 @@ def list_projects(
             offset=offset,
             include_archived=include_archived,
         )
-    except (ProjectNotFound, ProjectVersionConflict, ProjectStoreUnavailable) as exc:
+    except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
     return ProjectListResponse(
         items=[ProjectSummary.model_validate(item) for item in items], total=total
@@ -100,8 +115,67 @@ def create_project(request: Request, payload: ProjectCreateRequest) -> ProjectRe
             name=payload.name,
             description=payload.description,
             snapshot=payload.snapshot.model_dump(mode="json"),
+            version_label=payload.version_label,
         )
-    except (ProjectNotFound, ProjectVersionConflict, ProjectStoreUnavailable) as exc:
+    except _STORE_EXCEPTIONS as exc:
+        raise _store_error(exc) from exc
+    return ProjectResponse.model_validate(record)
+
+
+@router.get("/{project_id}/versions", response_model=ProjectVersionListResponse)
+def list_project_versions(
+    request: Request,
+    project_id: str,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> ProjectVersionListResponse:
+    try:
+        items, total = get_project_store().list_history(
+            _workspace_key(request), project_id, limit=limit, offset=offset
+        )
+    except _STORE_EXCEPTIONS as exc:
+        raise _store_error(exc) from exc
+    return ProjectVersionListResponse(
+        items=[ProjectVersionSummary.model_validate(item) for item in items],
+        total=total,
+    )
+
+
+@router.get(
+    "/{project_id}/versions/{version_number}",
+    response_model=ProjectVersionResponse,
+)
+def get_project_version(
+    request: Request, project_id: str, version_number: int
+) -> ProjectVersionResponse:
+    try:
+        record = get_project_store().get_history(
+            _workspace_key(request), project_id, version_number
+        )
+    except _STORE_EXCEPTIONS as exc:
+        raise _store_error(exc) from exc
+    return ProjectVersionResponse.model_validate(record)
+
+
+@router.post(
+    "/{project_id}/versions/{version_number}/restore",
+    response_model=ProjectResponse,
+)
+def restore_project_version(
+    request: Request,
+    project_id: str,
+    version_number: int,
+    payload: ProjectRestoreRequest,
+) -> ProjectResponse:
+    try:
+        record = get_project_store().restore_history(
+            _workspace_key(request),
+            project_id,
+            version_number,
+            expected_lock_version=payload.lock_version,
+            version_label=payload.version_label,
+        )
+    except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
     return ProjectResponse.model_validate(record)
 
@@ -110,7 +184,7 @@ def create_project(request: Request, payload: ProjectCreateRequest) -> ProjectRe
 def get_project(request: Request, project_id: str) -> ProjectResponse:
     try:
         record = get_project_store().get(_workspace_key(request), project_id)
-    except (ProjectNotFound, ProjectVersionConflict, ProjectStoreUnavailable) as exc:
+    except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
     return ProjectResponse.model_validate(record)
 
@@ -130,8 +204,9 @@ def update_project(
             description=payload.description,
             status=payload.status,
             snapshot=(payload.snapshot.model_dump(mode="json") if payload.snapshot else None),
+            version_label=payload.version_label,
         )
-    except (ProjectNotFound, ProjectVersionConflict, ProjectStoreUnavailable) as exc:
+    except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
     return ProjectResponse.model_validate(record)
 
@@ -140,7 +215,7 @@ def update_project(
 def delete_project(request: Request, project_id: str) -> ProjectDeleteResponse:
     try:
         get_project_store().delete(_workspace_key(request), project_id)
-    except (ProjectNotFound, ProjectVersionConflict, ProjectStoreUnavailable) as exc:
+    except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
     return ProjectDeleteResponse(id=project_id)
 
@@ -149,8 +224,8 @@ def register_project_routes(app: FastAPI) -> None:
     app.include_router(router)
 
     @app.exception_handler(ProjectAPIError)
-    async def project_api_error_handler(  # noqa: ARG001
-        request: Request, exc: ProjectAPIError
+    async def project_api_error_handler(
+        request: Request, exc: ProjectAPIError  # noqa: ARG001
     ) -> JSONResponse:
         payload: dict[str, object] = {
             "detail": exc.message,
