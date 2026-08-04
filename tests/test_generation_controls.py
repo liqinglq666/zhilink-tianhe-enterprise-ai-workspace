@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+import asyncio
+
+from backend import main
+from backend.service import model_request_timeout_seconds
+
+
+class ClosableChunks:
+    def __init__(self):
+        self.sent = False
+        self.closed = False
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.sent:
+            raise StopIteration
+        self.sent = True
+        return "partial"
+
+    def close(self):
+        self.closed = True
+
+
+class RecordingLimiter:
+    def __init__(self):
+        self.released = []
+
+    def release(self, key):
+        self.released.append(key)
+
+
+def test_model_request_timeout_is_bounded(monkeypatch):
+    monkeypatch.setenv("MODEL_REQUEST_TIMEOUT_SECONDS", "3")
+    assert model_request_timeout_seconds() == 10
+
+    monkeypatch.setenv("MODEL_REQUEST_TIMEOUT_SECONDS", "900")
+    assert model_request_timeout_seconds() == 600
+
+    monkeypatch.setenv("MODEL_REQUEST_TIMEOUT_SECONDS", "invalid")
+    assert model_request_timeout_seconds() == 120
+
+
+def test_closing_stream_closes_upstream_and_releases_slot(monkeypatch):
+    chunks = ClosableChunks()
+    limiter = RecordingLimiter()
+    monkeypatch.setattr(main, "GENERATION_LIMITER", limiter)
+
+    async def exercise():
+        response = main._stream_response(chunks, release_key="client-1")
+        stream = response.body_iterator
+        meta = await anext(stream)
+        delta = await anext(stream)
+        assert '"type": "meta"' in meta
+        assert '"type": "delta"' in delta
+        await stream.aclose()
+
+    asyncio.run(exercise())
+
+    assert chunks.closed is True
+    assert limiter.released == ["client-1"]
