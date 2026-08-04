@@ -261,6 +261,7 @@ def test_cross_organization_isolation_and_logout(tmp_path):
 def test_frontend_exposes_account_and_organization_controls():
     source = open("frontend/assets/account-access.js", encoding="utf-8").read()
     assert "ACCOUNT_ACCESS_READY" in source
+    assert "credentials: \"same-origin\"" in source
     assert "X-Organization-Id" in source
     assert "X-CSRF-Token" in source
     assert "claim-workspace-projects" in source
