@@ -10,14 +10,18 @@ ASSETS = ROOT / "frontend" / "assets"
 def test_live_redesign_is_loaded_after_business_extensions() -> None:
     routes = (ROOT / "backend" / "project_routes.py").read_text(encoding="utf-8")
     assert '"ui-redesign-live.js"' in routes
+    assert '"ui-redesign-live-fixes.js"' in routes
     assert routes.index('"product-simplification.js"') < routes.index('"ui-redesign-live.js"')
+    assert routes.index('"ui-redesign-live.js"') < routes.index('"ui-redesign-live-fixes.js"')
 
 
 def test_live_redesign_preserves_real_workspace_actions() -> None:
     script = (ASSETS / "ui-redesign-live.js").read_text(encoding="utf-8")
+    fixes = (ASSETS / "ui-redesign-live-fixes.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "ui-redesign-live.css").read_text(encoding="utf-8")
 
     assert "ZHILINK_UI_REDESIGN_LIVE_READY" in script
+    assert "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY" in fixes
     assert 'triggerExisting("openProjectManager")' in script
     assert 'triggerExisting("openAccountManager")' in script
     assert 'triggerExisting("openIdentity")' in script
@@ -26,6 +30,8 @@ def test_live_redesign_preserves_real_workspace_actions() -> None:
     assert 'fetch("/api/projects?limit=4&offset=0"' in script
     assert "collectPendingItems" in script
     assert "state.results" in script
+    assert "getRandomValues" in fixes
+    assert "document.body.appendChild(panel)" in fixes
     assert "ui-redesign-live" in stylesheet
     assert "data-demo-project" not in script
     assert "98%" not in script
