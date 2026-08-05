@@ -1,0 +1,95 @@
+/* Progressive disclosure for the default product experience. */
+body.ui-simple-mode #openServiceWorkflow {
+  display: none !important;
+}
+
+.ui-local-advanced-toggle {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+body.ui-advanced-mode .ui-local-advanced-toggle {
+  display: none !important;
+}
+
+body.ui-simple-mode #projectManagerModal .ui-technical-detail,
+body.ui-simple-mode #structuredResultModal:not(.ui-show-advanced) .structured-raw,
+body.ui-simple-mode #structuredResultModal:not(.ui-show-advanced) .structured-dialog-footer,
+body.ui-simple-mode #structuredResultModal:not(.ui-show-advanced) .ui-technical-detail,
+body.ui-simple-mode #knowledgeBaseModal:not(.ui-show-advanced) .knowledge-history,
+body.ui-simple-mode #knowledgeBaseModal:not(.ui-show-advanced) .ui-technical-detail,
+body.ui-simple-mode #reviewWorkflowModal:not(.ui-show-advanced) .review-events-section,
+body.ui-simple-mode #reviewWorkflowModal:not(.ui-show-advanced) .ui-technical-detail,
+body.ui-simple-mode #serviceWorkflowModal:not(.ui-show-advanced) .ui-workflow-audit-card,
+body.ui-simple-mode #serviceWorkflowModal:not(.ui-show-advanced) .ui-technical-detail {
+  display: none !important;
+}
+
+body.ui-simple-mode .structured-result-bar small {
+  max-width: 560px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-project-secondary-tool,
+.ui-mode-toggle {
+  white-space: nowrap;
+}
+
+.ui-workflow-phase {
+  margin: 18px 0 8px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(127, 127, 127, 0.08);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+body.ui-advanced-mode .ui-workflow-phase {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  body.ui-simple-mode .top-actions {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  body.ui-simple-mode .top-actions #openProjectManager,
+  body.ui-simple-mode .top-actions #openKnowledgeBase,
+  body.ui-simple-mode .top-actions #openAccountManager {
+    flex: 1 1 calc(33.333% - 6px);
+    min-width: 0;
+    max-width: none;
+    padding-inline: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.ui-simple-mode .project-action-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.ui-simple-mode .project-action-row > button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body.ui-simple-mode .structured-dialog-header,
+  body.ui-simple-mode .knowledge-dialog-header,
+  body.ui-simple-mode .review-dialog-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  body.ui-simple-mode .ui-local-advanced-toggle {
+    order: 3;
+    width: 100%;
+    margin: 4px 0 0;
+  }
+}

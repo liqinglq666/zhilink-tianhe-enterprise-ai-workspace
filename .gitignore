@@ -11,3 +11,7 @@ venv/
 dist/
 build/
 *.egg-info/
+runtime/
+*.db
+*.sqlite
+*.sqlite3
