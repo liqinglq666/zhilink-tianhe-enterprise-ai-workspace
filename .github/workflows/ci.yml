@@ -54,12 +54,13 @@ jobs:
             node --check "${file}"
           done < <(find frontend/assets -type f -name '*.js' -print0 | sort -z)
 
-      - name: Upgrade a clean SQLite database
+      - name: Upgrade and verify a clean SQLite database
         env:
           DATABASE_URL: sqlite:///${{ runner.temp }}/zhilink-${{ matrix.python-version }}.db
         run: |
           python scripts/migrate.py
           python scripts/migrate.py
+          python scripts/check_schema.py
 
       - name: Run complete test suite
         env:
@@ -101,41 +102,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Upgrade PostgreSQL schema
+      - name: Upgrade and verify PostgreSQL schema
         env:
           DATABASE_URL: postgresql+psycopg://zhilink:zhilink@127.0.0.1:5432/zhilink_ci
         run: |
           python scripts/migrate.py
           python scripts/migrate.py
-          python - <<'PY'
-          import os
-          from sqlalchemy import create_engine, inspect, text
-
-          engine = create_engine(os.environ["DATABASE_URL"])
-          tables = set(inspect(engine).get_table_names())
-          required = {
-              "projects",
-              "project_versions",
-              "users",
-              "organizations",
-              "organization_memberships",
-              "auth_sessions",
-              "organization_projects",
-              "project_review_events",
-              "knowledge_articles",
-              "knowledge_versions",
-              "knowledge_review_events",
-              "service_cases",
-              "service_case_nodes",
-              "service_case_contexts",
-              "service_case_events",
-              "alembic_version",
-          }
-          missing = sorted(required - tables)
-          assert not missing, f"Missing PostgreSQL tables: {missing}"
-          with engine.connect() as connection:
-              assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "20260805_0001"
-          PY
+          python scripts/check_schema.py
 
   container:
     name: Container build
