@@ -12,20 +12,6 @@ from backend.service_workflow_store import reset_service_workflow_store_for_test
 WORKSPACE_KEY = "integration-" + ("z" * 40)
 
 
-def _route_paths(routes) -> set[str]:
-    """Collect paths across FastAPI/Starlette route container versions."""
-
-    paths: set[str] = set()
-    for route in routes:
-        path = getattr(route, "path", None)
-        if path:
-            paths.add(path)
-        nested = getattr(route, "routes", None)
-        if nested:
-            paths.update(_route_paths(nested))
-    return paths
-
-
 def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'main-app.db'}")
     reset_knowledge_store_for_tests()
@@ -47,7 +33,9 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         assert "ZHILINK_KNOWLEDGE_READY" in bundle.text
         assert "ZHILINK_SERVICE_WORKFLOW_READY" in bundle.text
 
-        route_paths = _route_paths(app.routes)
+        schema = client.get("/openapi.json")
+        assert schema.status_code == 200
+        route_paths = set(schema.json()["paths"])
         assert "/api/policy/official/search" in route_paths
         assert "/api/policy/official/stream" in route_paths
         assert "/api/knowledge/search" in route_paths
