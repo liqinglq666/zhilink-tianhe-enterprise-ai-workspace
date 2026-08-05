@@ -49,8 +49,9 @@ def _assert_head(database_url: str) -> None:
         engine.dispose()
 
 
-def test_baseline_upgrades_a_clean_database_and_is_idempotent(tmp_path):
+def test_baseline_upgrades_a_clean_database_and_is_idempotent(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'clean.db'}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
     config = _config(database_url)
 
     command.upgrade(config, "head")
@@ -59,8 +60,9 @@ def test_baseline_upgrades_a_clean_database_and_is_idempotent(tmp_path):
     _assert_head(database_url)
 
 
-def test_baseline_adopts_a_legacy_create_all_database(tmp_path):
+def test_baseline_adopts_a_legacy_create_all_database(tmp_path, monkeypatch):
     database_url = f"sqlite:///{tmp_path / 'legacy.db'}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
     engine = create_engine(database_url)
     try:
         get_model_metadata().create_all(engine, checkfirst=True)
