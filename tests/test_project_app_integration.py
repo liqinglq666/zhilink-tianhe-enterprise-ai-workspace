@@ -23,6 +23,12 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
     client = TestClient(app)
 
     try:
+        preview = client.get("/preview")
+        assert preview.status_code == 200
+        assert "智链天河 · 新版 UI 预览" in preview.text
+        assert "本页为界面预览" in preview.text
+        assert preview.headers["cache-control"] == "no-store"
+
         bundle = client.get("/assets/app.js")
         assert bundle.status_code == 200
         assert "PROJECT_STORAGE_READY" in bundle.text
@@ -36,6 +42,7 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         schema = client.get("/openapi.json")
         assert schema.status_code == 200
         route_paths = set(schema.json()["paths"])
+        assert "/preview" not in route_paths
         assert "/api/policy/official/search" in route_paths
         assert "/api/policy/official/stream" in route_paths
         assert "/api/knowledge/search" in route_paths
