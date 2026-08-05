@@ -8,6 +8,11 @@ body.ui-simple-mode #openServiceWorkflow {
   white-space: nowrap;
 }
 
+body.ui-advanced-mode .ui-local-advanced-toggle {
+  display: none !important;
+}
+
+body.ui-simple-mode #projectManagerModal .ui-technical-detail,
 body.ui-simple-mode #structuredResultModal:not(.ui-show-advanced) .structured-raw,
 body.ui-simple-mode #structuredResultModal:not(.ui-show-advanced) .structured-dialog-footer,
 body.ui-simple-mode #structuredResultModal:not(.ui-show-advanced) .ui-technical-detail,
@@ -36,6 +41,7 @@ body.ui-simple-mode .structured-result-bar small {
   margin: 18px 0 8px;
   padding: 9px 12px;
   border-radius: 10px;
+  background: rgba(127, 127, 127, 0.08);
   background: color-mix(in srgb, currentColor 7%, transparent);
   font-size: 13px;
   font-weight: 700;
