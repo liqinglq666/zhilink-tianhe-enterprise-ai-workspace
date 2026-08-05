@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="智链天河企业运营 AI 工作台新版界面预览" />
+  <title>智链天河 · 新版 UI 预览</title>
+  <link rel="stylesheet" href="/assets/ui-preview.css" />
+</head>
+<body>
+  <div class="preview-app" id="previewApp">
+    <aside class="preview-sidebar" id="previewSidebar">
+      <div class="preview-brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 6.5 9.2 4l2.8 2.4L14.8 4 19 6.5v5.2c0 4.2-2.7 7-7 8.3-4.3-1.3-7-4.1-7-8.3V6.5Z"/><path d="m8.1 12 2.2 2.2 5-5"/></svg>
+        </div>
+        <div>
+          <strong>智链天河</strong>
+          <span>企业运营 AI 工作台</span>
+        </div>
+      </div>
+
+      <nav class="preview-nav" aria-label="新版预览导航">
+        <a class="nav-item active" href="#overview" data-preview-nav>
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-6v-6h-4v6H4v-9Z"/></svg></span>
+          <span>运营总览</span>
+        </a>
+
+        <p class="nav-label">业务处理</p>
+        <button class="nav-item" type="button" data-task="meeting">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z"/><path d="M8 13h3M8 17h6"/></svg></span>
+          <span>会议纪要</span>
+        </button>
+        <button class="nav-item" type="button" data-task="contract">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M15 3v5h5M9 13h6M9 17h6"/></svg></span>
+          <span>合同审阅</span>
+        </button>
+        <button class="nav-item" type="button" data-task="policy">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M5 21V5l7-2 7 2v16M5 9h14M9 9v12M15 9v12M3 21h18"/></svg></span>
+          <span>政策助手</span>
+        </button>
+        <button class="nav-item" type="button" data-task="match">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M8.5 12.5 5 16l-3-3 6-6 4 4M15.5 11.5 19 8l3 3-6 6-4-4"/><path d="m9 15 6-6"/></svg></span>
+          <span>供需协作</span>
+        </button>
+
+        <p class="nav-label">资料与计划</p>
+        <button class="nav-item" type="button" data-task="profile">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 21V8l8-5 8 5v13M8 21v-7h8v7M9 10h.01M15 10h.01"/></svg></span>
+          <span>企业档案</span>
+        </button>
+        <button class="nav-item" type="button" data-task="landing">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-8M22 19V3M2 21h22"/></svg></span>
+          <span>实施计划</span>
+        </button>
+
+        <p class="nav-label">输出归档</p>
+        <button class="nav-item" type="button" data-task="report">
+          <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M5 4h14v17H5V4Z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
+          <span>报告归档</span>
+        </button>
+      </nav>
+
+      <section class="sidebar-recent" aria-labelledby="recentSideTitle">
+        <div class="sidebar-section-head">
+          <h2 id="recentSideTitle">最近项目</h2>
+          <span>3</span>
+        </div>
+        <button type="button" data-demo-project="天河企业数字化服务方案">
+          <strong>天河企业数字化服务方案</strong><small>今天 10:24</small>
+        </button>
+        <button type="button" data-demo-project="年度政策补贴申报材料">
+          <strong>年度政策补贴申报材料</strong><small>昨天 18:30</small>
+        </button>
+        <button type="button" data-demo-project="战略合作框架协议">
+          <strong>战略合作框架协议</strong><small>8 月 3 日 14:20</small>
+        </button>
+      </section>
+
+      <div class="sidebar-footer">
+        <button type="button" id="feedbackButton">
+          <svg viewBox="0 0 24 24"><path d="M4 13v-2a8 8 0 0 1 16 0v2M4 13h3v6H5a1 1 0 0 1-1-1v-5ZM20 13h-3v6h2a1 1 0 0 0 1-1v-5ZM17 19c0 1.1-.9 2-2 2h-3"/></svg>
+          帮助与反馈
+        </button>
+        <button class="sidebar-collapse" type="button" id="collapseSidebar" aria-label="收起侧边栏">
+          <svg viewBox="0 0 24 24"><path d="m14 7-5 5 5 5"/></svg><span>收起侧边栏</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="preview-main">
+      <header class="preview-topbar">
+        <button class="mobile-menu" type="button" id="mobileMenu" aria-label="打开导航">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div class="mobile-brand">智链天河</div>
+        <div class="preview-badge">UI 预览 · 展示数据</div>
+        <nav class="top-links" aria-label="顶部快捷入口">
+          <button type="button" data-top-action="项目">
+            <svg viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3V6Z"/></svg>项目
+          </button>
+          <button type="button" data-top-action="知识库">
+            <svg viewBox="0 0 24 24"><path d="M5 4h6a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H5V4ZM19 4h-2a3 3 0 0 0-3 3v13a3 3 0 0 1 3-3h2V4Z"/></svg>知识库
+          </button>
+          <button type="button" data-top-action="报告归档">
+            <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M15 3v5h5M9 13h6M9 17h4"/></svg>报告
+          </button>
+        </nav>
+        <div class="account-wrap">
+          <button class="account-button" type="button" id="accountButton" aria-expanded="false">
+            <span class="account-avatar">企</span>
+            <span>企业用户</span>
+            <svg viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg>
+          </button>
+          <div class="account-menu" id="accountMenu" hidden>
+            <button type="button" data-account-action="企业身份管理"><svg viewBox="0 0 24 24"><path d="M5 21V8l7-5 7 5v13M9 21v-6h6v6"/></svg>企业身份管理</button>
+            <button type="button" data-account-action="模型与 API 配置"><svg viewBox="0 0 24 24"><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>模型与 API 配置<span class="menu-badge">待配置</span></button>
+            <button type="button" data-account-action="团队与权限"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M3 20c0-4 2.7-6 6-6s6 2 6 6M15 15c3 0 5 1.6 5 5"/></svg>团队与权限</button>
+            <button type="button" data-account-action="系统设置"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>系统设置</button>
+            <div class="menu-separator"></div>
+            <a href="/">返回当前版本</a>
+          </div>
+        </div>
+      </header>
+
+      <div class="preview-content" id="overview">
+        <section class="hero-panel">
+          <div class="hero-copy">
+            <span class="hero-kicker">Enterprise AI Workspace</span>
+            <h1>企业日常运营材料的<br />智能生成与归档平台</h1>
+            <p>将会议、合同、政策和协作内容整理为可审核、可追溯、可管理的专业材料。</p>
+            <div class="hero-actions">
+              <button class="button-primary" type="button" id="newTaskButton">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                新建处理任务
+                <span>→</span>
+              </button>
+              <button class="button-secondary" type="button" data-demo-project="天河企业数字化服务方案">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                继续最近项目
+              </button>
+            </div>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <img src="/assets/hero-enterprise-ai.png" alt="" />
+            <div class="ai-orbit"><span>AI</span></div>
+            <div class="hero-grid"></div>
+          </div>
+        </section>
+
+        <section class="status-strip" aria-label="工作台状态">
+          <button class="status-item warning" type="button" data-account-action="模型与 API 配置">
+            <span class="status-icon"><svg viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg></span>
+            <span><strong>尚未配置模型</strong><small>当前无法生成材料</small></span>
+            <em>立即配置 →</em>
+          </button>
+          <div class="status-item">
+            <span class="status-icon blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 3.6-8 8-8s8 3 8 8"/></svg></span>
+            <span><strong>企业用户</strong><small>当前身份</small></span>
+          </div>
+          <div class="status-item">
+            <span class="status-icon blue"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M15 3v5h5M9 13h6M9 17h4"/></svg></span>
+            <span><strong>0 份材料</strong><small>已生成材料</small></span>
+          </div>
+          <div class="status-item">
+            <span class="status-icon blue"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 2.8 7.7 7 9 4.2-1.3 7-4.5 7-9V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+            <span><strong>会话级保存</strong><small>数据边界</small></span>
+          </div>
+        </section>
+
+        <section class="task-section">
+          <div class="section-heading">
+            <div>
+              <span class="section-spark">✦</span>
+              <h2>常用任务</h2>
+              <p>选择一个任务，开始整理企业运营材料。</p>
+            </div>
+            <button type="button" id="viewAllTasks">查看全部 <span>→</span></button>
+          </div>
+
+          <div class="task-grid">
+            <article class="task-card" tabindex="0" role="button" data-task="meeting">
+              <div class="task-icon meeting"><svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z"/><path d="M8 13h3M8 17h6"/></svg></div>
+              <div><h3>会议纪要</h3><p>将会议记录整理为结构化纪要、决策和待办事项。</p><span>开始处理</span></div>
+              <button type="button" aria-label="进入会议纪要">→</button>
+            </article>
+            <article class="task-card" tabindex="0" role="button" data-task="contract">
+              <div class="task-icon contract"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M15 3v5h5M9 13h6M9 17h6"/></svg></div>
+              <div><h3>合同审阅</h3><p>识别合同风险、补充条款并生成审阅意见。</p><span>开始处理</span></div>
+              <button type="button" aria-label="进入合同审阅">→</button>
+            </article>
+            <article class="task-card" tabindex="0" role="button" data-task="policy">
+              <div class="task-icon policy"><svg viewBox="0 0 24 24"><path d="M5 21V5l7-2 7 2v16M5 9h14M9 9v12M15 9v12M3 21h18"/></svg></div>
+              <div><h3>政策助手</h3><p>匹配政策方向、分析适用条件并准备申报材料。</p><span>开始处理</span></div>
+              <button type="button" aria-label="进入政策助手">→</button>
+            </article>
+            <article class="task-card" tabindex="0" role="button" data-task="match">
+              <div class="task-icon match"><svg viewBox="0 0 24 24"><path d="M8.5 12.5 5 16l-3-3 6-6 4 4M15.5 11.5 19 8l3 3-6 6-4-4"/><path d="m9 15 6-6"/></svg></div>
+              <div><h3>供需协作</h3><p>整理供需信息、匹配合作资源并跟踪协作进度。</p><span>开始处理</span></div>
+              <button type="button" aria-label="进入供需协作">→</button>
+            </article>
+            <article class="task-card" tabindex="0" role="button" data-task="profile">
+              <div class="task-icon profile"><svg viewBox="0 0 24 24"><path d="M4 21V8l8-5 8 5v13M8 21v-7h8v7M9 10h.01M15 10h.01"/></svg></div>
+              <div><h3>企业档案</h3><p>完善企业背景资料，提升材料生成的专业度。</p><span>完善档案</span></div>
+              <button type="button" aria-label="进入企业档案">→</button>
+            </article>
+            <article class="task-card" tabindex="0" role="button" data-task="landing">
+              <div class="task-icon landing"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-8M22 19V3M2 21h22"/></svg></div>
+              <div><h3>实施计划</h3><p>制定阶段计划、分解任务目标并跟踪执行进度。</p><span>制定计划</span></div>
+              <button type="button" aria-label="进入实施计划">→</button>
+            </article>
+          </div>
+        </section>
+
+        <section class="insight-grid">
+          <article class="insight-card material-card">
+            <div class="card-heading"><h2><span>▰</span>最近生成材料</h2><button type="button" data-top-action="报告归档">查看全部 →</button></div>
+            <div class="material-list">
+              <button type="button" data-demo-material="政府数字化转型政策申报建议书"><span class="file-icon purple"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M15 3v5h5M9 13h6M9 17h4"/></svg></span><span><strong>政府数字化转型政策申报建议书</strong><small><em>政策助手</em> 今天 10:24</small></span></button>
+              <button type="button" data-demo-material="战略合作框架协议审阅报告"><span class="file-icon blue"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M15 3v5h5M9 13h6M9 17h4"/></svg></span><span><strong>战略合作框架协议审阅报告</strong><small><em>合同审阅</em> 昨天 18:30</small></span></button>
+              <button type="button" data-demo-material="月度经营会议纪要"><span class="file-icon cyan"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6V3Z"/><path d="M15 3v5h5M9 13h6M9 17h4"/></svg></span><span><strong>月度经营会议纪要</strong><small><em>会议纪要</em> 8 月 3 日 14:20</small></span></button>
+            </div>
+          </article>
+
+          <article class="insight-card pending-card">
+            <div class="card-heading"><h2><span>▣</span>待确认事项 <b>2</b></h2><button type="button" data-top-action="待确认事项">查看全部 →</button></div>
+            <div class="pending-list">
+              <button type="button" data-demo-pending="政策补贴申请材料需要人工确认"><span class="pending-icon red">◆</span><span><strong>政策补贴申请材料需要人工确认</strong><small>截至 8 月 10 日</small></span></button>
+              <button type="button" data-demo-pending="合同附件条款调整建议待确认"><span class="pending-icon orange">△</span><span><strong>合同附件条款调整建议待确认</strong><small>截至 8 月 8 日</small></span></button>
+            </div>
+          </article>
+
+          <article class="insight-card data-card">
+            <div class="card-heading"><h2><span>▥</span>使用数据</h2><button class="period-button" type="button">近 30 天⌄</button></div>
+            <div class="metric-grid">
+              <div><strong>12</strong><span>生成材料</span></div>
+              <div><strong>5</strong><span>处理项目</span></div>
+              <div><strong class="success">98%</strong><span>审核通过率</span></div>
+              <div><strong>3h</strong><span>平均节省时间</span></div>
+            </div>
+            <div class="chart-wrap" aria-label="展示数据趋势图">
+              <svg viewBox="0 0 400 104" preserveAspectRatio="none">
+                <defs><linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2563eb" stop-opacity=".24"/><stop offset="1" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
+                <path class="chart-area" d="M0 86 C30 78 40 72 68 80 S110 83 130 57 S168 76 194 69 S240 68 260 45 S310 54 334 40 S372 32 400 15 L400 104 L0 104 Z"/>
+                <path class="chart-line" d="M0 86 C30 78 40 72 68 80 S110 83 130 57 S168 76 194 69 S240 68 260 45 S310 54 334 40 S372 32 400 15"/>
+                <g class="chart-points"><circle cx="0" cy="86" r="3"/><circle cx="68" cy="80" r="3"/><circle cx="130" cy="57" r="3"/><circle cx="194" cy="69" r="3"/><circle cx="260" cy="45" r="3"/><circle cx="334" cy="40" r="3"/><circle cx="400" cy="15" r="3"/></g>
+              </svg>
+              <div class="chart-labels"><span>8/1</span><span>8/5</span><span>8/10</span><span>8/15</span><span>8/20</span><span>8/30</span></div>
+            </div>
+          </article>
+        </section>
+
+        <footer class="preview-footer">
+          <span>智链天河 · 企业运营 AI 工作台</span><i></i><span>让企业材料准备更专业、更高效、更合规</span>
+        </footer>
+      </div>
+    </main>
+  </div>
+
+  <div class="sidebar-scrim" id="sidebarScrim" hidden></div>
+
+  <dialog class="task-dialog" id="taskDialog">
+    <form method="dialog">
+      <div class="dialog-heading">
+        <div><span>新建任务</span><h2>选择要处理的业务事项</h2><p>这是 UI 交互预览，确认设计后再连接现有业务页面。</p></div>
+        <button type="submit" value="cancel" aria-label="关闭">×</button>
+      </div>
+      <div class="dialog-task-grid">
+        <button type="button" data-task="meeting"><span class="task-icon meeting">纪</span><strong>会议纪要</strong><small>会议决策与待办</small></button>
+        <button type="button" data-task="contract"><span class="task-icon contract">审</span><strong>合同审阅</strong><small>风险识别与意见</small></button>
+        <button type="button" data-task="policy"><span class="task-icon policy">策</span><strong>政策助手</strong><small>政策匹配与材料</small></button>
+        <button type="button" data-task="match"><span class="task-icon match">协</span><strong>供需协作</strong><small>资源匹配与对接</small></button>
+      </div>
+      <div class="dialog-footer"><a href="/">返回当前正式页面</a><button type="submit" value="cancel">稍后选择</button></div>
+    </form>
+  </dialog>
+
+  <div class="preview-toast" id="previewToast" role="status" aria-live="polite"></div>
+  <script src="/assets/ui-preview.js" defer></script>
+</body>
+</html>
