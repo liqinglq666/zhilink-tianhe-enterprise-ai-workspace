@@ -183,7 +183,15 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class PublicModelStatus(BaseModel):
+    available: bool = False
+    provider: str = ""
+    model: str = ""
+    user_override_allowed: bool = True
+
+
 class DefaultsResponse(BaseModel):
     provider_presets: Dict[str, Dict[str, str]]
     modules: Dict[str, str]
     disclaimer: str
+    public_model: PublicModelStatus = Field(default_factory=PublicModelStatus)
