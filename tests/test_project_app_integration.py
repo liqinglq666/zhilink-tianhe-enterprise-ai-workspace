@@ -26,7 +26,7 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         preview = client.get("/preview")
         assert preview.status_code == 200
         assert "智链天河 · 新版 UI 预览" in preview.text
-        assert "本页为界面预览" in preview.text
+        assert "UI 预览 · 展示数据" in preview.text
         assert preview.headers["cache-control"] == "no-store"
 
         bundle = client.get("/assets/app.js")
