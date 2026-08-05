@@ -47,30 +47,47 @@ def _env_float(name: str, default: float) -> float:
     return max(0.0, min(value, 1.0))
 
 
+def public_model_enabled() -> bool:
+    """Return whether this deployment explicitly exposes a server-side public model."""
+
+    return _env_flag("PUBLIC_MODEL_ENABLED", False)
+
+
 def _public_model_key() -> str:
-    return (os.getenv("PUBLIC_MODEL_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+    # Deliberately do not fall back to OPENAI_API_KEY. A legacy/local key must never
+    # become a public browser credential without an explicit competition setting.
+    return os.getenv("PUBLIC_MODEL_API_KEY", "").strip()
 
 
 def _public_model_base_url() -> str:
-    return (
-        os.getenv("PUBLIC_MODEL_BASE_URL")
-        or os.getenv("OPENAI_BASE_URL")
-        or DEFAULT_BASE_URL
-    ).strip()
+    return os.getenv("PUBLIC_MODEL_BASE_URL", DEFAULT_BASE_URL).strip()
 
 
 def _public_model_name() -> str:
-    return (
-        os.getenv("PUBLIC_MODEL_MODEL")
-        or os.getenv("OPENAI_MODEL")
-        or DEFAULT_MODEL
-    ).strip()
+    return os.getenv("PUBLIC_MODEL_MODEL", DEFAULT_MODEL).strip()
 
 
 def public_model_available() -> bool:
-    """Return whether the server has a complete public/demo model configuration."""
+    """Return whether the explicitly enabled public model is fully configured."""
 
-    return bool(_public_model_key() and _public_model_base_url() and _public_model_name())
+    return bool(
+        public_model_enabled()
+        and _public_model_key()
+        and _public_model_base_url()
+        and _public_model_name()
+    )
+
+
+def public_model_status() -> Dict[str, object]:
+    """Return a browser-safe public model status without secrets or gateway URLs."""
+
+    available = public_model_available()
+    return {
+        "available": available,
+        "provider": os.getenv("PUBLIC_MODEL_PROVIDER", "阿里云百炼 DashScope").strip() if available else "",
+        "model": _public_model_name() if available else "",
+        "user_override_allowed": _env_flag("ALLOW_USER_API_OVERRIDE", True),
+    }
 
 
 @dataclass
@@ -78,9 +95,9 @@ class LLMConfig:
     """Resolved model configuration.
 
     A request with its own API key uses the user-supplied compatible endpoint. A request
-    without an API key may use the server-side public model. When the public key is used,
-    the base URL and model are always taken from trusted environment variables so a client
-    cannot redirect the server secret to an attacker-controlled gateway.
+    without an API key may use the explicitly enabled server-side public model. When the
+    public key is used, the base URL and model always come from trusted environment
+    variables so a client cannot redirect the server secret to another gateway.
     """
 
     api_key: str = field(default="", repr=False)
@@ -104,9 +121,8 @@ class LLMConfig:
             self.source = "user"
             return
 
-        public_key = _public_model_key()
-        if public_key:
-            self.api_key = public_key
+        if public_model_available():
+            self.api_key = _public_model_key()
             self.base_url = _public_model_base_url()
             self.model = _public_model_name()
             self.temperature = _env_float("PUBLIC_MODEL_TEMPERATURE", self.temperature)
@@ -121,7 +137,19 @@ class LLMConfig:
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
-        # Empty client credentials intentionally trigger the secure server-side resolver.
+        """Build a configuration for local/backend use.
+
+        Legacy OPENAI_* variables remain supported here, but they are treated as a
+        user/private configuration and are never used for anonymous public requests.
+        """
+
+        legacy_key = os.getenv("OPENAI_API_KEY", "").strip()
+        if legacy_key:
+            return cls(
+                api_key=legacy_key,
+                base_url=os.getenv("OPENAI_BASE_URL", DEFAULT_BASE_URL),
+                model=os.getenv("OPENAI_MODEL", DEFAULT_MODEL),
+            )
         return cls(api_key="", base_url=DEFAULT_BASE_URL, model=DEFAULT_MODEL)
 
 
@@ -132,19 +160,16 @@ _PUBLIC_USAGE_COUNT = 0
 
 def _seconds_until_utc_midnight() -> int:
     now = datetime.now(timezone.utc)
-    tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    tomorrow = tomorrow.replace(day=now.day) if False else tomorrow
-    # Avoid date arithmetic dependencies while keeping Retry-After bounded and useful.
     elapsed = now.hour * 3600 + now.minute * 60 + now.second
     return max(60, 86400 - elapsed)
 
 
 def _consume_public_model_quota() -> None:
-    """Apply a process-local safety fuse to public-key model calls.
+    """Apply a process-local safety fuse to public-key model attempts.
 
-    Provider-side spending limits remain the authoritative cost control. This local fuse is
-    deliberately simple and resets after a process restart, so it supplements rather than
-    replaces provider budgets and the existing per-client rate/concurrency limits.
+    Provider-side spending limits remain authoritative. This counter resets after a process
+    restart and is not shared by multiple instances, so it supplements rather than replaces
+    provider budgets and the existing per-client rate/concurrency limits.
     """
 
     limit = _env_int("PUBLIC_MODEL_DAILY_REQUEST_LIMIT", 200)
@@ -193,12 +218,7 @@ def _validate_base_url(base_url: str) -> str:
 
     if parsed.scheme not in {"https", "http"}:
         raise configuration_error("Base URL 只允许 http/https。")
-    if parsed.scheme == "http" and os.getenv("ALLOW_INSECURE_LLM_HTTP", "").lower() not in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }:
+    if parsed.scheme == "http" and not _env_flag("ALLOW_INSECURE_LLM_HTTP", False):
         raise configuration_error("Base URL 必须使用 HTTPS。")
     if not parsed.hostname or parsed.username or parsed.password:
         raise configuration_error("Base URL 格式不合法。")
