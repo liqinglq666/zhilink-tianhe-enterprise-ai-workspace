@@ -27,10 +27,11 @@ def model_request_timeout_seconds() -> int:
 def make_hub(config: APIConfig) -> ZhilianAgentHub:
     """Create an AgentHub from a securely resolved model configuration.
 
-    When the request supplies an API key, that user-owned key is kept only in memory for
-    the current HTTP request. When it is empty, ``LLMConfig`` may resolve a server-side
-    public/demo key from environment variables. The server key is never returned to the
-    browser and always uses the server-controlled base URL and model.
+    A request with a user API key uses that OpenAI-compatible configuration only for the
+    current request. An empty key can use the competition model only when the deployment
+    explicitly sets ``PUBLIC_MODEL_ENABLED=true`` and supplies a complete PUBLIC_MODEL_*
+    configuration. The server key never reaches the browser, database, export files, or a
+    client-supplied gateway.
     """
 
     llm_cfg = LLMConfig(
