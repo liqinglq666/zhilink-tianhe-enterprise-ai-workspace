@@ -69,7 +69,8 @@ pending_confirmation_count
 - 是否识别到一句话结论；
 - 是否包含当前模块要求的关键章节；
 - 是否识别到证据编号；
-- 文本出现待确认表述时，是否提取出结构化待确认项。
+- 文本出现待确认表述时，是否提取出结构化待确认项；
+- 章节数量是否超过结构化上限。
 
 `valid=false` 不会删除 Markdown，只表示结构化结果需要人工复核。
 
@@ -162,4 +163,4 @@ python -m py_compile \
   src/zhilian_tianhe_agent/structured_output.py
 ```
 
-隔离验证结果为 `6 passed`。
+隔离验证结果为 `7 passed`。
