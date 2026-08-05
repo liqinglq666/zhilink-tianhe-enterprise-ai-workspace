@@ -38,6 +38,10 @@
     document.head.appendChild(link);
   }
 
+  function setText(element, value) {
+    if (element && element.textContent !== value) element.textContent = value;
+  }
+
   function compactTopActions(simple) {
     const top = document.querySelector(".top-actions");
     if (!top) return;
@@ -47,8 +51,11 @@
     const serviceButton = document.getElementById("openServiceWorkflow");
     const reportButton = top.querySelector('[data-goto="report"]');
 
-    [projectButton, knowledgeButton, accountButton].forEach(button => {
-      if (button && button.parentElement === top) top.insertBefore(button, reportButton || null);
+    let anchor = reportButton || null;
+    [accountButton, knowledgeButton, projectButton].forEach(button => {
+      if (!button || button.parentElement !== top) return;
+      if (button.nextElementSibling !== anchor) top.insertBefore(button, anchor);
+      anchor = button;
     });
 
     if (serviceButton) {
@@ -59,12 +66,12 @@
     if (!simple) return;
     if (projectButton) {
       const dirty = projectButton.classList.contains("project-dirty");
-      projectButton.textContent = dirty ? "项目 · 未保存" : "项目";
+      setText(projectButton, dirty ? "项目 · 未保存" : "项目");
     }
     if (accountButton) {
-      accountButton.textContent = document.body.dataset.authenticated === "true" ? "账户" : "登录";
+      setText(accountButton, document.body.dataset.authenticated === "true" ? "账户" : "登录");
     }
-    if (knowledgeButton) knowledgeButton.textContent = "知识库";
+    setText(knowledgeButton, "知识库");
   }
 
   function closeProjectManager() {
@@ -116,7 +123,7 @@
       toggle.addEventListener("click", () => setMode(mode() === SIMPLE ? ADVANCED : SIMPLE));
       row.appendChild(toggle);
     }
-    toggle.textContent = simple ? "显示高级功能" : "返回精简模式";
+    setText(toggle, simple ? "显示高级功能" : "返回精简模式");
     toggle.title = simple ? "显示完整 JSON、哈希、审计记录和顶部服务流程入口" : "收起技术信息和次要管理入口";
   }
 
@@ -141,15 +148,18 @@
   function simplifyStructured(simple) {
     const modal = document.getElementById("structuredResultModal");
     document.querySelectorAll("[data-open-structured]").forEach(button => {
-      button.textContent = simple ? "结构化结果" : "查看 JSON";
+      setText(button, simple ? "结构化结果" : "查看 JSON");
     });
     if (!modal) return;
     const track = modal.querySelector(".track");
-    if (track) track.textContent = simple ? "结果核对" : "结构化 JSON";
+    setText(track, simple ? "结果核对" : "结构化 JSON");
     const intro = modal.querySelector(".structured-dialog-header p");
-    if (intro) intro.textContent = simple
-      ? "查看输入事实、AI 推断、风险和待确认项。"
-      : "该 JSON 由服务端根据当前 Markdown 确定性生成，不会再次调用模型。";
+    setText(
+      intro,
+      simple
+        ? "查看输入事实、AI 推断、风险和待确认项。"
+        : "该 JSON 由服务端根据当前 Markdown 确定性生成，不会再次调用模型。",
+    );
     ensureAdvancedToggle("#structuredResultModal", ".structured-dialog-header", "toggleStructuredAdvanced", "显示 JSON 与校验信息");
   }
 
@@ -166,19 +176,22 @@
     if (!container) return;
     const nodes = Array.from(container.querySelectorAll(":scope > .sw-node"));
     if (!nodes.length) return;
-    container.querySelectorAll(":scope > .ui-workflow-phase").forEach(item => item.remove());
     const phases = [
-      [0, "第 1 步 · 收集需求"],
-      [2, "第 2 步 · 处理与跟进"],
-      [4, "第 3 步 · 完成与归档"],
+      [0, "collect", "第 1 步 · 收集需求"],
+      [2, "process", "第 2 步 · 处理与跟进"],
+      [4, "close", "第 3 步 · 完成与归档"],
     ];
-    phases.forEach(([index, label]) => {
+    phases.forEach(([index, key, label]) => {
       const node = nodes[index];
       if (!node) return;
-      const heading = document.createElement("div");
-      heading.className = "ui-workflow-phase";
-      heading.textContent = label;
-      container.insertBefore(heading, node);
+      let heading = container.querySelector(`:scope > .ui-workflow-phase[data-ui-phase="${key}"]`);
+      if (!heading) {
+        heading = document.createElement("div");
+        heading.className = "ui-workflow-phase";
+        heading.dataset.uiPhase = key;
+        heading.textContent = label;
+      }
+      if (heading.nextElementSibling !== node) container.insertBefore(heading, node);
     });
   }
 
