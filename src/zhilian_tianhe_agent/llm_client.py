@@ -7,7 +7,9 @@ import ipaddress
 import json
 import os
 import socket
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Dict, Iterator, List, Optional
 from urllib.parse import urlparse
 
@@ -17,21 +19,178 @@ from .constants import DEFAULT_BASE_URL, DEFAULT_MODEL
 from .errors import ModelGatewayError, configuration_error, unavailable_error
 
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return max(0.0, min(value, 1.0))
+
+
+def public_model_enabled() -> bool:
+    """Return whether this deployment explicitly exposes a server-side public model."""
+
+    return _env_flag("PUBLIC_MODEL_ENABLED", False)
+
+
+def _public_model_key() -> str:
+    # Deliberately do not fall back to OPENAI_API_KEY. A legacy/local key must never
+    # become a public browser credential without an explicit competition setting.
+    return os.getenv("PUBLIC_MODEL_API_KEY", "").strip()
+
+
+def _public_model_base_url() -> str:
+    return os.getenv("PUBLIC_MODEL_BASE_URL", DEFAULT_BASE_URL).strip()
+
+
+def _public_model_name() -> str:
+    return os.getenv("PUBLIC_MODEL_MODEL", DEFAULT_MODEL).strip()
+
+
+def public_model_available() -> bool:
+    """Return whether the explicitly enabled public model is fully configured."""
+
+    return bool(
+        public_model_enabled()
+        and _public_model_key()
+        and _public_model_base_url()
+        and _public_model_name()
+    )
+
+
+def public_model_status() -> Dict[str, object]:
+    """Return a browser-safe public model status without secrets or gateway URLs."""
+
+    available = public_model_available()
+    return {
+        "available": available,
+        "provider": os.getenv("PUBLIC_MODEL_PROVIDER", "阿里云百炼 DashScope").strip() if available else "",
+        "model": _public_model_name() if available else "",
+        "user_override_allowed": _env_flag("ALLOW_USER_API_OVERRIDE", True),
+    }
+
+
 @dataclass
 class LLMConfig:
-    api_key: str = ""
+    """Resolved model configuration.
+
+    A request with its own API key uses the user-supplied compatible endpoint. A request
+    without an API key may use the explicitly enabled server-side public model. When the
+    public key is used, the base URL and model always come from trusted environment
+    variables so a client cannot redirect the server secret to another gateway.
+    """
+
+    api_key: str = field(default="", repr=False)
     base_url: str = DEFAULT_BASE_URL
     model: str = DEFAULT_MODEL
     temperature: float = 0.35
     timeout: int = 120
+    source: str = field(default="unconfigured", init=False)
+
+    def __post_init__(self) -> None:
+        supplied_key = self.api_key.strip()
+        allow_user_override = _env_flag("ALLOW_USER_API_OVERRIDE", True)
+
+        if supplied_key:
+            if not allow_user_override:
+                raise configuration_error("当前部署未开放自定义模型接口，请使用公共模型。")
+            self.api_key = supplied_key
+            self.base_url = self.base_url.strip()
+            self.model = self.model.strip()
+            self.temperature = max(0.0, min(float(self.temperature), 1.0))
+            self.source = "user"
+            return
+
+        if public_model_available():
+            self.api_key = _public_model_key()
+            self.base_url = _public_model_base_url()
+            self.model = _public_model_name()
+            self.temperature = _env_float("PUBLIC_MODEL_TEMPERATURE", self.temperature)
+            self.source = "server"
+            return
+
+        self.api_key = ""
+        self.base_url = self.base_url.strip()
+        self.model = self.model.strip()
+        self.temperature = max(0.0, min(float(self.temperature), 1.0))
+        self.source = "unconfigured"
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
-        return cls(
-            api_key=os.getenv("OPENAI_API_KEY", ""),
-            base_url=os.getenv("OPENAI_BASE_URL", DEFAULT_BASE_URL),
-            model=os.getenv("OPENAI_MODEL", DEFAULT_MODEL),
-        )
+        """Build a configuration for local/backend use.
+
+        Legacy OPENAI_* variables remain supported here, but they are treated as a
+        user/private configuration and are never used for anonymous public requests.
+        """
+
+        legacy_key = os.getenv("OPENAI_API_KEY", "").strip()
+        if legacy_key:
+            return cls(
+                api_key=legacy_key,
+                base_url=os.getenv("OPENAI_BASE_URL", DEFAULT_BASE_URL),
+                model=os.getenv("OPENAI_MODEL", DEFAULT_MODEL),
+            )
+        return cls(api_key="", base_url=DEFAULT_BASE_URL, model=DEFAULT_MODEL)
+
+
+_PUBLIC_USAGE_LOCK = threading.Lock()
+_PUBLIC_USAGE_DAY = ""
+_PUBLIC_USAGE_COUNT = 0
+
+
+def _seconds_until_utc_midnight() -> int:
+    now = datetime.now(timezone.utc)
+    elapsed = now.hour * 3600 + now.minute * 60 + now.second
+    return max(60, 86400 - elapsed)
+
+
+def _consume_public_model_quota() -> None:
+    """Apply a process-local safety fuse to public-key model attempts.
+
+    Provider-side spending limits remain authoritative. This counter resets after a process
+    restart and is not shared by multiple instances, so it supplements rather than replaces
+    provider budgets and the existing per-client rate/concurrency limits.
+    """
+
+    limit = _env_int("PUBLIC_MODEL_DAILY_REQUEST_LIMIT", 200)
+    if limit <= 0:
+        return
+
+    global _PUBLIC_USAGE_DAY, _PUBLIC_USAGE_COUNT
+    today = datetime.now(timezone.utc).date().isoformat()
+    with _PUBLIC_USAGE_LOCK:
+        if _PUBLIC_USAGE_DAY != today:
+            _PUBLIC_USAGE_DAY = today
+            _PUBLIC_USAGE_COUNT = 0
+        if _PUBLIC_USAGE_COUNT >= limit:
+            raise ModelGatewayError(
+                code="PUBLIC_MODEL_QUOTA_EXHAUSTED",
+                user_message="今日公共体验额度已用完，请填写自己的 API Key 后继续使用。",
+                status_code=429,
+                retryable=True,
+                retry_after=_seconds_until_utc_midnight(),
+            )
+        _PUBLIC_USAGE_COUNT += 1
 
 
 def _is_blocked_ip(value: str) -> bool:
@@ -59,12 +218,7 @@ def _validate_base_url(base_url: str) -> str:
 
     if parsed.scheme not in {"https", "http"}:
         raise configuration_error("Base URL 只允许 http/https。")
-    if parsed.scheme == "http" and os.getenv("ALLOW_INSECURE_LLM_HTTP", "").lower() not in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }:
+    if parsed.scheme == "http" and not _env_flag("ALLOW_INSECURE_LLM_HTTP", False):
         raise configuration_error("Base URL 必须使用 HTTPS。")
     if not parsed.hostname or parsed.username or parsed.password:
         raise configuration_error("Base URL 格式不合法。")
@@ -217,6 +371,8 @@ class LLMClient:
         }
 
     def _post(self, system_prompt: str, user_prompt: str, *, stream: bool) -> requests.Response:
+        if self.config.source == "server":
+            _consume_public_model_quota()
         try:
             response = requests.post(
                 self._url(),
@@ -247,7 +403,7 @@ class LLMClient:
         if not self.enabled:
             raise ModelGatewayError(
                 code="MODEL_NOT_CONFIGURED",
-                user_message="请先填写 API Key、Base URL 和模型名称。",
+                user_message="公共模型尚未配置，请填写自己的 API Key、Base URL 和模型名称。",
                 status_code=400,
                 retryable=False,
             )

@@ -20,6 +20,11 @@ def test_defaults():
     data = resp.json()
     assert 'provider_presets' in data
     assert 'modules' in data
+    assert 'public_model' in data
+    assert set(data['public_model']) == {'available', 'provider', 'model', 'user_override_allowed'}
+    serialized = resp.text.lower()
+    assert 'public_model_api_key' not in serialized
+    assert 'authorization' not in serialized
     assert 'demo_profile' not in data
     assert 'demo_inputs' not in data
 
