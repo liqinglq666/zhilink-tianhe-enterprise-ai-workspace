@@ -90,7 +90,9 @@ other          其他参考
 
 每个版本可以限定：适用区域、行业、主体类型、服务场景、使用角色、生效日期和失效日期。
 
-尚未生效和已经失效的发布版本不会进入检索。请求中的区域、行业或主体类型与条目明确不匹配时，条目会被排除；条目未填写相应边界时会返回人工复核告警。
+尚未生效和已经失效的发布版本不会进入检索。当前检索请求能够根据企业档案中的区域和行业执行明确不匹配排除，并对“广州市天河区 / 广州市天河 / 天河区”等常见行政区后缀进行归一化。条目未填写区域或行业边界时会返回人工复核告警。
+
+企业档案当前没有独立的主体类型字段，团队人数或经营规模不能可靠代表“企业、个体工商户、小微企业”等主体类型，因此不会据此执行硬过滤。主体类型、服务场景和使用角色会保留在检索结果中，供企业服务人员或后续工作流显式确认。
 
 ## 检索
 
@@ -145,7 +147,7 @@ restore
 ## 测试
 
 ```bash
-PYTHONPATH=. pytest -q tests/test_knowledge_base.py
+PYTHONPATH=. pytest -q tests/test_knowledge_base.py tests/test_knowledge_scope.py
 node --check frontend/assets/knowledge-base.js
 python -m py_compile \
   backend/knowledge_schemas.py \
