@@ -24,6 +24,20 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         assert "PROJECT_STORAGE_READY" in bundle.text
         assert "ACCOUNT_ACCESS_READY" in bundle.text
         assert "REVIEW_WORKFLOW_READY" in bundle.text
+        assert "ZHILINK_STRUCTURED_READY" in bundle.text
+
+        structured = client.post(
+            "/api/structured/convert",
+            json={
+                "module": "meeting",
+                "content": "## 一句话结论\n需确认负责人。[MT-01]\n\n## 关键决策\n已明确试点。[MT-01]\n\n## 待办事项表\n- 负责人待确认。[MT-C01]\n\n## 待确认信息\n- 负责人待确认。[MT-C01]",
+            },
+        )
+        assert structured.status_code == 200
+        assert structured.json()["schema_version"] == "1.0"
+        assert structured.json()["source_sha256"]
+        assert structured.headers["cache-control"] == "no-store"
+        assert structured.headers["x-ratelimit-limit"]
 
         session = client.get("/api/auth/session")
         assert session.status_code == 200
