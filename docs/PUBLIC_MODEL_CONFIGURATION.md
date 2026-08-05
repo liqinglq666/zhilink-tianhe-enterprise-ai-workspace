@@ -35,7 +35,7 @@ RATE_LIMIT_WINDOW_SECONDS=60
 MAX_CONCURRENT_GENERATIONS_PER_CLIENT=1
 ```
 
-注意：缺少 `PUBLIC_MODEL_ENABLED=true` 时，即使环境中存在 Key，也不会开放给匿名评委使用。真实 Key 必须由项目管理员直接粘贴到 Render Secret 环境变量中，不要发到聊天、邮件正文、Issue 或 PR。
+缺少 `PUBLIC_MODEL_ENABLED=true` 时，即使环境中存在 Key，也不会开放给匿名评委使用。真实 Key 必须由项目管理员直接粘贴到 Render Secret 环境变量中，不要发到聊天、邮件正文、Issue 或 PR。
 
 ## 用户体验
 
@@ -62,34 +62,13 @@ API Key 输入框留空，后端确认配置完整后页面显示：
 
 ### 自定义模式
 
-用户填写自己的：
-
-```text
-API Key
-Base URL
-模型名称
-```
-
-页面状态变为：
-
-```text
-自定义 API
-```
-
-清空用户 Key 后，在公共模型可用时恢复公共模式；公共模型未配置时恢复为“需配置模型”。
+用户填写自己的 API Key、Base URL 和模型名称后，页面状态变为“自定义 API”。清空用户 Key 后，在公共模型可用时恢复公共模式；公共模型未配置时恢复为“需配置模型”。
 
 ## 额度与成本
 
 `PUBLIC_MODEL_DAILY_REQUEST_LIMIT` 是进程内请求尝试保险丝：达到上限后返回 `PUBLIC_MODEL_QUOTA_EXHAUSTED`，提示用户填写自己的 API。失败的上游调用也可能占用一次尝试额度。该计数会在 Render 实例重启后重置，也不会跨多个实例共享，因此不能替代供应商侧预算控制。
 
-正式比赛前还应在阿里云控制台配置：
-
-- 确认 Key 所属地域与调用地址一致；
-- 确认账户已开通百炼模型服务并可调用 `qwen-plus`；
-- 设置可接受的余额和消费告警；
-- 设置单 Key QPS / TPM 限制；
-- 只允许比赛需要的模型；
-- 比赛结束后轮换或撤销 Key。
+正式比赛前还应在阿里云控制台确认 Key 地域、`qwen-plus` 权限、余额和费用告警、QPS/TPM 限制，并在比赛结束后轮换或撤销 Key。
 
 ## 部署检查
 
