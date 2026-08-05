@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from backend.auth_store import reset_account_store_for_tests
+from backend.knowledge_store import reset_knowledge_store_for_tests
 from backend.main import RATE_LIMITER, app
 from backend.project_store import reset_project_store_for_tests
 from backend.review_store import reset_review_store_for_tests
@@ -12,6 +13,7 @@ WORKSPACE_KEY = "integration-" + ("z" * 40)
 
 def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'main-app.db'}")
+    reset_knowledge_store_for_tests()
     reset_review_store_for_tests()
     reset_account_store_for_tests()
     reset_project_store_for_tests()
@@ -26,8 +28,10 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         assert "REVIEW_WORKFLOW_READY" in bundle.text
         assert "ZHILINK_STRUCTURED_READY" in bundle.text
         assert "ZHILINK_POLICY_SOURCES_READY" in bundle.text
+        assert "ZHILINK_KNOWLEDGE_READY" in bundle.text
         assert any(route.path == "/api/policy/official/search" for route in app.routes)
         assert any(route.path == "/api/policy/official/stream" for route in app.routes)
+        assert any(route.path == "/api/knowledge/search" for route in app.routes)
 
         structured = client.post(
             "/api/structured/convert",
@@ -41,6 +45,10 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         assert structured.json()["source_sha256"]
         assert structured.headers["cache-control"] == "no-store"
         assert structured.headers["x-ratelimit-limit"]
+
+        unauthenticated_knowledge = client.get("/api/knowledge", headers={"X-Organization-Id": "missing"})
+        assert unauthenticated_knowledge.status_code == 401
+        assert unauthenticated_knowledge.json()["code"] == "AUTH_REQUIRED"
 
         session = client.get("/api/auth/session")
         assert session.status_code == 200
@@ -62,7 +70,6 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
                 },
             },
         )
-
         assert response.status_code == 201
         assert response.headers["cache-control"] == "no-store"
         assert response.headers["x-content-type-options"] == "nosniff"
@@ -70,21 +77,16 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         assert response.json()["snapshot"]["reviews"]["meeting"]["status"] == "ai_draft"
 
         project_id = response.json()["id"]
-        reviews = client.get(
-            f"/api/projects/{project_id}/reviews",
-            headers={"X-Workspace-Key": WORKSPACE_KEY},
-        )
+        reviews = client.get(f"/api/projects/{project_id}/reviews", headers={"X-Workspace-Key": WORKSPACE_KEY})
         assert reviews.status_code == 200
         assert reviews.json()["items"][0]["module"] == "meeting"
 
-        deleted = client.delete(
-            f"/api/projects/{project_id}",
-            headers={"X-Workspace-Key": WORKSPACE_KEY},
-        )
+        deleted = client.delete(f"/api/projects/{project_id}", headers={"X-Workspace-Key": WORKSPACE_KEY})
         assert deleted.status_code == 200
         assert deleted.headers["x-ratelimit-limit"]
     finally:
         RATE_LIMITER.reset()
+        reset_knowledge_store_for_tests()
         reset_review_store_for_tests()
         reset_account_store_for_tests()
         reset_project_store_for_tests()
