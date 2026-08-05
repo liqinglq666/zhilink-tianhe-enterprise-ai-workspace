@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
 from fastapi import APIRouter, FastAPI, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -37,6 +38,7 @@ from .service_workflow_routes import register_service_workflow_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
+UI_BUNDLE_VERSION = "2026-08-05-live-redesign-v1"
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
@@ -77,6 +79,28 @@ def _store_error(exc: Exception) -> ProjectAPIError:
     if isinstance(exc, ProjectVersionConflict):
         return ProjectAPIError(409, "PROJECT_VERSION_CONFLICT", "项目已在其他页面更新，请重新载入后再操作。", exc.current_version)
     return ProjectAPIError(503, "PROJECT_STORAGE_UNAVAILABLE", "项目存储暂时不可用，请稍后重试。")
+
+
+def _deduplicate_workspace_bundle_routes(app: FastAPI, preferred_endpoint: Callable[..., object]) -> None:
+    """Keep one authoritative /assets/app.js route after the app finishes registering routes.
+
+    The legacy base bundle in backend.main used the same path and could silently serve an
+    incomplete script set depending on route ordering. Startup runs after module import, so
+    every duplicate is visible and can be removed deterministically.
+    """
+
+    retained = []
+    preferred_kept = False
+    for route in app.router.routes:
+        if getattr(route, "path", None) != "/assets/app.js":
+            retained.append(route)
+            continue
+        if getattr(route, "endpoint", None) is preferred_endpoint and not preferred_kept:
+            retained.append(route)
+            preferred_kept = True
+    if not preferred_kept:
+        raise RuntimeError("The authoritative workspace bundle route is missing.")
+    app.router.routes[:] = retained
 
 
 _STORE_EXCEPTIONS = (ProjectNotFound, ProjectHistoryNotFound, ProjectVersionConflict, ProjectStoreUnavailable)
@@ -235,7 +259,19 @@ def register_project_routes(app: FastAPI) -> None:
             "ui-redesign-live-fixes.js",
         ]
         content = "\n\n".join((ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts)
-        return Response(content=f"{content}\n", media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+        return Response(
+            content=f"{content}\n",
+            media_type="application/javascript",
+            headers={
+                "Cache-Control": "no-store, max-age=0",
+                "X-Zhilink-UI-Bundle": UI_BUNDLE_VERSION,
+            },
+        )
+
+    def prefer_complete_workspace_bundle() -> None:
+        _deduplicate_workspace_bundle_routes(app, workspace_app_bundle)
+
+    app.router.on_startup.append(prefer_complete_workspace_bundle)
 
     @app.exception_handler(ProjectAPIError)
     async def project_api_error_handler(request: Request, exc: ProjectAPIError) -> JSONResponse:  # noqa: ARG001

@@ -31,7 +31,7 @@ def test_frontend_bundle_contains_generation_and_project_controls():
     assert 'data-cancel-generation' in resp.text
     assert 'PROJECT_STORAGE_READY' in resp.text
     assert 'X-Workspace-Key' in resp.text
-    assert resp.headers['cache-control'] == 'no-cache'
+    assert resp.headers['cache-control'] == 'no-store, max-age=0'
     assert resp.headers['content-type'].startswith('application/javascript')
 
 
