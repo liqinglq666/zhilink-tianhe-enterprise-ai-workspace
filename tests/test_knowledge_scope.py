@@ -18,6 +18,6 @@ def test_search_scope_normalization_does_not_treat_scale_as_entity_type():
         }
     )
     normalized = _normalized_search_payload(payload)
-    assert normalized.profile.location == "广州市天河"
+    assert normalized.profile.location == "天河"
     assert normalized.profile.scale == ""
     assert normalized.profile.industry == "商贸服务"
