@@ -148,11 +148,22 @@
   function simplifyStructured(simple) {
     const modal = document.getElementById("structuredResultModal");
     document.querySelectorAll("[data-open-structured]").forEach(button => {
-      setText(button, simple ? "结构化结果" : "查看 JSON");
+      setText(button, simple ? "结果结构" : "查看 JSON");
+    });
+    document.querySelectorAll(".structured-result-bar").forEach(bar => {
+      const strong = bar.querySelector("strong");
+      const small = bar.querySelector("small");
+      if (simple) {
+        const current = strong?.textContent || "";
+        setText(strong, current.includes("需复核") ? "结果结构需复核" : current.includes("正在") ? "正在整理结果结构" : "结果结构已核对");
+        setText(small, "可查看输入事实、AI 推断、风险和待确认项");
+      }
     });
     if (!modal) return;
     const track = modal.querySelector(".track");
     setText(track, simple ? "结果核对" : "结构化 JSON");
+    const title = document.getElementById("structuredDialogTitle");
+    if (simple && title?.textContent.includes("结构化 JSON")) setText(title, title.textContent.replace("结构化 JSON", "结果核对"));
     const intro = modal.querySelector(".structured-dialog-header p");
     setText(
       intro,
@@ -169,6 +180,10 @@
 
   function simplifyReview() {
     ensureAdvancedToggle("#reviewWorkflowModal", ".review-dialog-header", "toggleReviewAdvanced", "显示审核记录");
+  }
+
+  function simplifyServiceWorkflow() {
+    ensureAdvancedToggle("#serviceWorkflowModal", ".service-workflow-dialog > header", "toggleServiceWorkflowAdvanced", "显示完整操作记录");
   }
 
   function groupWorkflowNodes() {
@@ -207,8 +222,28 @@
 
   function markTechnicalDetails(root = document) {
     const technical = /(SHA-?256|source_sha256|payload_sha256|context_sha256|内容哈希|载荷哈希)/i;
+    const technicalSuffix = /\s*(?:[·|｜—-]\s*)?(?:SHA-?256|source_sha256|payload_sha256|context_sha256|内容哈希|载荷哈希)[\s\S]*$/i;
+    const simple = mode() === SIMPLE;
     root.querySelectorAll("small, span, p, code").forEach(element => {
-      if (technical.test(element.textContent || "")) element.classList.add("ui-technical-detail");
+      const hasStoredText = element.hasAttribute("data-ui-technical-original");
+      const original = hasStoredText ? element.dataset.uiTechnicalOriginal || "" : element.textContent || "";
+      if (!simple) {
+        if (hasStoredText) {
+          setText(element, original);
+          element.removeAttribute("data-ui-technical-original");
+        }
+        element.classList.remove("ui-technical-detail");
+        return;
+      }
+      if (!technical.test(original)) return;
+      const readable = original.replace(technicalSuffix, "").trim();
+      if (readable && !["上下文", "内容", "载荷"].includes(readable)) {
+        if (!hasStoredText) element.dataset.uiTechnicalOriginal = original;
+        setText(element, readable);
+        element.classList.remove("ui-technical-detail");
+      } else {
+        element.classList.add("ui-technical-detail");
+      }
     });
   }
 
@@ -223,6 +258,7 @@
     simplifyStructured(simple);
     simplifyKnowledge();
     simplifyReview();
+    simplifyServiceWorkflow();
     markWorkflowAdvanced();
     markTechnicalDetails();
   }
