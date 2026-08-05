@@ -25,6 +25,9 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         assert "ACCOUNT_ACCESS_READY" in bundle.text
         assert "REVIEW_WORKFLOW_READY" in bundle.text
         assert "ZHILINK_STRUCTURED_READY" in bundle.text
+        assert "ZHILINK_POLICY_SOURCES_READY" in bundle.text
+        assert any(route.path == "/api/policy/official/search" for route in app.routes)
+        assert any(route.path == "/api/policy/official/stream" for route in app.routes)
 
         structured = client.post(
             "/api/structured/convert",
