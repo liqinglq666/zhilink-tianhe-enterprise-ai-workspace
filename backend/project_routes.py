@@ -30,6 +30,7 @@ from .project_store import (
 )
 from .review_routes import register_review_routes
 from .review_store import prepare_created_snapshot, prepare_updated_snapshot
+from .structured_routes import register_structured_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
@@ -201,11 +202,19 @@ def delete_project(request: Request, project_id: str) -> ProjectDeleteResponse:
 def register_project_routes(app: FastAPI) -> None:
     register_auth_routes(app)
     register_review_routes(app)
+    register_structured_routes(app)
     app.include_router(router)
 
     @app.get("/assets/app.js", include_in_schema=False)
     def workspace_app_bundle() -> Response:
-        scripts = ["app.js", "generation-controls.js", "account-access.js", "project-storage.js", "review-workflow.js"]
+        scripts = [
+            "app.js",
+            "generation-controls.js",
+            "account-access.js",
+            "project-storage.js",
+            "review-workflow.js",
+            "structured-results.js",
+        ]
         content = "\n\n".join((ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts)
         return Response(content=f"{content}\n", media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
