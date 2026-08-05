@@ -232,6 +232,7 @@ def register_project_routes(app: FastAPI) -> None:
             "service-workflow.js",
             "product-simplification.js",
             "ui-redesign-live.js",
+            "ui-redesign-live-fixes.js",
         ]
         content = "\n\n".join((ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts)
         return Response(content=f"{content}\n", media_type="application/javascript", headers={"Cache-Control": "no-cache"})
