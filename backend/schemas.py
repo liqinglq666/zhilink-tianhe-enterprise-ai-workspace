@@ -190,8 +190,15 @@ class PublicModelStatus(BaseModel):
     user_override_allowed: bool = True
 
 
+def _default_public_model_status() -> PublicModelStatus:
+    # Import lazily to keep schemas independent from network/client initialization.
+    from zhilian_tianhe_agent.llm_client import public_model_status
+
+    return PublicModelStatus.model_validate(public_model_status())
+
+
 class DefaultsResponse(BaseModel):
     provider_presets: Dict[str, Dict[str, str]]
     modules: Dict[str, str]
     disclaimer: str
-    public_model: PublicModelStatus = Field(default_factory=PublicModelStatus)
+    public_model: PublicModelStatus = Field(default_factory=_default_public_model_status)
