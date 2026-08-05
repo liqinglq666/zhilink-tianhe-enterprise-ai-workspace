@@ -19,7 +19,10 @@ from .service_workflow_schemas import (
     WorkflowNodeUpdateRequest,
     WorkflowUpdateRequest,
 )
-from .service_workflow_store import get_service_workflow_store
+from . import service_workflow_store as workflow_store
+from .service_workflow_guards import ensure_active_organization_project, safe_official_references
+
+workflow_store.official = safe_official_references
 
 router = APIRouter(prefix="/api/service-cases", tags=["enterprise-service-workflows"])
 
@@ -43,7 +46,7 @@ def list_cases(
     status: str = Query(default="", max_length=30),
 ) -> WorkflowCaseListResponse:
     organization_id, _, _, _ = _context(request)
-    items, total = get_service_workflow_store().list(
+    items, total = workflow_store.get_service_workflow_store().list(
         organization_id=organization_id,
         limit=limit,
         offset=offset,
@@ -58,8 +61,9 @@ def list_cases(
 @router.post("", response_model=WorkflowCaseResponse, status_code=201)
 def create_case(request: Request, payload: WorkflowCreateRequest) -> WorkflowCaseResponse:
     organization_id, user_id, display_name, role = _context(request, write=True)
+    ensure_active_organization_project(organization_id, payload.project_id)
     return WorkflowCaseResponse.model_validate(
-        get_service_workflow_store().create(
+        workflow_store.get_service_workflow_store().create(
             organization_id=organization_id,
             actor_user_id=user_id,
             actor_name=display_name,
@@ -73,7 +77,7 @@ def create_case(request: Request, payload: WorkflowCreateRequest) -> WorkflowCas
 def get_case(request: Request, case_id: str) -> WorkflowCaseResponse:
     organization_id, _, _, _ = _context(request)
     return WorkflowCaseResponse.model_validate(
-        get_service_workflow_store().get(organization_id=organization_id, case_id=case_id)
+        workflow_store.get_service_workflow_store().get(organization_id=organization_id, case_id=case_id)
     )
 
 
@@ -81,7 +85,7 @@ def get_case(request: Request, case_id: str) -> WorkflowCaseResponse:
 def update_case(request: Request, case_id: str, payload: WorkflowUpdateRequest) -> WorkflowCaseResponse:
     organization_id, user_id, display_name, role = _context(request, write=True)
     return WorkflowCaseResponse.model_validate(
-        get_service_workflow_store().update(
+        workflow_store.get_service_workflow_store().update(
             organization_id=organization_id,
             case_id=case_id,
             actor_user_id=user_id,
@@ -106,7 +110,7 @@ def refresh_case_context(
 ) -> WorkflowCaseResponse:
     organization_id, user_id, display_name, role = _context(request, write=True)
     return WorkflowCaseResponse.model_validate(
-        get_service_workflow_store().refresh_context(
+        workflow_store.get_service_workflow_store().refresh_context(
             organization_id=organization_id,
             case_id=case_id,
             actor_user_id=user_id,
@@ -123,7 +127,7 @@ def refresh_case_context(
 def case_action(request: Request, case_id: str, payload: WorkflowCaseActionRequest) -> WorkflowCaseResponse:
     organization_id, user_id, display_name, role = _context(request, write=True)
     return WorkflowCaseResponse.model_validate(
-        get_service_workflow_store().case_action(
+        workflow_store.get_service_workflow_store().case_action(
             organization_id=organization_id,
             case_id=case_id,
             actor_user_id=user_id,
@@ -146,7 +150,7 @@ def update_node(
 ) -> WorkflowCaseResponse:
     organization_id, user_id, display_name, role = _context(request, write=True)
     return WorkflowCaseResponse.model_validate(
-        get_service_workflow_store().update_node(
+        workflow_store.get_service_workflow_store().update_node(
             organization_id=organization_id,
             case_id=case_id,
             node_id=node_id,
@@ -171,7 +175,7 @@ def node_action(
 ) -> WorkflowCaseResponse:
     organization_id, user_id, display_name, role = _context(request, write=True)
     return WorkflowCaseResponse.model_validate(
-        get_service_workflow_store().node_action(
+        workflow_store.get_service_workflow_store().node_action(
             organization_id=organization_id,
             case_id=case_id,
             node_id=node_id,
@@ -189,7 +193,7 @@ def node_action(
 @router.get("/{case_id}/events", response_model=WorkflowEventListResponse)
 def list_events(request: Request, case_id: str) -> WorkflowEventListResponse:
     organization_id, _, _, _ = _context(request)
-    items = get_service_workflow_store().events(organization_id=organization_id, case_id=case_id)
+    items = workflow_store.get_service_workflow_store().events(organization_id=organization_id, case_id=case_id)
     return WorkflowEventListResponse(
         items=[WorkflowEventResponse.model_validate(item) for item in items],
         total=len(items),
