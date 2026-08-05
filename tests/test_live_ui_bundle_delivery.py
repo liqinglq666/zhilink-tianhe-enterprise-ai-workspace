@@ -17,7 +17,7 @@ def test_complete_live_ui_bundle_is_the_only_app_js_route_after_startup() -> Non
     assert "openAccountManager" in response.text
     assert "openKnowledgeBase" in response.text
     assert "openProjectManager" in response.text
-    assert "ZHILINK_PRODUCT_SIMPLIFICATION_READY" in response.text
+    assert "ZHILINK_SIMPLE_UI_READY" in response.text
 
     app_js_routes = [route for route in app.router.routes if getattr(route, "path", None) == "/assets/app.js"]
     assert len(app_js_routes) == 1
