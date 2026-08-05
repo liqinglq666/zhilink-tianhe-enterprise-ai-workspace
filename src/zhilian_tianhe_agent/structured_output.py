@@ -292,6 +292,8 @@ def structure_markdown(module: StructuredModule, markdown: str) -> StructuredRes
         warnings.append("未识别到证据编号；事实性结论需要人工复核。")
     if not heading_count:
         warnings.append("未识别到 Markdown 二级标题。")
+    if heading_count > MAX_SECTIONS:
+        warnings.append(f"章节数量超过 {MAX_SECTIONS}，结构化结果仅保留前 {MAX_SECTIONS} 个章节。")
     if not pending and any(token in source for token in ("待确认", "未定位", "待补齐")):
         warnings.append("文本包含待确认表述，但未能稳定提取为结构化条目。")
     titles = [section.title for section in sections]
@@ -319,7 +321,7 @@ def structure_markdown(module: StructuredModule, markdown: str) -> StructuredRes
             warnings=warnings,
             missing_required_sections=missing_required,
             section_count=len(sections),
-            heading_count=heading_count,
+            heading_count=min(heading_count, MAX_SECTIONS),
             evidence_reference_count=len(evidence),
             pending_confirmation_count=len(pending),
         ),
