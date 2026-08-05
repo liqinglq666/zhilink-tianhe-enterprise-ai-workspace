@@ -1,6 +1,7 @@
 /* Official-policy retrieval, source viewer, and grounded policy route switch. */
 (() => {
   const STORAGE_KEY = "zhilian_official_policy_sources_v1";
+  const SEARCH_TIMEOUT_MS = 20000;
   let cached = read(sessionStorage.getItem(STORAGE_KEY), null);
   let activeSearch = null;
 
@@ -34,7 +35,7 @@
       const host = url.hostname.toLowerCase();
       return ["gov.cn", "gd.gov.cn", "gz.gov.cn", "thnet.gov.cn"].some(
         suffix => host === suffix || host.endsWith(`.${suffix}`)
-      ) && ["https:", "http:"].includes(url.protocol);
+      ) && url.protocol === "https:";
     } catch (_) {
       return false;
     }
@@ -125,18 +126,28 @@
     }
     if (activeSearch) return activeSearch;
     activeSearch = (async () => {
-      const response = await fetch("/api/policy/official/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...input, query: "", limit: 6 }),
-      });
-      const text = await response.text();
-      const data = read(text, {});
-      if (!response.ok) throw new Error(data.detail || text || "官方政策检索失败。");
-      cached = { input_sha256: inputHash, retrieval: data };
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
-      decorate();
-      return data;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+      try {
+        const response = await fetch("/api/policy/official/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...input, query: "", limit: 6 }),
+          signal: controller.signal,
+        });
+        const text = await response.text();
+        const data = read(text, {});
+        if (!response.ok) throw new Error(data.detail || text || "官方政策检索失败。");
+        cached = { input_sha256: inputHash, retrieval: data };
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
+        decorate();
+        return data;
+      } catch (error) {
+        if (error.name === "AbortError") throw new Error("官方政策检索超过 20 秒，请稍后重试。");
+        throw error;
+      } finally {
+        clearTimeout(timer);
+      }
     })().finally(() => { activeSearch = null; });
     return activeSearch;
   }
@@ -193,7 +204,7 @@
           <div><dt>官方域名</dt><dd>${safe(source.official_domain)}</dd></div>
         </dl>
         <blockquote>${safe(source.excerpt || "未提取到稳定摘录，请打开官方原文核对。")}</blockquote>
-        ${href ? `<a href="${safe(href)}" target="_blank" rel="noopener noreferrer">打开官方原文</a>` : '<span class="policy-source-invalid">链接未通过前端官方域名校验</span>'}
+        ${href ? `<a href="${safe(href)}" target="_blank" rel="noopener noreferrer">打开官方原文</a>` : '<span class="policy-source-invalid">链接未通过前端 HTTPS 官方域名校验</span>'}
       </article>`;
     }).join("");
   }
