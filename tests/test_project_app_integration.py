@@ -32,10 +32,14 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         assert "ZHILINK_POLICY_SOURCES_READY" in bundle.text
         assert "ZHILINK_KNOWLEDGE_READY" in bundle.text
         assert "ZHILINK_SERVICE_WORKFLOW_READY" in bundle.text
-        assert any(route.path == "/api/policy/official/search" for route in app.routes)
-        assert any(route.path == "/api/policy/official/stream" for route in app.routes)
-        assert any(route.path == "/api/knowledge/search" for route in app.routes)
-        assert any(route.path == "/api/service-cases" for route in app.routes)
+
+        schema = client.get("/openapi.json")
+        assert schema.status_code == 200
+        route_paths = set(schema.json()["paths"])
+        assert "/api/policy/official/search" in route_paths
+        assert "/api/policy/official/stream" in route_paths
+        assert "/api/knowledge/search" in route_paths
+        assert "/api/service-cases" in route_paths
 
         structured = client.post(
             "/api/structured/convert",
