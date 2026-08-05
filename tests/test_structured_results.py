@@ -53,6 +53,14 @@ def test_same_source_is_deterministic_and_changed_source_changes_hash():
     assert changed["source_sha256"] != first["source_sha256"]
 
 
+def test_excessive_headings_are_bounded_instead_of_failing():
+    content = "\n".join(f"## 章节 {index}\n内容 [MT-01]" for index in range(60))
+    result = structure_markdown("meeting", content)
+    assert len(result.sections) == 40
+    assert result.validation.heading_count == 40
+    assert any("仅保留前 40 个章节" in item for item in result.validation.warnings)
+
+
 def test_convert_endpoint_and_schema():
     app = FastAPI()
     register_structured_routes(app)
