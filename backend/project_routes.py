@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, Query, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from .auth_routes import register_auth_routes, require_auth, require_csrf
 from .auth_store import get_account_store
@@ -210,6 +210,13 @@ def register_project_routes(app: FastAPI) -> None:
     register_knowledge_routes(app)
     register_service_workflow_routes(app)
     app.include_router(router)
+
+    @app.get("/preview", include_in_schema=False)
+    def ui_preview() -> FileResponse:
+        return FileResponse(
+            ASSETS_DIR / "ui-preview.html",
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/assets/app.js", include_in_schema=False)
     def workspace_app_bundle() -> Response:
