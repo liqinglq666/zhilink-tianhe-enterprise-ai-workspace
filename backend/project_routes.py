@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, Response
 
 from .auth_routes import register_auth_routes, require_auth, require_csrf
 from .auth_store import get_account_store
+from .policy_official_routes import register_official_policy_routes
 from .project_schemas import (
     ProjectCreateRequest,
     ProjectDeleteResponse,
@@ -203,6 +204,7 @@ def register_project_routes(app: FastAPI) -> None:
     register_auth_routes(app)
     register_review_routes(app)
     register_structured_routes(app)
+    register_official_policy_routes(app)
     app.include_router(router)
 
     @app.get("/assets/app.js", include_in_schema=False)
@@ -214,6 +216,7 @@ def register_project_routes(app: FastAPI) -> None:
             "project-storage.js",
             "review-workflow.js",
             "structured-results.js",
+            "policy-sources.js",
         ]
         content = "\n\n".join((ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts)
         return Response(content=f"{content}\n", media_type="application/javascript", headers={"Cache-Control": "no-cache"})
