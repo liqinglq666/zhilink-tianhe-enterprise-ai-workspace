@@ -85,7 +85,7 @@ def test_user_override_can_be_disabled_by_deployment(monkeypatch: pytest.MonkeyP
     with pytest.raises(ModelGatewayError) as exc_info:
         LLMConfig(api_key="user-owned-key", base_url="https://api.example.com/v1", model="model")
 
-    assert exc_info.value.code == "MODEL_CONFIGURATION_ERROR"
+    assert exc_info.value.code == "MODEL_CONFIG_INVALID"
 
 
 def test_public_quota_fuse_prompts_for_user_api(monkeypatch: pytest.MonkeyPatch) -> None:
