@@ -29,7 +29,12 @@ router = APIRouter(prefix="/api/knowledge", tags=["knowledge-base"])
 
 def _scope_key(value: str) -> str:
     normalized = " ".join(str(value or "").split())
-    return re.sub(r"(自治县|新区|省|市|区|县)$", "", normalized)
+    normalized = re.sub(r"(自治县|新区|省|市|区|县)$", "", normalized)
+    for prefix in ("广东省", "广州市", "广州"):
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix) :]
+            break
+    return normalized
 
 
 def _normalized_search_payload(payload: KnowledgeSearchRequest) -> KnowledgeSearchRequest:
