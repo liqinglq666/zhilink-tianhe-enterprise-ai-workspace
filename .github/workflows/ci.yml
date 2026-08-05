@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip check
+
+      - name: Compile Python sources
+        run: python -m compileall -q backend src tests scripts alembic
+
+      - name: Check browser scripts
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do
+            echo "Checking ${file}"
+            node --check "${file}"
+          done < <(find frontend/assets -type f -name '*.js' -print0 | sort -z)
+
+      - name: Upgrade a clean SQLite database
+        env:
+          DATABASE_URL: sqlite:///${{ runner.temp }}/zhilink-${{ matrix.python-version }}.db
+        run: |
+          python scripts/migrate.py
+          python scripts/migrate.py
+
+      - name: Run complete test suite
+        env:
+          DATABASE_URL: sqlite:///${{ runner.temp }}/pytest-${{ matrix.python-version }}.db
+          PYTHONPATH: .
+        run: pytest -q
+
+  postgres-migration:
+    name: PostgreSQL migration smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: zhilink_ci
+          POSTGRES_USER: zhilink
+          POSTGRES_PASSWORD: zhilink
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zhilink -d zhilink_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Upgrade PostgreSQL schema
+        env:
+          DATABASE_URL: postgresql+psycopg://zhilink:zhilink@127.0.0.1:5432/zhilink_ci
+        run: |
+          python scripts/migrate.py
+          python scripts/migrate.py
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, inspect, text
+
+          engine = create_engine(os.environ["DATABASE_URL"])
+          tables = set(inspect(engine).get_table_names())
+          required = {
+              "projects",
+              "project_versions",
+              "users",
+              "organizations",
+              "organization_memberships",
+              "auth_sessions",
+              "organization_projects",
+              "project_review_events",
+              "knowledge_articles",
+              "knowledge_versions",
+              "knowledge_review_events",
+              "service_cases",
+              "service_case_nodes",
+              "service_case_contexts",
+              "service_case_events",
+              "alembic_version",
+          }
+          missing = sorted(required - tables)
+          assert not missing, f"Missing PostgreSQL tables: {missing}"
+          with engine.connect() as connection:
+              assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "20260805_0001"
+          PY
+
+  container:
+    name: Container build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [test, postgres-migration]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build production image
+        run: docker build --tag zhilink-tianhe:ci .
