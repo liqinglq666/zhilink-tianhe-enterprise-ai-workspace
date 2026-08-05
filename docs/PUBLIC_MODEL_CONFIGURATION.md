@@ -35,7 +35,7 @@ RATE_LIMIT_WINDOW_SECONDS=60
 MAX_CONCURRENT_GENERATIONS_PER_CLIENT=1
 ```
 
-注意：缺少 `PUBLIC_MODEL_ENABLED=true` 时，即使环境中存在 Key，也不会开放给匿名评委使用。
+注意：缺少 `PUBLIC_MODEL_ENABLED=true` 时，即使环境中存在 Key，也不会开放给匿名评委使用。真实 Key 必须由项目管理员直接粘贴到 Render Secret 环境变量中，不要发到聊天、邮件正文、Issue 或 PR。
 
 ## 用户体验
 
