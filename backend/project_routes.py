@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, Response
 
 from .auth_routes import register_auth_routes, require_auth, require_csrf
 from .auth_store import get_account_store
+from .knowledge_routes import register_knowledge_routes
 from .policy_official_routes import register_official_policy_routes
 from .project_schemas import (
     ProjectCreateRequest,
@@ -173,9 +174,7 @@ def update_project(request: Request, project_id: str, payload: ProjectUpdateRequ
         prepared_snapshot = None
         if payload.snapshot is not None:
             current = store.get_project(scope, project_id)
-            prepared_snapshot = prepare_updated_snapshot(
-                current.get("snapshot") or {}, payload.snapshot.model_dump(mode="json")
-            )
+            prepared_snapshot = prepare_updated_snapshot(current.get("snapshot") or {}, payload.snapshot.model_dump(mode="json"))
         record = store.update_project(
             scope,
             project_id,
@@ -205,6 +204,7 @@ def register_project_routes(app: FastAPI) -> None:
     register_review_routes(app)
     register_structured_routes(app)
     register_official_policy_routes(app)
+    register_knowledge_routes(app)
     app.include_router(router)
 
     @app.get("/assets/app.js", include_in_schema=False)
@@ -217,17 +217,14 @@ def register_project_routes(app: FastAPI) -> None:
             "review-workflow.js",
             "structured-results.js",
             "policy-sources.js",
+            "knowledge-base.js",
         ]
         content = "\n\n".join((ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts)
         return Response(content=f"{content}\n", media_type="application/javascript", headers={"Cache-Control": "no-cache"})
 
     @app.exception_handler(ProjectAPIError)
     async def project_api_error_handler(request: Request, exc: ProjectAPIError) -> JSONResponse:  # noqa: ARG001
-        payload: dict[str, object] = {
-            "detail": exc.message,
-            "code": exc.code,
-            "retryable": exc.status_code >= 500,
-        }
+        payload: dict[str, object] = {"detail": exc.message, "code": exc.code, "retryable": exc.status_code >= 500}
         if exc.current_version is not None:
             payload["current_version"] = exc.current_version
         return JSONResponse(status_code=exc.status_code, content=payload)
