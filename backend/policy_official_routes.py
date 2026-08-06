@@ -23,6 +23,7 @@ router = APIRouter(prefix="/api/policy/official", tags=["official-policy"])
 MAX_POLICY_CONCURRENCY = max(0, int(os.getenv("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", "1") or "1"))
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "").strip().lower() in {"1", "true", "yes", "on"}
 POLICY_GENERATION_LIMITER = ClientConcurrencyLimiter(MAX_POLICY_CONCURRENCY)
+POLICY_MODE = "AI模型流式模式（官方候选来源与人工核验）"
 
 
 class StrictModel(BaseModel):
@@ -113,7 +114,7 @@ def stream_official_policy(payload: OfficialPolicyGenerateRequest, request: Requ
         try:
             yield _sse({
                 "type": "meta",
-                "mode": "AI模型流式模式（官方政策检索与引用）",
+                "mode": POLICY_MODE,
                 "retrieval": prepared.retrieval.model_dump(mode="json"),
             })
             async for chunk in iterate_in_threadpool(iterator):
@@ -125,7 +126,7 @@ def stream_official_policy(payload: OfficialPolicyGenerateRequest, request: Requ
             yield _sse({
                 "type": "done",
                 "content": content,
-                "mode": "AI模型流式模式（官方政策检索与引用）",
+                "mode": POLICY_MODE,
                 "retrieval": prepared.retrieval.model_dump(mode="json"),
             })
         except ModelGatewayError as exc:
