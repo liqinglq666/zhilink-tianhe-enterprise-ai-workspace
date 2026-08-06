@@ -13,6 +13,11 @@ from .utils import load_json
 MAX_EVIDENCE_PER_RULE = 3
 MAX_EVIDENCE_CHARS = 220
 _VALID_SEVERITIES = {"高", "中", "低"}
+_WEAK_KEYWORD_ONLY = {
+    "CR-DELIVERY": {"延期"},
+    "CR-DATA": {"数据"},
+    "CR-SCOPE": {"配合", "支持"},
+}
 
 
 @dataclass(frozen=True)
@@ -102,9 +107,7 @@ class ContractRuleScan:
                 ]
             )
             for item in self.matches:
-                evidence = "；".join(
-                    _escape_table_cell(value) for value in item.evidence
-                )
+                evidence = "；".join(_escape_table_cell(value) for value in item.evidence)
                 keywords = "、".join(item.matched_keywords)
                 lines.append(
                     "| {rule_id} | {name} | {severity} | {keywords} | {evidence} | {advice} |".format(
@@ -122,12 +125,10 @@ class ContractRuleScan:
         lines.extend(["", "### 待确认信息", ""])
         questions: list[str] = []
         for item in self.matches:
-            questions.extend(
-                f"[{item.rule_id}] {question}" for question in item.confirm_questions
-            )
+            questions.extend(f"[{item.rule_id}] {question}" for question in item.confirm_questions)
         for rule in self.uncovered_rules:
             questions.append(
-                f"[{rule.rule_id}] 未在文本中定位到“{rule.name}”关键词，请确认相关条款是否缺失、使用了其他表述或位于未提供的附件中。"
+                f"[{rule.rule_id}] 未在文本中稳定定位到“{rule.name}”相关条款，请确认相关内容是否缺失、使用了其他表述或位于未提供的附件中。"
             )
         for question in _unique(questions):
             lines.append(f"- [ ] {question}")
@@ -153,9 +154,7 @@ def load_contract_rules() -> tuple[ContractRule, ...]:
         advice = str(item.get("advice", "")).strip()
         questions = _clean_strings(item.get("confirm_questions", []))
         if not rule_id or rule_id in seen_ids or not name or not keywords or not advice:
-            raise RuntimeError(
-                f"合同风险规则库第 {index} 项缺少必要字段或编号重复。"
-            )
+            raise RuntimeError(f"合同风险规则库第 {index} 项缺少必要字段或编号重复。")
         if severity not in _VALID_SEVERITIES:
             raise RuntimeError(f"合同风险规则 {rule_id} 的风险等级不合法。")
         seen_ids.add(rule_id)
@@ -187,21 +186,20 @@ def scan_contract_rules(
 
     for rule in active_rules:
         matched_keywords = tuple(
-            keyword
-            for keyword in rule.keywords
-            if keyword.casefold() in folded_text
+            keyword for keyword in rule.keywords if keyword.casefold() in folded_text
         )
-        if not matched_keywords:
+        if not matched_keywords or _weak_keyword_match(rule, matched_keywords, folded_text):
             uncovered.append(rule)
             continue
-        evidence = _evidence_for_rule(segments, matched_keywords)
+        evidence = _evidence_for_rule(
+            segments,
+            matched_keywords,
+            rule.high_risk_patterns,
+        )
         evidence_text = " ".join(evidence).casefold()
         severity = (
             "高"
-            if any(
-                pattern.casefold() in evidence_text
-                for pattern in rule.high_risk_patterns
-            )
+            if any(pattern.casefold() in evidence_text for pattern in rule.high_risk_patterns)
             else rule.severity
         )
         matches.append(
@@ -224,6 +222,17 @@ def scan_contract_rules(
     )
 
 
+def _weak_keyword_match(
+    rule: ContractRule,
+    matched_keywords: tuple[str, ...],
+    folded_text: str,
+) -> bool:
+    weak = _WEAK_KEYWORD_ONLY.get(rule.rule_id)
+    if not weak or not set(matched_keywords).issubset(weak):
+        return False
+    return not any(pattern.casefold() in folded_text for pattern in rule.high_risk_patterns)
+
+
 def _segments(text: str) -> tuple[str, ...]:
     raw_parts = re.split(r"(?<=[。！？；])|[\r\n]+", text)
     cleaned = [_trim_evidence(part) for part in raw_parts if part and part.strip()]
@@ -233,14 +242,20 @@ def _segments(text: str) -> tuple[str, ...]:
 def _evidence_for_rule(
     segments: tuple[str, ...],
     keywords: tuple[str, ...],
+    high_risk_patterns: tuple[str, ...],
 ) -> tuple[str, ...]:
-    evidence: list[str] = []
-    for segment in segments:
+    ranked: list[tuple[int, int, str]] = []
+    for index, segment in enumerate(segments):
         folded = segment.casefold()
-        if any(keyword.casefold() in folded for keyword in keywords):
-            evidence.append(_trim_evidence(segment))
-            if len(evidence) >= MAX_EVIDENCE_PER_RULE:
-                break
+        keyword_count = sum(keyword.casefold() in folded for keyword in keywords)
+        if not keyword_count:
+            continue
+        pattern_count = sum(pattern.casefold() in folded for pattern in high_risk_patterns)
+        score = keyword_count * 4 + pattern_count * 8
+        ranked.append((score, -index, _trim_evidence(segment)))
+
+    ranked.sort(reverse=True)
+    evidence = [item[2] for item in ranked[:MAX_EVIDENCE_PER_RULE]]
     return tuple(
         evidence
         or ("已命中关键词，但未能切分出独立证据片段，请人工查看完整原文。",)
