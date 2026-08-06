@@ -68,7 +68,7 @@ class OfficialPolicyAgent:
             ) from exc
         return OfficialPolicyResult(
             content=content.strip(),
-            mode="AI模型模式（官方政策候选来源与人工核验）",
+            mode="AI模型模式（官方候选来源与人工核验）",
             retrieval=prepared.retrieval,
         )
 
