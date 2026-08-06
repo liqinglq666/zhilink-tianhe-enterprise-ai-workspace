@@ -79,7 +79,7 @@ def refine_policy_retrieval(
     if removed:
         warnings.append(f"已过滤 {removed} 个与当前需求关联度不足或原文质量过低的候选页面。")
     if selected:
-        warnings.append("页面状态为系统规则初判，不等同于政策有效性确认；正式使用前必须打开原文核验。")
+        warnings.append("页面状态为系统规则初判，不等同于政策有效性确认；正式使用前必须打开原文人工核验。")
         status = "partial" if warnings else "ok"
     elif retrieval.status in {"unavailable", "disabled"}:
         status = retrieval.status
