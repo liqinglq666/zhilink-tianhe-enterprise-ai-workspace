@@ -139,7 +139,7 @@ class MeetingAgent(BaseAgent):
         checked = audit_meeting_output(result.content, meeting_text, bundle)
         return AgentResult(
             content=append_evidence_appendix(checked, bundle),
-            mode="AI模型模式（会议事实边界校验）",
+            mode="AI模型模式（含证据索引）",
             error=result.error,
         )
 
