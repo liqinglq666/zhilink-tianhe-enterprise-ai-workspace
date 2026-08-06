@@ -13,6 +13,7 @@ from starlette.concurrency import iterate_in_threadpool
 
 from zhilian_tianhe_agent.errors import ModelGatewayError
 from zhilian_tianhe_agent.official_policy import OfficialPolicyAgent
+from zhilian_tianhe_agent.policy_quality import refine_policy_retrieval
 from zhilian_tianhe_agent.policy_retrieval import OfficialPolicyRetrieval, get_official_policy_retriever
 
 from .limits import ClientConcurrencyLimiter
@@ -77,12 +78,14 @@ def _sse(data: Dict[str, Any]) -> str:
 
 @router.post("/search", response_model=OfficialPolicyRetrieval)
 def search_official_policy(payload: OfficialPolicySearchRequest) -> OfficialPolicyRetrieval:
-    return get_official_policy_retriever().search(
-        profile_to_dict(payload.profile),
+    profile = profile_to_dict(payload.profile)
+    raw = get_official_policy_retriever().search(
+        profile,
         payload.demand,
         query=payload.query,
         limit=payload.limit,
     )
+    return refine_policy_retrieval(raw, profile, payload.demand)
 
 
 @router.post("", response_model=OfficialPolicyGenerateResponse)
