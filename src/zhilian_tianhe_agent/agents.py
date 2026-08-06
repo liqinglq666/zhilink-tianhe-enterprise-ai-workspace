@@ -10,6 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Iterator, Optional
 
+from .contract_quality import (
+    CONTRACT_RECOMMENDATION_SAFETY_RULES,
+    audit_contract_output,
+)
 from .contract_rules import ContractRuleScan, scan_contract_rules
 from .errors import ModelGatewayError
 from .evidence import (
@@ -162,6 +166,7 @@ class ContractAgent(BaseAgent):
     ) -> tuple[str, ContractRuleScan]:
         scan = scan_contract_rules(contract_text)
         prompt = contract_prompt(contract_text, profile_summary, scan.to_prompt_dict())
+        prompt = f"{prompt}\n\n{CONTRACT_RECOMMENDATION_SAFETY_RULES}"
         return prompt, scan
 
     @staticmethod
@@ -171,15 +176,21 @@ class ContractAgent(BaseAgent):
     def run(self, contract_text: str, profile_summary: str = "") -> AgentResult:
         prompt, scan = self._prepare(contract_text, profile_summary)
         result = self._run(prompt)
+        checked = audit_contract_output(result.content, contract_text, scan)
         return AgentResult(
-            content=self._with_local_scan(result.content, scan),
+            content=self._with_local_scan(checked, scan),
             mode="AI模型模式（含本地规则预检）",
             error=result.error,
         )
 
     def stream(self, contract_text: str, profile_summary: str = "") -> Iterator[str]:
         prompt, scan = self._prepare(contract_text, profile_summary)
-        yield from self._stream(prompt)
+        # Buffer before presenting the result so unsupported clause values can be
+        # downgraded to negotiation variables consistently in stream and non-stream paths.
+        content = "".join(self._stream(prompt))
+        checked = audit_contract_output(content, contract_text, scan)
+        for start in range(0, len(checked), 1600):
+            yield checked[start : start + 1600]
         yield f"\n\n{scan.to_markdown()}"
 
 
