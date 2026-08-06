@@ -17,12 +17,16 @@ from .evidence import (
     append_evidence_appendix,
     build_landing_evidence,
     build_match_evidence,
-    build_meeting_evidence,
     build_policy_evidence,
     build_profile_evidence,
     build_report_evidence,
 )
 from .llm_client import LLMClient
+from .meeting_quality import (
+    MEETING_FACT_SAFETY_RULES,
+    audit_meeting_output,
+    build_meeting_evidence_v2,
+)
 from .prompts import (
     SYSTEM_PROMPT,
     contract_prompt,
@@ -120,21 +124,34 @@ class MeetingAgent(BaseAgent):
         meeting_text: str,
         profile_summary: str,
     ) -> tuple[str, EvidenceBundle]:
-        bundle = build_meeting_evidence(meeting_text, profile_summary)
+        bundle = build_meeting_evidence_v2(meeting_text, profile_summary)
         prompt = meeting_prompt(
             meeting_text,
             profile_summary,
             bundle.to_prompt_dict(),
         )
+        prompt = f"{prompt}\n\n{MEETING_FACT_SAFETY_RULES}"
         return prompt, bundle
 
     def run(self, meeting_text: str, profile_summary: str = "") -> AgentResult:
         prompt, bundle = self._prepare(meeting_text, profile_summary)
-        return self._run_grounded(prompt, bundle)
+        result = self._run(prompt)
+        checked = audit_meeting_output(result.content, meeting_text, bundle)
+        return AgentResult(
+            content=append_evidence_appendix(checked, bundle),
+            mode="AI模型模式（含证据索引）",
+            error=result.error,
+        )
 
     def stream(self, meeting_text: str, profile_summary: str = "") -> Iterator[str]:
         prompt, bundle = self._prepare(meeting_text, profile_summary)
-        yield from self._stream_grounded(prompt, bundle)
+        # Buffer the model output so unsupported owners, dates and hard values can be
+        # corrected before any result is presented as a meeting fact.
+        content = "".join(self._stream(prompt))
+        checked = audit_meeting_output(content, meeting_text, bundle)
+        for start in range(0, len(checked), 1600):
+            yield checked[start : start + 1600]
+        yield f"\n\n{bundle.to_markdown()}"
 
 
 class ContractAgent(BaseAgent):
