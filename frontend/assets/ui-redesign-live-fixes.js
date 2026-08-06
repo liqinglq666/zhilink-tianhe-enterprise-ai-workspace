@@ -2,6 +2,8 @@
 (() => {
   const WORKSPACE_KEY_STORAGE = "zhilian_workspace_key_v1";
   const UI_V2_SCRIPT = "/assets/ui-v2-dashboard.js?v=20260805.1";
+  const DATA_PROVENANCE_SCRIPT = "/assets/data-provenance-guard.js?v=20260806.1";
+  const DATA_PROVENANCE_STYLE = "/assets/data-provenance-guard.css?v=20260806.1";
   const publicModel = {
     loaded: false,
     available: false,
@@ -34,6 +36,23 @@
     script.async = false;
     script.dataset.zhilinkUiV2 = "true";
     script.addEventListener("error", () => console.error("智链天河 UI V2 加载失败，请强制刷新后重试。"), { once: true });
+    document.head.appendChild(script);
+  }
+
+  function loadDataProvenanceGuard() {
+    if (!document.querySelector("link[data-zhilink-data-provenance]")) {
+      const style = document.createElement("link");
+      style.rel = "stylesheet";
+      style.href = DATA_PROVENANCE_STYLE;
+      style.dataset.zhilinkDataProvenance = "true";
+      document.head.appendChild(style);
+    }
+    if (window.ZHILINK_DATA_PROVENANCE_READY || document.querySelector("script[data-zhilink-data-provenance]")) return;
+    const script = document.createElement("script");
+    script.src = DATA_PROVENANCE_SCRIPT;
+    script.async = false;
+    script.dataset.zhilinkDataProvenance = "true";
+    script.addEventListener("error", () => console.error("数据来源隔离层加载失败，请强制刷新后重试。"), { once: true });
     document.head.appendChild(script);
   }
 
@@ -255,6 +274,7 @@
     injectPublicModelStyles();
     installPublicModelMode();
     loadUiV2Dashboard();
+    loadDataProvenanceGuard();
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply, { once: true });
