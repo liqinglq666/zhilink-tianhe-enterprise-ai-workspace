@@ -1,6 +1,6 @@
 /* UI V3: replace the legacy visual shell while preserving all existing business ids/events. */
 (() => {
-  const VERSION = "20260806.1";
+  const VERSION = "20260806.2";
   const READY_EVENT = "zhilink:ui-v3-ready";
   const MODULES = {
     profile: {
@@ -159,6 +159,10 @@
 
   function apply() {
     ensureStyles();
+    // V1 used a fixed sidebar and left margin. Keeping both body classes makes the
+    // V3 grid place the main workspace inside the narrow first column. Remove only
+    // the legacy visual scope; its business/navigation JavaScript continues running.
+    document.body.classList.remove("ui-redesign-live");
     document.body.classList.add("ui-v3-clean-shell");
     document.documentElement.dataset.zhilinkUi = "v3";
     Object.entries(MODULES).forEach(([id, config]) => decorateBusinessPage(id, config));
