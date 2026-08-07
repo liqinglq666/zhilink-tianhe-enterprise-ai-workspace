@@ -110,7 +110,7 @@ def test_refine_policy_retrieval_requires_direct_business_relevance() -> None:
     assert all("广佛环线" not in item.title for item in refined.sources)
     assert all(item.status != "revoked" for item in refined.sources)
     assert any("特定身份" in warning for warning in refined.warnings)
-    assert any("不代表高度相关" in warning for warning in refined.warnings)
+    assert any("不代表业务直接适配" in warning for warning in refined.warnings)
 
 
 def test_specific_audience_policy_requires_explicit_identity_terms() -> None:
