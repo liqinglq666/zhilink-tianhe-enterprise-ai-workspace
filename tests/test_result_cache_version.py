@@ -4,12 +4,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LOADER = ROOT / "frontend" / "assets" / "ui-redesign-live-fixes.js"
 GUARD = ROOT / "frontend" / "assets" / "data-provenance-guard-v2.js"
+POLICY = ROOT / "frontend" / "assets" / "policy-sources.js"
 
 
 def test_live_loader_uses_versioned_result_cache_guard():
     source = LOADER.read_text(encoding="utf-8")
 
-    assert "/assets/data-provenance-guard-v2.js?v=20260807.2" in source
+    assert "/assets/data-provenance-guard-v2.js?v=20260807.1" in source
     assert "script.dataset.zhilinkDataProvenance = \"true\"" in source
 
 
@@ -28,6 +29,19 @@ def test_stale_generated_results_are_quarantined_before_reuse():
     assert "sessionStorage.removeItem(STRUCTURED_STORAGE)" in source
     assert "active.results = results" in source
     assert "window.showResult(key, {})" in source
+
+
+def test_policy_bundle_has_independent_no_store_cache_migration():
+    source = POLICY.read_text(encoding="utf-8")
+
+    assert 'POLICY_RESULT_SCHEMA_VERSION = "20260807-policy-grounded-v3"' in source
+    assert "migrateStalePolicyResult" in source
+    assert "delete results.policy" in source
+    assert "delete meta.policy" in source
+    assert "stampPolicyResultVersion" in source
+    assert 'if (key === "policy")' in source
+    assert "政策需求输入已保留" in source
+    assert "policyDemand" not in source
 
 
 def test_module_schema_upgrades_do_not_invalidate_unrelated_current_results():
