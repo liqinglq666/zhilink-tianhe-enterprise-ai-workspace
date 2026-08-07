@@ -2,7 +2,7 @@
 (() => {
   const WORKSPACE_KEY_STORAGE = "zhilian_workspace_key_v1";
   const UI_V2_SCRIPT = "/assets/ui-v2-dashboard.js?v=20260805.1";
-  const DATA_PROVENANCE_SCRIPT = "/assets/data-provenance-guard.js?v=20260806.1";
+  const DATA_PROVENANCE_SCRIPT = "/assets/data-provenance-guard-v2.js?v=20260806.2";
   const DATA_PROVENANCE_STYLE = "/assets/data-provenance-guard.css?v=20260806.1";
   const publicModel = {
     loaded: false,
