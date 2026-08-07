@@ -1,6 +1,10 @@
 /* Result schema migration wrapper for the data provenance guard. */
 (() => {
-  const RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2";
+  const BASE_RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2";
+  const RESULT_SCHEMA_VERSIONS = {
+    contract: "20260807-contract-grounded-v3",
+    policy: "20260807-policy-grounded-v3",
+  };
   const RESULT_KEYS = ["profile", "meeting", "contract", "policy", "match", "landing", "report"];
   const RESULT_TITLES = {
     profile: "企业档案",
@@ -27,6 +31,10 @@
     }
   }
 
+  function expectedVersion(key) {
+    return RESULT_SCHEMA_VERSIONS[key] || BASE_RESULT_SCHEMA_VERSION;
+  }
+
   function currentState() {
     return typeof state !== "undefined" ? state : null;
   }
@@ -41,13 +49,13 @@
     const meta = readJson(sessionStorage.getItem(META_STORAGE), {});
     const keys = RESULT_KEYS.filter(key => (
       Boolean(results?.[key])
-      && String(meta?.[key]?.result_schema_version || "") !== RESULT_SCHEMA_VERSION
+      && String(meta?.[key]?.result_schema_version || "") !== expectedVersion(key)
     ));
     if (!keys.length) return [];
 
     const snapshot = {
       quarantined_at: new Date().toISOString(),
-      expected_version: RESULT_SCHEMA_VERSION,
+      expected_versions: Object.fromEntries(keys.map(key => [key, expectedVersion(key)])),
       keys,
       results: Object.fromEntries(keys.map(key => [key, results[key]])),
       meta: Object.fromEntries(keys.map(key => [key, meta?.[key] || {}])),
@@ -82,7 +90,7 @@
     if (!active?.results?.[key]) return;
     active.meta ||= {};
     active.meta[key] ||= {};
-    active.meta[key].result_schema_version = RESULT_SCHEMA_VERSION;
+    active.meta[key].result_schema_version = expectedVersion(key);
     sessionStorage.setItem(META_STORAGE, JSON.stringify(active.meta));
   }
 
@@ -98,7 +106,7 @@
       const value = original.apply(this, arguments);
       stampCurrentResult(key);
       window.dispatchEvent(new CustomEvent("zhilink:result-schema-stamped", {
-        detail: { key, version: RESULT_SCHEMA_VERSION },
+        detail: { key, version: expectedVersion(key) },
       }));
       return value;
     };
@@ -132,9 +140,14 @@
     installSetResultGuard();
     loadCoreGuard();
     notifyMigration(migrated);
-    window.ZHILINK_RESULT_SCHEMA_VERSION = RESULT_SCHEMA_VERSION;
+    window.ZHILINK_RESULT_SCHEMA_VERSION = BASE_RESULT_SCHEMA_VERSION;
+    window.ZHILINK_RESULT_SCHEMA_VERSIONS = {
+      base: BASE_RESULT_SCHEMA_VERSION,
+      ...RESULT_SCHEMA_VERSIONS,
+    };
     window.ZHILINK_RESULT_CACHE_GUARD = {
-      version: RESULT_SCHEMA_VERSION,
+      version: BASE_RESULT_SCHEMA_VERSION,
+      versions: window.ZHILINK_RESULT_SCHEMA_VERSIONS,
       quarantineKey: QUARANTINE_STORAGE,
       getQuarantine: () => readJson(sessionStorage.getItem(QUARANTINE_STORAGE), []),
       rerunMigration: quarantineLegacyResults,

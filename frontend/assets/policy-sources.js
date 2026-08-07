@@ -1,9 +1,15 @@
 /* Official-policy candidate retrieval, source viewer, and grounded route switch. */
 (() => {
-  const STORAGE_KEY = "zhilian_official_policy_sources_v2";
+  const STORAGE_KEY = "zhilian_official_policy_sources_v3";
+  const POLICY_RESULT_SCHEMA_VERSION = "20260807-policy-grounded-v3";
+  const RESULTS_STORAGE = "zhilian_results";
+  const META_STORAGE = "zhilian_meta";
+  const STRUCTURED_STORAGE = "zhilian_structured_results_v1";
+  const QUARANTINE_STORAGE = "zhilian_legacy_result_quarantine_v1";
   const SEARCH_TIMEOUT_MS = 20000;
   let cached = read(sessionStorage.getItem(STORAGE_KEY), null);
   let activeSearch = null;
+  let resultGuardInstalled = false;
 
   function read(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
@@ -16,6 +22,67 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function migrateStalePolicyResult() {
+    const results = read(sessionStorage.getItem(RESULTS_STORAGE), {});
+    const meta = read(sessionStorage.getItem(META_STORAGE), {});
+    if (!results?.policy) return false;
+    if (String(meta?.policy?.result_schema_version || "") === POLICY_RESULT_SCHEMA_VERSION) return false;
+
+    const history = read(sessionStorage.getItem(QUARANTINE_STORAGE), []);
+    const snapshot = {
+      quarantined_at: new Date().toISOString(),
+      expected_versions: { policy: POLICY_RESULT_SCHEMA_VERSION },
+      keys: ["policy"],
+      results: { policy: results.policy },
+      meta: { policy: meta?.policy || {} },
+    };
+    sessionStorage.setItem(
+      QUARANTINE_STORAGE,
+      JSON.stringify([snapshot, ...(Array.isArray(history) ? history : [])].slice(0, 3)),
+    );
+    delete results.policy;
+    delete meta.policy;
+    sessionStorage.setItem(RESULTS_STORAGE, JSON.stringify(results));
+    sessionStorage.setItem(META_STORAGE, JSON.stringify(meta));
+    sessionStorage.removeItem(STRUCTURED_STORAGE);
+
+    if (typeof state !== "undefined") {
+      state.results = results;
+      state.meta = meta;
+      if (typeof showResult === "function") showResult("policy", {});
+      if (typeof updateProgress === "function") updateProgress();
+    }
+    setTimeout(() => {
+      const message = "检测到旧版本政策结果，已隔离。政策需求输入已保留，请重新生成。";
+      if (typeof toast === "function") toast(message);
+      else console.info(message);
+    }, 120);
+    return true;
+  }
+
+  function stampPolicyResultVersion() {
+    if (typeof state === "undefined" || !state.results?.policy) return;
+    state.meta ||= {};
+    state.meta.policy ||= {};
+    state.meta.policy.result_schema_version = POLICY_RESULT_SCHEMA_VERSION;
+    sessionStorage.setItem(META_STORAGE, JSON.stringify(state.meta));
+  }
+
+  function installPolicyResultVersionGuard() {
+    if (resultGuardInstalled) return;
+    if (typeof setResult !== "function") {
+      setTimeout(installPolicyResultVersionGuard, 40);
+      return;
+    }
+    resultGuardInstalled = true;
+    const previousSetResult = setResult;
+    setResult = function policySchemaAwareSetResult(key, result) {
+      const value = previousSetResult.apply(this, arguments);
+      if (key === "policy") stampPolicyResultVersion();
+      return value;
+    };
   }
 
   async function digest(value) {
@@ -47,9 +114,9 @@
 
   function retrievalStatusLabel(status) {
     return {
-      ok: "候选来源检索完成",
+      ok: "候选来源初筛完成",
       partial: "候选来源已过滤，仍需核验",
-      no_results: "未保留高相关官方候选来源",
+      no_results: "未保留可核验的直接相关候选来源",
       unavailable: "官方来源检索暂不可用",
       disabled: "官方来源检索已关闭",
     }[status] || "官方来源状态待确认";
@@ -58,9 +125,9 @@
   function documentStatusLabel(status) {
     return {
       active: "系统初判有效 · 待核验",
-      expired: "系统初判已到期",
-      revoked: "已废止 / 不可作现行依据",
-      suspended: "暂停实施 · 待核验",
+      expired: "系统初判已到期 · 待核验",
+      revoked: "系统初判已废止 · 不可作现行依据",
+      suspended: "系统初判暂停实施 · 待核验",
       unknown: "状态待人工核验",
     }[status] || "状态待人工核验";
   }
@@ -107,7 +174,7 @@
       <div class="policy-source-backdrop" data-close-policy-sources></div>
       <section class="policy-source-dialog" role="dialog" aria-modal="true" aria-labelledby="officialPolicyTitle">
         <header>
-          <div><span class="track">官方候选来源</span><h2 id="officialPolicyTitle">政策候选来源与原文核验</h2><p>页面来自政府域名并经过相关性过滤，但文件状态、适用对象和申报条件仍须打开原文人工确认。</p></div>
+          <div><span class="track">官方候选来源</span><h2 id="officialPolicyTitle">政策候选来源与原文核验</h2><p>页面来自允许名单政府域名并通过关键词与正文初筛，但相关性、文件状态、适用对象和申报条件仍须打开原文人工确认。</p></div>
           <button class="icon-btn" type="button" data-close-policy-sources aria-label="关闭官方政策候选来源">✕</button>
         </header>
         <div id="officialPolicyStatus" class="policy-source-status"></div>
@@ -119,7 +186,7 @@
     modal.addEventListener("click", event => {
       if (event.target.closest("[data-close-policy-sources]")) closeViewer();
     });
-    document.getElementById("refreshOfficialPolicy").addEventListener("click", async event => {
+    document.getElementById("refreshOfficialPolicy")?.addEventListener("click", async event => {
       const button = event.currentTarget;
       button.disabled = true;
       button.textContent = "检索中...";
@@ -179,9 +246,12 @@
     const bar = document.createElement("div");
     bar.className = `policy-source-bar policy-source-${safe(retrieval?.status || "unknown")}`;
     const count = retrieval?.sources?.length || 0;
+    const countText = count
+      ? `${count} 个通过初筛的候选来源`
+      : "0 个可核验的直接相关候选来源";
     bar.innerHTML = `
       <div><strong>${safe(retrieval ? retrievalStatusLabel(retrieval.status) : "正在准备官方候选来源")}</strong>
-      <small>${retrieval ? `${count} 个高相关候选来源 · ${safe(retrieval.retrieved_at || "")} · 结论须人工核验` : "生成政策报告前会自动检索"}</small></div>
+      <small>${retrieval ? `${countText} · ${safe(retrieval.retrieved_at || "")} · 结论须人工核验` : "生成政策报告前会自动检索"}</small></div>
       <button class="inline-action" type="button" data-open-policy-sources ${retrieval ? "" : "disabled"}>查看候选来源</button>`;
     const structured = panel.querySelector(".structured-result-bar");
     const review = panel.querySelector(".review-workflow-bar");
@@ -207,7 +277,7 @@
       ${(retrieval.warnings || []).length ? `<ul>${retrieval.warnings.map(item => `<li>${safe(item)}</li>`).join("")}</ul>` : ""}`;
 
     if (!retrieval.sources?.length) {
-      list.innerHTML = '<p class="policy-source-empty">没有保留可核验的高相关官方候选来源。AI 结果不得输出具体政策、金额、期限或资格结论。</p>';
+      list.innerHTML = '<p class="policy-source-empty">本次没有保留可核验的直接相关官方候选来源。AI 结果不得输出具体政策名称、金额、期限、主管部门或资格结论。</p>';
       return;
     }
 
@@ -215,8 +285,8 @@
       const href = isOfficialUrl(source.official_url) ? source.official_url : "";
       const dates = [
         source.published_at ? `发布 ${source.published_at}` : "",
-        source.effective_at ? `实施 ${source.effective_at}` : "",
-        source.expires_at ? `有效期至 ${source.expires_at}` : "",
+        source.effective_at ? `页面解析实施日期 ${source.effective_at}` : "",
+        source.expires_at ? `页面解析日期 ${source.expires_at}` : "",
       ].filter(Boolean).join(" · ");
       return `<article class="policy-source-card">
         <header><span>${safe(source.citation_id)}</span><strong>${safe(documentStatusLabel(source.status))}</strong></header>
@@ -271,6 +341,8 @@
   }
 
   function start() {
+    migrateStalePolicyResult();
+    installPolicyResultVersionGuard();
     injectUi();
     installRouteSwitch();
     document.addEventListener("click", event => {
@@ -282,6 +354,7 @@
     setTimeout(() => {
       if (typeof state !== "undefined" && state.results?.policy) decorate();
     }, 600);
+    window.ZHILINK_POLICY_RESULT_SCHEMA_VERSION = POLICY_RESULT_SCHEMA_VERSION;
   }
 
   window.ZHILINK_POLICY_SOURCES = {

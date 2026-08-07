@@ -49,9 +49,10 @@ def test_uncovered_rules_are_pending_confirmation_not_declared_missing():
     scan = scan_contract_rules("付款金额为一万元。")
     payload = scan.to_prompt_dict()
 
-    assert payload["scan_type"] == "deterministic_local_keyword_scan"
+    assert payload["scan_type"] == "deterministic_local_keyword_attention_scan"
     assert payload["not_located_categories"]
     assert "未命中不等于" in payload["limitations"]
+    assert "不是法律结论" in payload["limitations"]
 
 
 def test_markdown_contains_rule_ids_evidence_and_pending_items():
@@ -62,6 +63,7 @@ def test_markdown_contains_rule_ids_evidence_and_pending_items():
     assert "CR-PAYMENT" in markdown
     assert "CR-DATA" in markdown
     assert "原文证据" in markdown
+    assert "规则库关注级别" in markdown
     assert "### 待确认信息" in markdown
 
 

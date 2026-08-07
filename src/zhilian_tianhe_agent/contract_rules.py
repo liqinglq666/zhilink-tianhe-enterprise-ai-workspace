@@ -45,7 +45,7 @@ class ContractRuleMatch:
         return {
             "rule_id": self.rule_id,
             "category": self.name,
-            "local_severity": self.severity,
+            "local_attention_level": self.severity,
             "matched_keywords": list(self.matched_keywords),
             "evidence": list(self.evidence),
             "advice": self.advice,
@@ -69,13 +69,17 @@ class ContractRuleScan:
 
     def to_prompt_dict(self) -> dict[str, Any]:
         return {
-            "scan_type": "deterministic_local_keyword_scan",
-            "limitations": "只表示本地规则关键词预检结果；未命中不等于合同不存在相关条款，最终判断必须结合完整原文并由人工复核。",
+            "scan_type": "deterministic_local_keyword_attention_scan",
+            "limitations": (
+                "只表示本地规则关键词预检的关注方向和规则库关注级别，不是法律结论、"
+                "违法判断或合同效力判断；未命中不等于合同不存在相关条款，最终结论必须"
+                "结合完整原文并由人工复核。"
+            ),
             "summary": {
                 "total_rules": self.total_rules,
                 "matched_rules": len(self.matches),
-                "high_risk_matches": self.high_count,
-                "medium_risk_matches": self.medium_count,
+                "high_attention_matches": self.high_count,
+                "medium_attention_matches": self.medium_count,
             },
             "matches": [item.to_prompt_dict() for item in self.matches],
             "not_located_categories": [
@@ -92,17 +96,21 @@ class ContractRuleScan:
         lines = [
             "## 本地规则预检明细",
             "",
-            "> 本节由本地规则库确定性扫描生成，仅用于定位关键词和待确认方向；未命中不代表合同不存在相关条款，必须结合完整原文人工复核。",
+            (
+                "> 本节由本地规则库确定性扫描生成，只用于定位关键词、关注方向和待确认问题；"
+                "规则库关注级别不是法律风险结论，未命中也不代表合同不存在相关条款。"
+                "必须结合完整原文人工复核。"
+            ),
             "",
             f"- 规则总数：{self.total_rules}",
-            f"- 命中类别：{len(self.matches)}",
-            f"- 本地高风险命中：{self.high_count}",
+            f"- 规则库关注类别：{len(self.matches)}",
+            f"- 规则库高关注提示：{self.high_count}",
             "",
         ]
         if self.matches:
             lines.extend(
                 [
-                    "| 规则编号 | 类别 | 本地等级 | 命中关键词 | 原文证据 | 建议动作 |",
+                    "| 规则编号 | 类别 | 规则库关注级别 | 命中关键词 | 原文证据 | 建议核对方向 |",
                     "|---|---|---|---|---|---|",
                 ]
             )
@@ -195,6 +203,7 @@ def scan_contract_rules(
             segments,
             matched_keywords,
             rule.high_risk_patterns,
+            rule.rule_id,
         )
         evidence_text = " ".join(evidence).casefold()
         severity = (
@@ -243,19 +252,40 @@ def _evidence_for_rule(
     segments: tuple[str, ...],
     keywords: tuple[str, ...],
     high_risk_patterns: tuple[str, ...],
+    rule_id: str,
 ) -> tuple[str, ...]:
     ranked: list[tuple[int, int, str]] = []
+    fallback: list[tuple[int, int, str]] = []
+    weak_keywords = _WEAK_KEYWORD_ONLY.get(rule_id, set())
+
     for index, segment in enumerate(segments):
         folded = segment.casefold()
-        keyword_count = sum(keyword.casefold() in folded for keyword in keywords)
+        segment_keywords = tuple(
+            keyword for keyword in keywords if keyword.casefold() in folded
+        )
+        keyword_count = len(segment_keywords)
         if not keyword_count:
             continue
-        pattern_count = sum(pattern.casefold() in folded for pattern in high_risk_patterns)
-        score = keyword_count * 4 + pattern_count * 8
-        ranked.append((score, -index, _trim_evidence(segment)))
 
-    ranked.sort(reverse=True)
-    evidence = [item[2] for item in ranked[:MAX_EVIDENCE_PER_RULE]]
+        pattern_count = sum(
+            pattern.casefold() in folded for pattern in high_risk_patterns
+        )
+        score = keyword_count * 4 + pattern_count * 8
+        item = (score, -index, _trim_evidence(segment))
+        fallback.append(item)
+
+        weak_only = (
+            bool(weak_keywords)
+            and set(segment_keywords).issubset(weak_keywords)
+            and pattern_count == 0
+        )
+        if weak_only:
+            continue
+        ranked.append(item)
+
+    selected = ranked or fallback
+    selected.sort(reverse=True)
+    evidence = [item[2] for item in selected[:MAX_EVIDENCE_PER_RULE]]
     return tuple(
         evidence
         or ("已命中关键词，但未能切分出独立证据片段，请人工查看完整原文。",)
