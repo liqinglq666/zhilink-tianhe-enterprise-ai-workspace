@@ -41,7 +41,8 @@ def test_policy_bundle_has_independent_no_store_cache_migration():
     assert "stampPolicyResultVersion" in source
     assert 'if (key === "policy")' in source
     assert "政策需求输入已保留" in source
-    assert "policyDemand" not in source
+    assert 'sessionStorage.removeItem("zhilian_form_inputs")' not in source
+    assert 'sessionStorage.removeItem("policyDemand")' not in source
 
 
 def test_module_schema_upgrades_do_not_invalidate_unrelated_current_results():
