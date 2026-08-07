@@ -30,6 +30,7 @@ def test_data_provenance_assets_are_served() -> None:
     assert stylesheet.status_code == 200
     assert 'BASE_RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2"' in wrapper.text
     assert 'contract: "20260807-contract-grounded-v3"' in wrapper.text
+    assert 'policy: "20260807-policy-grounded-v3"' in wrapper.text
     assert 'QUARANTINE_STORAGE = "zhilian_legacy_result_quarantine_v1"' in wrapper.text
     assert "data-provenance-guard.js?v=20260806.1" in wrapper.text
     assert "ZHILINK_DATA_PROVENANCE_READY" in core.text
