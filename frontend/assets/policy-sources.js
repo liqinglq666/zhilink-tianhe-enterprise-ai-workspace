@@ -1,9 +1,15 @@
 /* Official-policy candidate retrieval, source viewer, and grounded route switch. */
 (() => {
   const STORAGE_KEY = "zhilian_official_policy_sources_v3";
+  const POLICY_RESULT_SCHEMA_VERSION = "20260807-policy-grounded-v3";
+  const RESULTS_STORAGE = "zhilian_results";
+  const META_STORAGE = "zhilian_meta";
+  const STRUCTURED_STORAGE = "zhilian_structured_results_v1";
+  const QUARANTINE_STORAGE = "zhilian_legacy_result_quarantine_v1";
   const SEARCH_TIMEOUT_MS = 20000;
   let cached = read(sessionStorage.getItem(STORAGE_KEY), null);
   let activeSearch = null;
+  let resultGuardInstalled = false;
 
   function read(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
@@ -16,6 +22,67 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function migrateStalePolicyResult() {
+    const results = read(sessionStorage.getItem(RESULTS_STORAGE), {});
+    const meta = read(sessionStorage.getItem(META_STORAGE), {});
+    if (!results?.policy) return false;
+    if (String(meta?.policy?.result_schema_version || "") === POLICY_RESULT_SCHEMA_VERSION) return false;
+
+    const history = read(sessionStorage.getItem(QUARANTINE_STORAGE), []);
+    const snapshot = {
+      quarantined_at: new Date().toISOString(),
+      expected_versions: { policy: POLICY_RESULT_SCHEMA_VERSION },
+      keys: ["policy"],
+      results: { policy: results.policy },
+      meta: { policy: meta?.policy || {} },
+    };
+    sessionStorage.setItem(
+      QUARANTINE_STORAGE,
+      JSON.stringify([snapshot, ...(Array.isArray(history) ? history : [])].slice(0, 3)),
+    );
+    delete results.policy;
+    delete meta.policy;
+    sessionStorage.setItem(RESULTS_STORAGE, JSON.stringify(results));
+    sessionStorage.setItem(META_STORAGE, JSON.stringify(meta));
+    sessionStorage.removeItem(STRUCTURED_STORAGE);
+
+    if (typeof state !== "undefined") {
+      state.results = results;
+      state.meta = meta;
+      if (typeof showResult === "function") showResult("policy", {});
+      if (typeof updateProgress === "function") updateProgress();
+    }
+    setTimeout(() => {
+      const message = "检测到旧版本政策结果，已隔离。政策需求输入已保留，请重新生成。";
+      if (typeof toast === "function") toast(message);
+      else console.info(message);
+    }, 120);
+    return true;
+  }
+
+  function stampPolicyResultVersion() {
+    if (typeof state === "undefined" || !state.results?.policy) return;
+    state.meta ||= {};
+    state.meta.policy ||= {};
+    state.meta.policy.result_schema_version = POLICY_RESULT_SCHEMA_VERSION;
+    sessionStorage.setItem(META_STORAGE, JSON.stringify(state.meta));
+  }
+
+  function installPolicyResultVersionGuard() {
+    if (resultGuardInstalled) return;
+    if (typeof setResult !== "function") {
+      setTimeout(installPolicyResultVersionGuard, 40);
+      return;
+    }
+    resultGuardInstalled = true;
+    const previousSetResult = setResult;
+    setResult = function policySchemaAwareSetResult(key, result) {
+      const value = previousSetResult.apply(this, arguments);
+      if (key === "policy") stampPolicyResultVersion();
+      return value;
+    };
   }
 
   async function digest(value) {
@@ -274,6 +341,8 @@
   }
 
   function start() {
+    migrateStalePolicyResult();
+    installPolicyResultVersionGuard();
     injectUi();
     installRouteSwitch();
     document.addEventListener("click", event => {
@@ -285,6 +354,7 @@
     setTimeout(() => {
       if (typeof state !== "undefined" && state.results?.policy) decorate();
     }, 600);
+    window.ZHILINK_POLICY_RESULT_SCHEMA_VERSION = POLICY_RESULT_SCHEMA_VERSION;
   }
 
   window.ZHILINK_POLICY_SOURCES = {
