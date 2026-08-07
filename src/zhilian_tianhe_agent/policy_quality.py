@@ -9,7 +9,7 @@ page quality, and generated reports are audited before presentation.
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable, Mapping
+from typing import Any, Mapping
 from urllib.parse import urlparse, urlunparse
 
 from .policy_retrieval import OfficialPolicyRetrieval, OfficialPolicySource
@@ -103,7 +103,7 @@ def refine_policy_retrieval(
         )
     if selected:
         warnings.append(
-            "保留页面仅通过关键词与正文初筛，不代表高度相关、现行有效或具备申报资格；必须打开原文核验。"
+            "保留页面仅通过关键词与正文初筛，不代表业务直接适配、现行有效或具备申报资格；必须打开原文核验。"
         )
         status = "partial"
     elif retrieval.status in {"unavailable", "disabled"}:
@@ -163,8 +163,6 @@ def audit_policy_output(content: str, retrieval: OfficialPolicyRetrieval) -> str
         flags=re.IGNORECASE,
     )
 
-    # Specific qualifications or materials may be useful questions, but cannot be
-    # presented as known filing requirements without a cited guide.
     cautious_replacements = (
         (r"等保二级\s*/\s*三级(?:认证|测评)?", "适用的数据安全或等级保护要求（具体要求待专业核验）"),
         (r"等保[二三]级(?:认证|测评)?", "适用的数据安全或等级保护要求（具体要求待专业核验）"),
@@ -189,8 +187,8 @@ def audit_policy_output(content: str, retrieval: OfficialPolicyRetrieval) -> str
 
     note = (
         "## 自动一致性校验\n\n"
-        "> 系统已将候选来源状态、检索边界和缺失字段改为确定性展示，并对“高度相关、现行有效、"
-        "符合条件、特定资质或材料要求”等未经原文支持的表述进行保守校正。候选页面仍须人工打开原文核验。"
+        "> 系统已将候选来源状态、检索边界和缺失字段改为确定性展示，并对过度相关性、现行有效、"
+        "符合条件、特定资质或材料要求等未经原文支持的表述进行保守校正。候选页面仍须人工打开原文核验。"
     )
     if "## 自动一致性校验" not in result:
         result = f"{result.rstrip()}\n\n{note}"
@@ -347,14 +345,14 @@ def _should_keep(
     text = _space(f"{source.title} {source.excerpt}")
     if not source.title or not source.official_url:
         return False, "weak_content"
+    for audience, query_markers in _RESTRICTED_AUDIENCES.items():
+        if audience in text and not any(marker in query for marker in query_markers):
+            return False, "restricted_audience"
     if not _has_substantive_excerpt(source.excerpt):
         return False, "weak_content"
     for topic in _HARD_TOPIC_TERMS:
         if topic in text and topic not in query:
             return False, "unrelated_topic"
-    for audience, query_markers in _RESTRICTED_AUDIENCES.items():
-        if audience in text and not any(marker in query for marker in query_markers):
-            return False, "restricted_audience"
     if any(term in source.title for term in _FINANCE_TERMS) and not any(term in query for term in _FINANCE_TERMS):
         return False, "unrelated_topic"
 
