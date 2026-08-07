@@ -3,6 +3,7 @@
   const BASE_RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2";
   const RESULT_SCHEMA_VERSIONS = {
     contract: "20260807-contract-grounded-v3",
+    policy: "20260807-policy-grounded-v3",
   };
   const RESULT_KEYS = ["profile", "meeting", "contract", "policy", "match", "landing", "report"];
   const RESULT_TITLES = {
