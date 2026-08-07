@@ -9,7 +9,7 @@ GUARD = ROOT / "frontend" / "assets" / "data-provenance-guard-v2.js"
 def test_live_loader_uses_versioned_result_cache_guard():
     source = LOADER.read_text(encoding="utf-8")
 
-    assert "/assets/data-provenance-guard-v2.js?v=20260807.1" in source
+    assert "/assets/data-provenance-guard-v2.js?v=20260807.2" in source
     assert "script.dataset.zhilinkDataProvenance = \"true\"" in source
 
 
@@ -18,6 +18,7 @@ def test_stale_generated_results_are_quarantined_before_reuse():
 
     assert 'const BASE_RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2"' in source
     assert 'contract: "20260807-contract-grounded-v3"' in source
+    assert 'policy: "20260807-policy-grounded-v3"' in source
     assert 'const QUARANTINE_STORAGE = "zhilian_legacy_result_quarantine_v1"' in source
     assert 'String(meta?.[key]?.result_schema_version || "") !== expectedVersion(key)' in source
     assert "expected_versions" in source
@@ -29,12 +30,14 @@ def test_stale_generated_results_are_quarantined_before_reuse():
     assert "window.showResult(key, {})" in source
 
 
-def test_contract_schema_upgrade_does_not_invalidate_other_current_results():
+def test_module_schema_upgrades_do_not_invalidate_unrelated_current_results():
     source = GUARD.read_text(encoding="utf-8")
 
     assert 'return RESULT_SCHEMA_VERSIONS[key] || BASE_RESULT_SCHEMA_VERSION' in source
     assert 'contract: "20260807-contract-grounded-v3"' in source
+    assert 'policy: "20260807-policy-grounded-v3"' in source
     assert 'meeting: "20260807-contract-grounded-v3"' not in source
+    assert 'meeting: "20260807-policy-grounded-v3"' not in source
     assert "ZHILINK_RESULT_SCHEMA_VERSIONS" in source
 
 
@@ -48,3 +51,4 @@ def test_new_results_receive_module_schema_version_without_clearing_inputs():
     assert 'sessionStorage.setItem(META_STORAGE, JSON.stringify(active.meta))' in source
     assert "zhilian_form_inputs" not in source
     assert "meetingInput" not in source
+    assert "policyDemand" not in source
