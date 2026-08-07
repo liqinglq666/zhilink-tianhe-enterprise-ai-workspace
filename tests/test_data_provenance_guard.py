@@ -15,20 +15,21 @@ def test_production_bundle_loads_versioned_data_provenance_guard() -> None:
         response = client.get("/assets/app.js")
 
     assert response.status_code == 200
-    assert "data-provenance-guard-v2.js?v=20260806.2" in response.text
+    assert "data-provenance-guard-v2.js?v=20260807.1" in response.text
     assert "loadDataProvenanceGuard" in response.text
 
 
 def test_data_provenance_assets_are_served() -> None:
     with TestClient(app) as client:
-        wrapper = client.get("/assets/data-provenance-guard-v2.js?v=20260806.2")
+        wrapper = client.get("/assets/data-provenance-guard-v2.js?v=20260807.1")
         core = client.get("/assets/data-provenance-guard.js?v=20260806.1")
         stylesheet = client.get("/assets/data-provenance-guard.css?v=20260806.1")
 
     assert wrapper.status_code == 200
     assert core.status_code == 200
     assert stylesheet.status_code == 200
-    assert 'RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2"' in wrapper.text
+    assert 'BASE_RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2"' in wrapper.text
+    assert 'contract: "20260807-contract-grounded-v3"' in wrapper.text
     assert 'QUARANTINE_STORAGE = "zhilian_legacy_result_quarantine_v1"' in wrapper.text
     assert "data-provenance-guard.js?v=20260806.1" in wrapper.text
     assert "ZHILINK_DATA_PROVENANCE_READY" in core.text
