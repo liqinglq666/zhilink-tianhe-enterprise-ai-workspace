@@ -92,6 +92,7 @@
     let idleTimer = null;
     let hardTimer = null;
     let buffer = "";
+    let receivedDone = false;
 
     const clearTimers = () => {
       clearTimeout(connectTimer);
@@ -167,6 +168,7 @@
               lastRender = now;
             }
           } else if (event.type === "done") {
+            receivedDone = true;
             task.full = event.content || task.full;
             setStreamStatus(key, "正在整理");
             finishStreamingResult(key, task.full, event.mode || "AI模型流式模式");
@@ -180,6 +182,13 @@
         updateStreamingResult(key, task.full);
       }
 
+      if (!receivedDone) {
+        throw createGenerationError(
+          "流式连接提前结束，收到的内容可能不完整，已保留为临时内容但不会写入正式结果。",
+          "STREAM_INCOMPLETE",
+          true,
+        );
+      }
       if (!task.full.trim()) {
         throw createGenerationError("模型连接已结束，但没有返回可用内容。", "MODEL_EMPTY_RESPONSE", true);
       }
@@ -207,6 +216,8 @@
           message = "本次生成超过 10 分钟，系统已自动停止。";
           showStoppedResult(key, message, task.full);
         }
+      } else if (code === "STREAM_INCOMPLETE") {
+        showStoppedResult(key, message, task.full);
       } else {
         failStreamingResult(key, message);
       }
