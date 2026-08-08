@@ -1,76 +1,61 @@
-/* User-facing meeting result view: keep provenance internally, hide implementation IDs by default. */
+/* User-facing meeting view: keep provenance internally, hide implementation IDs by default. */
 (() => {
-  const MODULE = "meeting";
   const INTERNAL_REF_RE = /\[(?:MT-\d{2}|MP-\d{2}|MT-C\d{2})\]/g;
-  const INTERNAL_SECTION_TITLES = new Set([
-    "自动一致性校验",
-    "输入证据与待确认索引",
-    "证据索引",
-    "AI 建议补充动作",
-  ]);
+  const HIDDEN_SECTIONS = new Set(["自动一致性校验", "输入证据与待确认索引", "证据索引", "AI 建议补充动作"]);
   const EVIDENCE_HEADERS = ["证据编号", "原文证据", "依据编号", "证据引用", "来源编号"];
   let observer = null;
+  let scheduled = false;
   let decorating = false;
 
   function rawMeeting() {
     return typeof state !== "undefined" ? String(state.results?.meeting || "") : "";
   }
 
-  function stripInternalSections(markdown) {
-    const lines = String(markdown || "").split(/\r?\n/);
+  function splitRow(line) {
+    const value = String(line || "").trim();
+    if (!value.startsWith("|") || !value.endsWith("|")) return null;
+    return value.slice(1, -1).split("|").map(cell => cell.trim());
+  }
+
+  function joinRow(cells) {
+    return `| ${cells.join(" | ")} |`;
+  }
+
+  function stripHiddenSections(markdown) {
     const output = [];
-    let skip = false;
-    for (const line of lines) {
-      const match = line.match(/^##\s+(.+?)\s*$/);
-      if (match) {
-        const title = match[1].trim();
-        skip = INTERNAL_SECTION_TITLES.has(title);
-        if (skip) continue;
+    let hidden = false;
+    for (const line of String(markdown || "").split(/\r?\n/)) {
+      const heading = line.match(/^##\s+(.+?)\s*$/);
+      if (heading) {
+        hidden = HIDDEN_SECTIONS.has(heading[1].trim());
+        if (hidden) continue;
       }
-      if (!skip) output.push(line);
+      if (!hidden) output.push(line);
     }
     return output.join("\n");
   }
 
-  function splitTableRow(line) {
-    const trimmed = String(line || "").trim();
-    if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return null;
-    return trimmed.slice(1, -1).split("|").map(cell => cell.trim());
-  }
-
-  function joinTableRow(cells) {
-    return `| ${cells.join(" | ")} |`;
-  }
-
-  function isSeparatorRow(cells) {
-    return Boolean(cells?.length) && cells.every(cell => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")));
-  }
-
   function removeEvidenceColumns(markdown) {
-    const lines = String(markdown || "").split(/\r?\n/);
     const output = [];
-    let drop = [];
+    let dropIndexes = [];
     let inTable = false;
 
-    for (const line of lines) {
-      const cells = splitTableRow(line);
+    for (const line of String(markdown || "").split(/\r?\n/)) {
+      const cells = splitRow(line);
       if (!cells) {
         inTable = false;
-        drop = [];
+        dropIndexes = [];
         output.push(line);
         continue;
       }
-
       if (!inTable) {
-        drop = cells
+        dropIndexes = cells
           .map((cell, index) => EVIDENCE_HEADERS.some(header => cell.includes(header)) ? index : -1)
           .filter(index => index >= 0);
         inTable = true;
       }
-
-      const filtered = drop.length ? cells.filter((_, index) => !drop.includes(index)) : cells;
-      if (!filtered.length) continue;
-      output.push(joinTableRow(filtered));
+      const filtered = dropIndexes.length ? cells.filter((_, index) => !dropIndexes.includes(index)) : cells;
+      if (filtered.length) output.push(joinRow(filtered));
     }
     return output.join("\n");
   }
@@ -82,11 +67,10 @@
       .replace(/部分明确(?:（[^）]*）)?/g, "待确认")
       .replace(/AI\s*建议（未确认）/g, "AI 建议")
       .replace(/待确认（AI\s*建议：[^）]*）/g, "待确认")
-      .replace(/^##\s+原文待办事项\s*$/gm, "## 待办事项")
-      .replace(/^##\s+待办事项表\s*$/gm, "## 待办事项");
+      .replace(/^##\s+(?:原文待办事项|待办事项表)\s*$/gm, "## 待办事项");
   }
 
-  function cleanDanglingText(markdown) {
+  function cleanInternalRefs(markdown) {
     return String(markdown || "")
       .replace(INTERNAL_REF_RE, "")
       .replace(/\s+([，。；：！？])/g, "$1")
@@ -97,68 +81,63 @@
   }
 
   function sanitizeMeetingMarkdown(markdown) {
-    return cleanDanglingText(normalizeStatuses(removeEvidenceColumns(stripInternalSections(markdown))));
+    return cleanInternalRefs(normalizeStatuses(removeEvidenceColumns(stripHiddenSections(markdown))));
   }
 
   function sanitizeReportMarkdown(markdown) {
-    return cleanDanglingText(removeEvidenceColumns(stripInternalSections(markdown)));
+    return cleanInternalRefs(removeEvidenceColumns(stripHiddenSections(markdown)));
   }
 
-  function evidenceSources(markdown) {
-    const lines = String(markdown || "").split(/\r?\n/);
+  function sourceItems(markdown) {
     const items = [];
     const seen = new Set();
-    let columns = null;
+    let headers = null;
 
-    for (const line of lines) {
-      const cells = splitTableRow(line);
+    for (const line of String(markdown || "").split(/\r?\n/)) {
+      const cells = splitRow(line);
       if (!cells) {
-        columns = null;
+        headers = null;
         continue;
       }
-      if (!columns) {
-        columns = cells;
+      if (!headers) {
+        headers = cells;
         continue;
       }
-      if (isSeparatorRow(cells)) continue;
+      if (cells.every(cell => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")))) continue;
 
-      const idIndex = columns.findIndex(cell => /证据编号/.test(cell));
-      const sourceIndex = columns.findIndex(cell => /来源/.test(cell));
-      const fieldIndex = columns.findIndex(cell => /字段/.test(cell));
-      const excerptIndex = columns.findIndex(cell => /输入摘录|摘录/.test(cell));
+      const idIndex = headers.findIndex(cell => cell.includes("证据编号"));
+      const sourceIndex = headers.findIndex(cell => cell.includes("来源"));
+      const excerptIndex = headers.findIndex(cell => /输入摘录|摘录/.test(cell));
       if (idIndex < 0 || excerptIndex < 0) continue;
       if (!/^(?:MT-\d{2}|MP-\d{2})$/.test(cells[idIndex] || "")) continue;
 
       const excerpt = String(cells[excerptIndex] || "").trim();
       if (!excerpt || seen.has(excerpt)) continue;
       seen.add(excerpt);
-      items.push({
-        source: String(cells[sourceIndex] || "会议原文").trim(),
-        field: String(cells[fieldIndex] || "").trim(),
-        excerpt,
-      });
+      items.push({ source: String(cells[sourceIndex] || "会议原文").trim(), excerpt });
     }
     return items;
   }
 
-  function pendingQuestions(markdown) {
+  function pendingItems(markdown) {
     const items = [];
     const seen = new Set();
-    String(markdown || "").split(/\r?\n/).forEach(line => {
-      if (!/MT-C\d{2}/.test(line)) return;
+    for (const line of String(markdown || "").split(/\r?\n/)) {
+      if (!/\[MT-C\d{2}\]/.test(line)) continue;
       const text = line
         .replace(/^\s*[-*]?\s*\[\s*\]\s*/, "")
         .replace(INTERNAL_REF_RE, "")
-        .replace(/^\s*[-*]\s*/, "")
+        .replace(/^\s*[-*|]\s*/, "")
+        .replace(/\|\s*$/, "")
         .trim();
-      if (!text || seen.has(text)) return;
+      if (!text || seen.has(text)) continue;
       seen.add(text);
       items.push(text);
-    });
+    }
     return items;
   }
 
-  function escapeHtml(value) {
+  function safe(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
@@ -167,22 +146,19 @@
       .replaceAll("'", "&#039;");
   }
 
-  function ensureSourceDialog() {
+  function ensureDrawer() {
     if (document.getElementById("meetingSourceDialog")) return;
-    const wrapper = document.createElement("div");
-    wrapper.id = "meetingSourceDialog";
-    wrapper.className = "meeting-source-modal";
-    wrapper.setAttribute("aria-hidden", "true");
-    wrapper.innerHTML = `
+    const modal = document.createElement("div");
+    modal.id = "meetingSourceDialog";
+    modal.className = "meeting-source-modal";
+    modal.setAttribute("aria-hidden", "true");
+    modal.innerHTML = `
       <div class="meeting-source-backdrop" data-close-meeting-sources></div>
       <section class="meeting-source-dialog" role="dialog" aria-modal="true" aria-labelledby="meetingSourceTitle">
-        <header>
-          <div><span>生成依据</span><h2 id="meetingSourceTitle">会议原文来源</h2><p>这里展示系统实际使用的会议原文和待确认问题。内部编号不会展示给业务用户。</p></div>
-          <button type="button" class="icon-btn" data-close-meeting-sources aria-label="关闭生成依据">✕</button>
-        </header>
-        <div id="meetingSourceBody" class="meeting-source-body"></div>
+        <header><div><span>生成依据</span><h2 id="meetingSourceTitle">会议原文来源</h2><p>展示实际使用的会议原文和待确认问题，不向业务用户暴露内部编号。</p></div><button type="button" class="icon-btn" data-close-meeting-sources aria-label="关闭生成依据">✕</button></header>
+        <div id="meetingSourceBody"></div>
       </section>`;
-    document.body.appendChild(wrapper);
+    document.body.appendChild(modal);
 
     const style = document.createElement("style");
     style.dataset.meetingUserView = "true";
@@ -190,33 +166,22 @@
       .meeting-source-modal{display:none;position:fixed;inset:0;z-index:10000}.meeting-source-modal.show{display:block}
       .meeting-source-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.42)}
       .meeting-source-dialog{position:absolute;right:0;top:0;height:100%;width:min(620px,92vw);background:#fff;box-shadow:-18px 0 45px rgba(15,23,42,.18);padding:24px;overflow:auto}
-      .meeting-source-dialog header{display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid #e5e7eb;padding-bottom:18px;margin-bottom:18px}
-      .meeting-source-dialog header span{font-size:12px;color:#64748b}.meeting-source-dialog header h2{margin:4px 0 6px}.meeting-source-dialog header p{margin:0;color:#64748b;line-height:1.6}
-      .meeting-source-list{display:grid;gap:12px}.meeting-source-item{padding:14px 16px;border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc}
-      .meeting-source-item strong{display:block;margin-bottom:6px}.meeting-source-item p{margin:0;line-height:1.65;color:#334155}.meeting-source-item small{display:block;margin-top:6px;color:#64748b}
-      .meeting-source-pending{margin-top:22px}.meeting-source-pending h3{margin-bottom:10px}.meeting-source-pending li{margin:7px 0;line-height:1.55}
-      #meetingResult .meeting-user-structure-bar small{line-height:1.5}
+      .meeting-source-dialog header{display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid #e5e7eb;padding-bottom:18px;margin-bottom:18px}.meeting-source-dialog header p{margin:6px 0 0;color:#64748b;line-height:1.6}
+      .meeting-source-list{display:grid;gap:12px}.meeting-source-item{padding:14px 16px;border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc}.meeting-source-item strong{display:block;margin-bottom:6px}.meeting-source-item p{margin:0;line-height:1.65;color:#334155}
+      .meeting-source-pending{margin-top:22px}.meeting-source-pending li{margin:7px 0;line-height:1.55}
     `;
     document.head.appendChild(style);
   }
 
   function openSources() {
-    ensureSourceDialog();
-    const raw = rawMeeting();
-    const sources = evidenceSources(raw);
-    const pending = pendingQuestions(raw);
+    ensureDrawer();
+    const sources = sourceItems(rawMeeting());
+    const pending = pendingItems(rawMeeting());
     const body = document.getElementById("meetingSourceBody");
     body.innerHTML = sources.length
-      ? `<div class="meeting-source-list">${sources.map(item => `
-          <article class="meeting-source-item">
-            <strong>${escapeHtml(item.source || "会议原文")}</strong>
-            <p>${escapeHtml(item.excerpt)}</p>
-            ${item.field ? `<small>${escapeHtml(item.field)}</small>` : ""}
-          </article>`).join("")}</div>`
-      : '<div class="notice info">当前结果没有可展开的原文索引，但系统仍会保留原始会议输入用于人工复核。</div>';
-    if (pending.length) {
-      body.insertAdjacentHTML("beforeend", `<section class="meeting-source-pending"><h3>仍需人工确认</h3><ul>${pending.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></section>`);
-    }
+      ? `<div class="meeting-source-list">${sources.map(item => `<article class="meeting-source-item"><strong>${safe(item.source || "会议原文")}</strong><p>${safe(item.excerpt)}</p></article>`).join("")}</div>`
+      : '<div class="notice info">当前没有可展开的原文索引，系统仍保留原始会议输入供人工复核。</div>';
+    if (pending.length) body.insertAdjacentHTML("beforeend", `<section class="meeting-source-pending"><h3>仍需人工确认</h3><ul>${pending.map(item => `<li>${safe(item)}</li>`).join("")}</ul></section>`);
     const modal = document.getElementById("meetingSourceDialog");
     modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");
@@ -229,12 +194,11 @@
     modal.setAttribute("aria-hidden", "true");
   }
 
-  function replaceUserBody(panel, raw) {
-    const body = panel.querySelector(":scope > .result-body");
+  function replaceResultBody(panel, markdown) {
+    const body = panel?.querySelector(".result-body");
     if (!body || typeof renderStructuredMarkdown !== "function") return;
-    const html = renderStructuredMarkdown(sanitizeMeetingMarkdown(raw));
     const holder = document.createElement("div");
-    holder.innerHTML = html;
+    holder.innerHTML = renderStructuredMarkdown(markdown);
     const next = holder.firstElementChild;
     if (next && next.innerHTML !== body.innerHTML) body.replaceWith(next);
   }
@@ -246,21 +210,19 @@
     if (!panel || !raw || panel.classList.contains("streaming")) return;
     decorating = true;
     try {
-      replaceUserBody(panel, raw);
+      replaceResultBody(panel, sanitizeMeetingMarkdown(raw));
 
       const mode = panel.querySelector(".result-meta .meta-pill");
-      if (mode) mode.textContent = "AI 生成 · 待人工确认";
+      if (mode && mode.textContent !== "AI 生成 · 待人工确认") mode.textContent = "AI 生成 · 待人工确认";
 
       const origin = panel.querySelector(".data-origin-pill");
       if (origin?.textContent.includes("示例生成")) origin.textContent = "示例数据 · 不会保存为正式材料";
-      if (origin?.textContent.includes("旧会话材料")) origin.textContent = "旧会话材料 · 请重新确认后使用";
+      else if (origin?.textContent.includes("旧会话材料")) origin.textContent = "旧会话材料 · 请重新确认后使用";
 
       const bar = panel.querySelector(".structured-result-bar");
-      if (bar) {
+      if (bar && !bar.classList.contains("meeting-user-structure-bar")) {
         bar.className = "structured-result-bar structured-valid meeting-user-structure-bar";
-        bar.innerHTML = `
-          <div><strong>已完成结构检查</strong><small>事实、待确认项和 AI 建议已区分，请人工复核后归档。</small></div>
-          <button class="inline-action" type="button" data-open-meeting-sources>查看生成依据</button>`;
+        bar.innerHTML = '<div><strong>已完成结构检查</strong><small>事实、待确认项和 AI 建议已区分，请人工复核后归档。</small></div>';
       }
 
       const actions = panel.querySelector(".result-actions");
@@ -277,60 +239,51 @@
     }
   }
 
-  function installDisplayGuard() {
-    if (typeof showResult === "function" && !window.__ZHILINK_MEETING_USER_SHOW_RESULT) {
-      window.__ZHILINK_MEETING_USER_SHOW_RESULT = true;
-      const original = showResult;
-      showResult = function meetingUserShowResult(key, result) {
-        const value = original.apply(this, arguments);
-        if (key === MODULE) queueMicrotask(decorateMeetingPanel);
-        if (key === "report" && result?.content) {
-          const panel = document.getElementById("reportResult");
-          const body = panel?.querySelector(":scope > .result-body");
-          if (body && typeof renderStructuredMarkdown === "function") {
-            const holder = document.createElement("div");
-            holder.innerHTML = renderStructuredMarkdown(sanitizeReportMarkdown(result.content));
-            if (holder.firstElementChild) body.replaceWith(holder.firstElementChild);
-          }
-        }
+  function scheduleDecorate() {
+    if (scheduled) return;
+    scheduled = true;
+    setTimeout(() => {
+      scheduled = false;
+      decorateMeetingPanel();
+    }, 0);
+  }
+
+  function installResultGuards() {
+    if (typeof showResult === "function") {
+      const originalShowResult = showResult;
+      showResult = function userFacingShowResult(key, result) {
+        const value = originalShowResult.apply(this, arguments);
+        if (key === "meeting") scheduleDecorate();
+        if (key === "report" && result?.content) replaceResultBody(document.getElementById("reportResult"), sanitizeReportMarkdown(result.content));
         return value;
       };
     }
 
-    if (typeof setResult === "function" && !window.__ZHILINK_MEETING_USER_SET_RESULT) {
-      window.__ZHILINK_MEETING_USER_SET_RESULT = true;
-      const original = setResult;
-      setResult = function meetingUserSetResult(key, result) {
-        const next = key === MODULE && result ? { ...result, mode: "AI 生成 · 待人工确认" } : result;
-        const value = original.call(this, key, next);
-        if (key === MODULE) queueMicrotask(decorateMeetingPanel);
+    if (typeof setResult === "function") {
+      const originalSetResult = setResult;
+      setResult = function userFacingSetResult(key, result) {
+        const next = key === "meeting" && result ? { ...result, mode: "AI 生成 · 待人工确认" } : result;
+        const value = originalSetResult.call(this, key, next);
+        if (key === "meeting") scheduleDecorate();
         return value;
       };
     }
   }
 
-  function installExportGuard() {
-    if (typeof collectSingleModuleResult === "function" && !window.__ZHILINK_MEETING_USER_SINGLE_EXPORT) {
-      window.__ZHILINK_MEETING_USER_SINGLE_EXPORT = true;
-      const original = collectSingleModuleResult;
-      collectSingleModuleResult = function meetingUserSingleExport(key) {
-        const result = original.apply(this, arguments);
-        if (key === MODULE) {
-          const content = sanitizeMeetingMarkdown(result.content);
-          return { ...result, content, results: { ...result.results, [result.title]: content } };
-        }
-        if (key === "report") {
-          const content = sanitizeReportMarkdown(result.content);
-          return { ...result, content, results: { ...result.results, [result.title]: content } };
-        }
-        return result;
+  function installExportGuards() {
+    if (typeof collectSingleModuleResult === "function") {
+      const originalCollectSingle = collectSingleModuleResult;
+      collectSingleModuleResult = function userFacingSingleExport(key) {
+        const result = originalCollectSingle.apply(this, arguments);
+        if (key !== "meeting" && key !== "report") return result;
+        const content = key === "meeting" ? sanitizeMeetingMarkdown(result.content) : sanitizeReportMarkdown(result.content);
+        return { ...result, content, results: { ...result.results, [result.title]: content } };
       };
     }
 
-    if (typeof downloadReportFile === "function" && !window.__ZHILINK_MEETING_USER_REPORT_EXPORT) {
-      window.__ZHILINK_MEETING_USER_REPORT_EXPORT = true;
-      const originalDownload = downloadReportFile;
-      downloadReportFile = function meetingUserReportExport() {
+    if (typeof downloadReportFile === "function") {
+      const originalDownloadReport = downloadReportFile;
+      downloadReportFile = function userFacingReportExport() {
         const currentCollector = collectResultsForReport;
         collectResultsForReport = function sanitizedResultsForExport(includeAiSummary = false) {
           const results = currentCollector(includeAiSummary);
@@ -340,7 +293,7 @@
           return next;
         };
         try {
-          return originalDownload.apply(this, arguments);
+          return originalDownloadReport.apply(this, arguments);
         } finally {
           collectResultsForReport = currentCollector;
         }
@@ -348,10 +301,9 @@
     }
   }
 
-  function installClicks() {
+  function installInteractions() {
     document.addEventListener("click", event => {
-      const open = event.target.closest("[data-open-meeting-sources]");
-      if (open) {
+      if (event.target.closest("[data-open-meeting-sources]")) {
         event.preventDefault();
         event.stopPropagation();
         openSources();
@@ -361,9 +313,7 @@
         closeSources();
         return;
       }
-
-      const copy = event.target.closest('.copy-result[data-key="meeting"]');
-      if (copy) {
+      if (event.target.closest('.copy-result[data-key="meeting"]')) {
         event.preventDefault();
         event.stopImmediatePropagation();
         Promise.resolve(copyText(sanitizeMeetingMarkdown(rawMeeting())))
@@ -371,7 +321,6 @@
           .catch(() => toast("复制失败，请手动选择会议纪要文本复制。"));
       }
     }, true);
-
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") closeSources();
     });
@@ -380,23 +329,18 @@
   function startObserver() {
     const panel = document.getElementById("meetingResult");
     if (!panel || observer) return;
-    observer = new MutationObserver(() => {
-      if (!decorating) setTimeout(decorateMeetingPanel, 0);
-    });
+    observer = new MutationObserver(scheduleDecorate);
     observer.observe(panel, { childList: true, subtree: true, characterData: true });
   }
 
-  ensureSourceDialog();
-  installDisplayGuard();
-  installExportGuard();
-  installClicks();
+  ensureDrawer();
+  installResultGuards();
+  installExportGuards();
+  installInteractions();
   startObserver();
-  setTimeout(decorateMeetingPanel, 0);
-  setTimeout(decorateMeetingPanel, 600);
+  scheduleDecorate();
+  setTimeout(scheduleDecorate, 600);
 
-  window.ZHILINK_MEETING_USER_VIEW = {
-    sanitize: sanitizeMeetingMarkdown,
-    sources: evidenceSources,
-  };
+  window.ZHILINK_MEETING_USER_VIEW = { sanitize: sanitizeMeetingMarkdown, sources: sourceItems };
   window.ZHILINK_MEETING_USER_VIEW_READY = true;
 })();
