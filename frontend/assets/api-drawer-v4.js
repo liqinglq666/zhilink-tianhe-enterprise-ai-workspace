@@ -22,6 +22,9 @@
     if (!panel) return;
     const open = document.body.classList.contains("live-api-open");
     panel.setAttribute("aria-hidden", String(!open));
+    const backdrop = document.getElementById("liveApiBackdrop");
+    if (backdrop) backdrop.setAttribute("aria-hidden", String(!open));
+    if (open) window.setTimeout(() => document.getElementById("apiKey")?.focus(), 30);
   }
 
   function ensureBackdrop() {
@@ -34,7 +37,7 @@
     document.body.appendChild(backdrop);
   }
 
-  function makeField({ label, input, helper, action, temperature = false }) {
+  function makeField({ label, input, helper, action, valueNode = null }) {
     const field = document.createElement("section");
     field.className = "api-drawer-field";
 
@@ -46,12 +49,9 @@
     if (input?.id) labelElement.htmlFor = input.id;
     head.appendChild(labelElement);
 
-    if (temperature) {
-      const value = document.getElementById("tempValue");
-      if (value) {
-        value.classList.add("api-temperature-value");
-        head.appendChild(value);
-      }
+    if (valueNode) {
+      valueNode.classList.add("api-temperature-value");
+      head.appendChild(valueNode);
     }
 
     field.appendChild(head);
@@ -73,6 +73,20 @@
     }
 
     return field;
+  }
+
+  function suppressLegacyLeftSidebarHint(panel) {
+    const trigger = document.getElementById("openApiSettings");
+    if (!trigger || trigger.dataset.apiDrawerCapture === "true") return;
+    trigger.dataset.apiDrawerCapture = "true";
+    trigger.addEventListener("click", event => {
+      if (!document.body.classList.contains("live-api-open")) return;
+      // The legacy click handler only expands the old sidebar panel and shows a stale
+      // “在左侧填写” hint. The V4 drawer already owns those responsibilities.
+      event.stopImmediatePropagation();
+      panel.classList.remove("collapsed");
+      window.setTimeout(() => document.getElementById("apiKey")?.focus(), 30);
+    }, true);
   }
 
   function decoratePanel() {
@@ -114,6 +128,7 @@
     const baseUrl = document.getElementById("baseUrl");
     const modelName = document.getElementById("modelName");
     const temperature = document.getElementById("temperature");
+    const temperatureValue = document.getElementById("tempValue");
     const testConnection = document.getElementById("testConnection");
     const clearKey = document.getElementById("clearKey");
     const connectionResult = document.getElementById("connectionResult");
@@ -163,7 +178,7 @@
       label: "生成温度",
       input: temperature,
       helper: "值越低输出越稳定；企业材料建议保持在较低到中等范围。",
-      temperature: true,
+      valueNode: temperatureValue,
     }));
 
     const footer = document.createElement("footer");
@@ -196,6 +211,7 @@
     panel.appendChild(footer);
 
     ensureBackdrop();
+    suppressLegacyLeftSidebarHint(panel);
     syncOpenState();
   }
 
