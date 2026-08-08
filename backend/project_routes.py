@@ -259,6 +259,7 @@ def register_project_routes(app: FastAPI) -> None:
             "ui-redesign-live.js",
             "ui-redesign-live-fixes.js",
             "ui-v3-clean.js",
+            "api-drawer-v4.js",
             "meeting-user-view.js",
         ]
         content = "\n\n".join((ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts)
