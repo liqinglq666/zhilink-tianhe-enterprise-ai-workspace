@@ -27,9 +27,9 @@ def test_meeting_view_preserves_a_source_drawer_without_exposing_internal_ids():
 
     assert "meetingSourceDialog" in source
     assert "会议原文来源" in source
-    assert "内部编号不会展示给业务用户" in source
-    assert "evidenceSources(raw)" in source
-    assert "pendingQuestions(raw)" in source
+    assert "不向业务用户暴露内部编号" in source
+    assert "sourceItems(rawMeeting())" in source
+    assert "pendingItems(rawMeeting())" in source
 
 
 def test_production_bundle_loads_meeting_user_view_after_structured_results():
