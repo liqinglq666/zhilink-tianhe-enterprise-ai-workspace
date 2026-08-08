@@ -249,6 +249,7 @@ def register_project_routes(app: FastAPI) -> None:
             "generation-controls.js",
             "account-access.js",
             "project-storage.js",
+            "project-result-meta.js",
             "review-workflow.js",
             "structured-results.js",
             "policy-sources.js",
