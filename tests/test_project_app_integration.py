@@ -32,6 +32,7 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         bundle = client.get("/assets/app.js")
         assert bundle.status_code == 200
         assert "PROJECT_STORAGE_READY" in bundle.text
+        assert "ZHILINK_PROJECT_RESULT_META_READY" in bundle.text
         assert "ACCOUNT_ACCESS_READY" in bundle.text
         assert "REVIEW_WORKFLOW_READY" in bundle.text
         assert "ZHILINK_STRUCTURED_READY" in bundle.text
@@ -90,7 +91,13 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
                     "profile": {},
                     "forms": {},
                     "results": {"meeting": "需要人工确认的会议纪要"},
-                    "meta": {},
+                    "meta": {
+                        "meeting": {
+                            "mode": "AI模型流式模式",
+                            "origin": "user",
+                            "result_schema_version": "20260806-grounded-output-v2",
+                        }
+                    },
                     "current_section": "meeting",
                 },
             },
@@ -101,6 +108,8 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         assert response.headers["x-content-type-options"] == "nosniff"
         assert response.headers["x-ratelimit-limit"]
         assert response.json()["snapshot"]["reviews"]["meeting"]["status"] == "ai_draft"
+        assert response.json()["snapshot"]["meta"]["meeting"]["origin"] == "user"
+        assert response.json()["snapshot"]["meta"]["meeting"]["result_schema_version"] == "20260806-grounded-output-v2"
 
         project_id = response.json()["id"]
         reviews = client.get(
