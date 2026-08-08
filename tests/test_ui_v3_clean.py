@@ -10,18 +10,20 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
 
 
-def test_production_bundle_loads_ui_v3_last() -> None:
+def test_production_bundle_loads_meeting_user_view_after_ui_v3() -> None:
     with TestClient(app) as client:
         response = client.get("/assets/app.js")
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-06-ui-v3-clean-v1"
+    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-08-meeting-user-view-v1"
     assert "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY" in response.text
     assert "ZHILINK_UI_V3_READY" in response.text
+    assert "ZHILINK_MEETING_USER_VIEW_READY" in response.text
     assert response.text.rfind("ZHILINK_UI_V3_READY") > response.text.rfind(
         "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY"
     )
+    assert response.text.rfind("ZHILINK_MEETING_USER_VIEW_READY") > response.text.rfind("ZHILINK_UI_V3_READY")
 
 
 def test_ui_v3_assets_are_served() -> None:
