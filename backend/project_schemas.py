@@ -12,6 +12,7 @@ from .review_schemas import ProjectReviewState
 ProjectStatus = Literal["active", "archived"]
 ProjectModule = Literal["project", "identity", "profile", "meeting", "contract", "policy", "match", "landing", "report"]
 ProjectChangeKind = Literal["create", "baseline", "save", "metadata", "archive", "unarchive", "restore"]
+ResultOrigin = Literal["", "user", "project", "imported", "example", "legacy"]
 REVIEW_MODULES = {"profile", "meeting", "contract", "policy", "match", "landing", "report"}
 
 
@@ -56,6 +57,9 @@ class ProjectResultMeta(StrictModel):
     mode: str = Field(default="", max_length=200)
     error: str = Field(default="", max_length=1000)
     time: str = Field(default="", max_length=100)
+    origin: ResultOrigin = ""
+    example_key: str = Field(default="", max_length=200)
+    result_schema_version: str = Field(default="", max_length=200)
 
 
 class ProjectSnapshot(StrictModel):
