@@ -5,18 +5,19 @@ from fastapi.testclient import TestClient
 from backend.main import app
 
 
-def test_v4_results_loads_final_qa_layer_last() -> None:
+def test_v4_results_loads_current_final_qa_layer_last() -> None:
     with TestClient(app) as client:
         results = client.get("/assets/ui-v4-results.js?v=20260810.1")
-        final_qa = client.get("/assets/ui-v4-final-qa.js?v=20260810.1")
-        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260810.1")
+        final_qa = client.get("/assets/ui-v4-final-qa.js?v=20260810.3")
+        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260810.3")
 
     assert results.status_code == 200
     assert final_qa.status_code == 200
     assert stylesheet.status_code == 200
     assert "ZHILINK_UI_V4_RESULTS_READY" in results.text
     assert "function ensureFinalQa()" in results.text
-    assert '/assets/ui-v4-final-qa.js?v=${VERSION}' in results.text
+    assert 'const FINAL_QA_VERSION = "20260810.3"' in results.text
+    assert '/assets/ui-v4-final-qa.js?v=${FINAL_QA_VERSION}' in results.text
     assert 'script.dataset.uiV4FinalQa = "true"' in results.text
     assert "ensureFinalQa();" in results.text
     assert "ZHILINK_UI_V4_FINAL_QA_READY" in final_qa.text
@@ -24,7 +25,7 @@ def test_v4_results_loads_final_qa_layer_last() -> None:
 
 def test_v4_final_qa_adds_keyboard_navigation_and_landmark_support() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.1")
+        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.3")
 
     text = script.text
     assert 'link.id = "uiV4SkipLink"' in text
@@ -32,16 +33,18 @@ def test_v4_final_qa_adds_keyboard_navigation_and_landmark_support() -> None:
     assert 'main.id = "mainContent"' in text
     assert 'main.setAttribute("aria-label", "主要工作区")' in text
     assert 'button.setAttribute("aria-current", "page")' in text
+    assert 'document.getElementById("uiV4MobileMenu")' in text
     assert 'mobile.setAttribute("aria-controls", sidebar.id)' in text
     assert 'title.setAttribute("tabindex", "-1")' in text
     assert 'title.focus({ preventScroll: true })' in text
     assert 'event.detail === 0' in text
     assert "#identityChip[role='button']" in text
+    assert 'document.getElementById("uiV4AccountToggle")' in text
 
 
 def test_v4_final_qa_makes_horizontal_result_content_keyboard_reachable() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.1")
+        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.3")
 
     text = script.text
     assert 'const SCROLLABLE_SELECTOR = ".result-section-content, .structured-table-wrap"' in text
@@ -54,8 +57,8 @@ def test_v4_final_qa_makes_horizontal_result_content_keyboard_reachable() -> Non
 
 def test_v4_final_qa_covers_required_responsive_widths_and_touch_targets() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.1")
-        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260810.1")
+        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.3")
+        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260810.3")
 
     script_text = script.text
     css = stylesheet.text
@@ -77,11 +80,13 @@ def test_v4_final_qa_covers_required_responsive_widths_and_touch_targets() -> No
     assert "env(safe-area-inset-bottom)" in css
     assert "env(safe-area-inset-left)" in css
     assert "overflow-x: clip" in css
+    assert ".ui-v4-mobile-menu" in css
+    assert ".ui-v4-account-toggle" in css
 
 
 def test_v4_final_qa_supports_reduced_motion_and_high_contrast_focus() -> None:
     with TestClient(app) as client:
-        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260810.1")
+        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260810.3")
 
     css = stylesheet.text
     assert ".ui-v4-skip-link" in css
@@ -94,7 +99,7 @@ def test_v4_final_qa_supports_reduced_motion_and_high_contrast_focus() -> None:
 
 def test_v4_final_qa_does_not_own_business_or_persistence_state() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.1")
+        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.3")
 
     for forbidden in (
         "fetch(",
@@ -105,5 +110,7 @@ def test_v4_final_qa_does_not_own_business_or_persistence_state() -> None:
         "saveConfig(",
         "apiStream(",
         "setAttribute(\"type\", \"button\")",
+        "liveMobileMenu",
+        "liveAccountToggle",
     ):
         assert forbidden not in script.text
