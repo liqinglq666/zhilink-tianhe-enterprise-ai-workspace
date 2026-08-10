@@ -80,11 +80,11 @@
     panel.classList.add("ui-v4-state-surface");
     if (panel.classList.contains("streaming")) {
       panel.dataset.uiV4State = "loading";
-      panel.setAttribute("aria-busy", "true");
+      if (panel.getAttribute("aria-busy") !== "true") panel.setAttribute("aria-busy", "true");
       panel.setAttribute("aria-live", "polite");
       return;
     }
-    panel.removeAttribute("aria-busy");
+    if (panel.hasAttribute("aria-busy")) panel.removeAttribute("aria-busy");
     if (panel.classList.contains("empty")) {
       panel.dataset.uiV4State = "empty";
       return;
@@ -107,8 +107,11 @@
 
     element.classList.add("ui-v4-state-surface");
     element.dataset.uiV4State = state;
-    if (state === "loading") element.setAttribute("aria-busy", "true");
-    else element.removeAttribute("aria-busy");
+    if (state === "loading") {
+      if (element.getAttribute("aria-busy") !== "true") element.setAttribute("aria-busy", "true");
+    } else if (element.hasAttribute("aria-busy")) {
+      element.removeAttribute("aria-busy");
+    }
     setAriaState(element, state);
   }
 
@@ -117,6 +120,7 @@
     const text = normalizedText(element);
     if (!text) {
       element.removeAttribute("data-ui-v4-state");
+      element.classList.remove("ui-v4-inline-feedback");
       return;
     }
     const state = classifyText(text);
@@ -136,13 +140,15 @@
   }
 
   function decorateLoadingButtons(root = document) {
-    root.querySelectorAll?.("button.loading, button[aria-busy='true']").forEach(button => {
+    root.querySelectorAll?.("button.loading").forEach(button => {
       button.classList.add("ui-v4-loading-control");
-      button.setAttribute("aria-busy", "true");
+      button.dataset.uiV4BusyOwned = "true";
+      if (button.getAttribute("aria-busy") !== "true") button.setAttribute("aria-busy", "true");
     });
-    root.querySelectorAll?.("button.ui-v4-loading-control:not(.loading):not([aria-busy='true'])").forEach(button => {
+    root.querySelectorAll?.("button.ui-v4-loading-control:not(.loading)").forEach(button => {
       button.classList.remove("ui-v4-loading-control");
-      button.removeAttribute("aria-busy");
+      if (button.dataset.uiV4BusyOwned === "true") button.removeAttribute("aria-busy");
+      delete button.dataset.uiV4BusyOwned;
     });
   }
 
@@ -181,7 +187,7 @@
       const relevant = mutations.some(mutation => {
         if (mutation.type === "characterData") return true;
         if (mutation.type === "childList") return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
-        return mutation.type === "attributes" && ["class", "disabled", "aria-busy"].includes(mutation.attributeName);
+        return mutation.type === "attributes" && ["class", "disabled"].includes(mutation.attributeName);
       });
       if (relevant) queueSync();
     });
@@ -190,7 +196,7 @@
       childList: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ["class", "disabled", "aria-busy"],
+      attributeFilter: ["class", "disabled"],
     });
   }
 
