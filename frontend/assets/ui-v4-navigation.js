@@ -39,12 +39,20 @@
   }
 
   function ensureStyles() {
-    if (document.querySelector("link[data-ui-v4-navigation]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `/assets/ui-v4-navigation.css?v=${VERSION}`;
-    link.dataset.uiV4Navigation = "true";
-    document.head.appendChild(link);
+    if (!document.querySelector("link[data-ui-v4-navigation]")) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = `/assets/ui-v4-navigation.css?v=${VERSION}`;
+      link.dataset.uiV4Navigation = "true";
+      document.head.appendChild(link);
+    }
+    if (!document.querySelector("link[data-ui-v4-navigation-compat]")) {
+      const compat = document.createElement("link");
+      compat.rel = "stylesheet";
+      compat.href = `/assets/ui-v4-navigation-compat.css?v=${VERSION}`;
+      compat.dataset.uiV4NavigationCompat = "true";
+      document.head.appendChild(compat);
+    }
   }
 
   function triggerExisting(id) {
