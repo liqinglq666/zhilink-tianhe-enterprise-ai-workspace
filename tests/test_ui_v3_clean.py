@@ -16,12 +16,13 @@ def test_production_bundle_loads_meeting_user_view_after_ui_v3() -> None:
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-10-ui-v4-dashboard-v1"
+    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-10-ui-v4-workspace-v1"
     assert "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY" in response.text
     assert "ZHILINK_UI_V3_READY" in response.text
     assert "ZHILINK_MEETING_USER_VIEW_READY" in response.text
     assert "ZHILINK_UI_V4_FOUNDATION_READY" in response.text
     assert "ZHILINK_UI_V4_DASHBOARD_READY" in response.text
+    assert "ZHILINK_UI_V4_WORKSPACE_READY" in response.text
     assert response.text.rfind("ZHILINK_UI_V3_READY") > response.text.rfind(
         "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY"
     )
@@ -31,6 +32,9 @@ def test_production_bundle_loads_meeting_user_view_after_ui_v3() -> None:
     )
     assert response.text.rfind("ZHILINK_UI_V4_DASHBOARD_READY") > response.text.rfind(
         "ZHILINK_UI_V4_FOUNDATION_READY"
+    )
+    assert response.text.rfind("ZHILINK_UI_V4_WORKSPACE_READY") > response.text.rfind(
+        "ZHILINK_UI_V4_DASHBOARD_READY"
     )
 
 
@@ -87,6 +91,33 @@ def test_ui_v4_dashboard_prioritizes_real_work_over_marketing_chrome() -> None:
     for forbidden in ("98%", "节省时间", "提升 35%", "审核准确率", "效率提升"):
         assert forbidden not in script.text
         assert forbidden not in stylesheet.text
+
+
+def test_ui_v4_workspace_assets_create_a_focused_split_workbench() -> None:
+    with TestClient(app) as client:
+        script = client.get("/assets/ui-v4-workspace.js?v=20260810.1")
+        stylesheet = client.get("/assets/ui-v4-workspace.css?v=20260810.1")
+
+    assert script.status_code == 200
+    assert stylesheet.status_code == 200
+    assert "ZHILINK_UI_V4_WORKSPACE_READY" in script.text
+    assert 'page.classList.add("ui-v4-workspace-page")' in script.text
+    assert 'input.classList.add("ui-v4-input-pane")' in script.text
+    assert 'result.classList.add("ui-v4-result-pane")' in script.text
+    assert 'result.dataset.uiV4ResultState = result.classList.contains("empty") ? "empty" : "ready"' in script.text
+    assert 'emptyTitle: "会议纪要将在这里生成"' in script.text
+    assert 'emptyCopy: "粘贴会议记录或录音转写文本，然后点击“生成会议纪要”。"' in script.text
+
+    assert "grid-template-columns: minmax(360px, .78fr) minmax(520px, 1.22fr)" in stylesheet.text
+    assert ".ui-v4-result-pane:not(.empty)::before" in stylesheet.text
+    assert ".ui-v4-result-pane .result-header" in stylesheet.text
+    assert "content: attr(data-ui-v4-empty-title)" in stylesheet.text
+    assert "min-height: 360px" in stylesheet.text
+    assert "@media (max-width: 1180px)" in stylesheet.text
+
+    # This layer may decorate DOM and observe result state, but must not alter model calls or persisted business data.
+    for forbidden in ("fetch(", "setResult", "state.results", "sessionStorage", "localStorage", "saveConfig"):
+        assert forbidden not in script.text
 
 
 def test_ui_v3_preserves_all_primary_module_ids_and_adds_scalable_icons() -> None:
