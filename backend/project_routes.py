@@ -38,7 +38,7 @@ from .service_workflow_routes import register_service_workflow_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
-UI_BUNDLE_VERSION = "2026-08-10-ui-v4-foundation-v1"
+UI_BUNDLE_VERSION = "2026-08-10-ui-v4-dashboard-v1"
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
@@ -146,8 +146,15 @@ def list_project_versions(
 ) -> ProjectVersionListResponse:
     try:
         items, total = get_account_store().list_history(
-            _scope(request, "history:read"), project_id, limit=limit, offset=offset
+            _scope(request, "history:read"), project_id, limit=limit, offset=offset, include_archived=include_archived
         )
+    except TypeError:
+        try:
+            items, total = get_account_store().list_history(
+                _scope(request, "history:read"), project_id, limit=limit, offset=offset
+            )
+        except _STORE_EXCEPTIONS as exc:
+            raise _store_error(exc) from exc
     except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
     return ProjectVersionListResponse(items=[ProjectVersionSummary.model_validate(item) for item in items], total=total)
@@ -262,6 +269,7 @@ def register_project_routes(app: FastAPI) -> None:
             "api-drawer-v4.js",
             "meeting-user-view.js",
             "ui-v4-foundation.js",
+            "ui-v4-dashboard.js",
         ]
         content = "\n\n".join((ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts)
         return Response(
