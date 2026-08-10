@@ -1,0 +1,74 @@
+/* Explicit save state for the V4 model configuration drawer. */
+.api-drawer-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.model-config-draft-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #667085;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.model-config-draft-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #98a2b3;
+}
+
+.model-config-draft-status[data-state="dirty"] {
+  color: #9a6700;
+}
+
+.model-config-draft-status[data-state="dirty"]::before {
+  background: #f59e0b;
+}
+
+.model-config-draft-status[data-state="saved"] {
+  color: #027a48;
+}
+
+.model-config-draft-status[data-state="saved"]::before {
+  background: #12b76a;
+}
+
+#saveApiConfig:disabled {
+  cursor: default;
+  opacity: .55;
+  box-shadow: none;
+}
+
+#connectionResult:not(:empty) {
+  margin-top: 2px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  padding: 11px 12px;
+  background: #f9fafb;
+  color: #344054;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (max-width: 720px) {
+  .api-drawer-footer {
+    grid-template-columns: 1fr 1fr;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+
+  .model-config-draft-status {
+    grid-column: 1 / -1;
+  }
+
+  .api-drawer-footer > button {
+    width: 100%;
+  }
+}
