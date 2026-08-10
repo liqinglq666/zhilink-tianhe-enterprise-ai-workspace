@@ -156,6 +156,7 @@ body.ui-v3-clean-shell.ui-v4-foundation.ui-v4-dashboard #home {
 }
 
 .ui-v4-dashboard #home .module-card {
+  position: relative;
   min-height: 164px;
   padding: 17px;
   border: 1px solid var(--ui4-line);
