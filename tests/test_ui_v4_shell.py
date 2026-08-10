@@ -84,11 +84,11 @@ def test_v4_shell_owns_workspace_chrome_without_legacy_names() -> None:
 
     assert "ZHILINK_UI_V4_SHELL_READY" in script
     assert 'document.body.classList.add("ui-v4-shell")' in script
-    assert 'id="uiV4TopNav"' in script
+    assert 'nav.id = "uiV4TopNav"' in script
     assert 'id="uiV4AccountToggle"' in script
-    assert 'id="uiV4SidebarRecent"' in script
-    assert 'id="uiV4PendingPanel"' in script
-    assert 'id="uiV4UsagePanel"' in script
+    assert 'recent.id = "uiV4SidebarRecent"' in script
+    assert 'pending.id = "uiV4PendingPanel"' in script
+    assert 'usage.id = "uiV4UsagePanel"' in script
     assert 'page.classList.add("ui-v4-business-page")' in script
     assert ".ui-v4-shell .shell" in stylesheet
     assert ".ui-v4-sidebar-project" in stylesheet
