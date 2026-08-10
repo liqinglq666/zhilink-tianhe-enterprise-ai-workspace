@@ -84,6 +84,15 @@
     document.head.appendChild(link);
   }
 
+  function ensureModelConfigSaveController() {
+    if (document.querySelector("script[data-model-config-save-v4]")) return;
+    const script = document.createElement("script");
+    script.src = "/assets/model-config-save-v4.js?v=20260810.1";
+    script.defer = true;
+    script.dataset.modelConfigSaveV4 = "true";
+    document.head.appendChild(script);
+  }
+
   function visible(element) {
     if (!(element instanceof HTMLElement)) return false;
     if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
@@ -262,6 +271,7 @@
 
   function start() {
     ensureStyles();
+    ensureModelConfigSaveController();
     OVERLAYS.forEach(decorate);
     document.addEventListener("click", event => {
       const opener = event.target.closest?.(OPENER_SELECTOR);
