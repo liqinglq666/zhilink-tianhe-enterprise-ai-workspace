@@ -1,6 +1,6 @@
 /* UI V4 overlays: one accessibility and interaction contract for dialogs and drawers. */
 (() => {
-  const VERSION = "20260810.1";
+  const VERSION = "20260810.2";
   const FOCUSABLE = [
     "a[href]",
     "button:not([disabled])",
@@ -52,6 +52,14 @@
       close: () => document.getElementById("closeIdentity"),
       initial: () => document.getElementById("identityOrg"),
     },
+    {
+      key: "meeting-sources",
+      container: () => document.getElementById("meetingSourceDialog"),
+      dialog: () => document.querySelector("#meetingSourceDialog .meeting-source-dialog"),
+      isOpen: () => document.getElementById("meetingSourceDialog")?.classList.contains("show") === true,
+      close: () => document.querySelector("#meetingSourceDialog button[data-close-meeting-sources]"),
+      initial: () => document.querySelector("#meetingSourceDialog button[data-close-meeting-sources]"),
+    },
   ];
 
   const OPENER_SELECTOR = [
@@ -67,6 +75,7 @@
     "[data-live-account='account']",
     "[data-live-account='identity']",
     "[data-live-account='api']",
+    "[data-open-meeting-sources]",
   ].join(",");
 
   let active = null;
@@ -87,7 +96,7 @@
   function ensureModelConfigSaveController() {
     if (document.querySelector("script[data-model-config-save-v4]")) return;
     const script = document.createElement("script");
-    script.src = "/assets/model-config-save-v4.js?v=20260810.1";
+    script.src = `/assets/model-config-save-v4.js?v=${VERSION}`;
     script.defer = true;
     script.dataset.modelConfigSaveV4 = "true";
     document.head.appendChild(script);
