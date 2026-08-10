@@ -31,6 +31,15 @@
     document.head.appendChild(link);
   }
 
+  function ensureFinalQa() {
+    if (window.ZHILINK_UI_V4_FINAL_QA_READY || document.querySelector("script[data-ui-v4-final-qa]")) return;
+    const script = document.createElement("script");
+    script.src = `/assets/ui-v4-final-qa.js?v=${VERSION}`;
+    script.dataset.uiV4FinalQa = "true";
+    script.async = false;
+    document.body.appendChild(script);
+  }
+
   function cleanText(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
   }
@@ -212,6 +221,7 @@
     document.body.classList.add("ui-v4-results");
     sync(document);
     installObserver();
+    ensureFinalQa();
     window.ZHILINK_UI_V4_RESULTS_READY = true;
   }
 
