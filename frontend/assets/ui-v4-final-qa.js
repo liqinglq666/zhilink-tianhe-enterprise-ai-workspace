@@ -86,10 +86,6 @@
       identity.setAttribute("tabindex", "0");
       identity.setAttribute("aria-label", `当前使用身份：${document.getElementById("identityDisplay")?.textContent?.trim() || "未设置"}。打开身份设置`);
     }
-
-    document.querySelectorAll("button").forEach(button => {
-      if (!button.hasAttribute("type")) button.setAttribute("type", "button");
-    });
   }
 
   function decorateScrollableRegions() {
