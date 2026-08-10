@@ -5,6 +5,8 @@
   const WORKSPACE_KEY_STORAGE = "zhilian_workspace_key_v1";
   const ACCOUNT_READY_EVENT = "zhilink:account-ready";
   const PROJECT_REFRESH_MS = 30000;
+  const FORMAL_ORIGINS = new Set(["user", "project", "imported"]);
+  const RESULT_KEYS = ["profile", "meeting", "contract", "policy", "match", "landing"];
   const MODULES = {
     home: { label: "工作首页", icon: "home" },
     profile: { label: "企业档案", result: "企业档案 · 生成结果", icon: "profile" },
@@ -54,6 +56,18 @@
   function notify(message) {
     if (typeof toast === "function") toast(message);
     else console.info(message);
+  }
+  function resultState() {
+    return {
+      results: typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem("zhilian_results"), {}),
+      meta: typeof state !== "undefined" ? state.meta || {} : readJson(sessionStorage.getItem("zhilian_meta"), {}),
+    };
+  }
+  function isFormalResult(key) {
+    const external = window.ZHILINK_DATA_PROVENANCE?.isFormalResult;
+    if (typeof external === "function") return external(key);
+    const { results, meta } = resultState();
+    return Boolean(results[key]) && FORMAL_ORIGINS.has(String(meta?.[key]?.origin || ""));
   }
 
   function ensureStyles() {
@@ -112,8 +126,6 @@
     if (!panel) return false;
     panel.classList.remove("collapsed");
     document.body.classList.add("ui-v4-api-open");
-    const trigger = byId("openApiSettings");
-    if (trigger) trigger.click();
     return true;
   }
 
@@ -301,7 +313,7 @@
       usage.id = "uiV4UsagePanel";
       usage.className = "ui-v4-home-panel ui-v4-usage-panel";
       usage.innerHTML = `
-        <div class="ui-v4-panel-head"><h3>工作台数据</h3><span>实时数据</span></div>
+        <div class="ui-v4-panel-head"><h3>工作台数据</h3><span>正式材料</span></div>
         <div id="uiV4Metrics" class="ui-v4-metrics"></div>
         <p id="uiV4UsageNote" class="ui-v4-usage-note"></p>`;
       grid.appendChild(usage);
@@ -316,13 +328,12 @@
     const items = [];
     const seen = new Set();
     const pattern = /(待确认|需确认|人工确认|尚未明确|未明确|待补充|待核实|需核实)/;
-    const keys = typeof resultKeys !== "undefined" ? resultKeys : ["profile", "meeting", "contract", "policy", "match", "landing"];
     const titles = typeof resultTitles !== "undefined" ? resultTitles : {};
-    const results = typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem("zhilian_results"), {});
+    const { results } = resultState();
 
-    keys.forEach(key => {
+    RESULT_KEYS.forEach(key => {
+      if (!isFormalResult(key)) return;
       const content = String(results[key] || "");
-      if (!content) return;
       content.split(/\n+/).forEach(raw => {
         const text = raw
           .replace(/^[#>*\-\d.、\s]+/, "")
@@ -335,15 +346,16 @@
       });
     });
 
-    document.querySelectorAll(".review-workflow-bar strong").forEach(node => {
-      const text = node.textContent.trim();
-      if (!/(待审核|退回|失效|尚未建立)/.test(text)) return;
-      const panel = node.closest(".result-panel");
-      const id = panel?.id?.replace(/Result$/, "") || "";
-      const title = `${titles[id] || "材料"}：${text}`;
-      if (seen.has(title)) return;
-      seen.add(title);
-      items.push({ title, source: "人工复核" });
+    RESULT_KEYS.forEach(key => {
+      if (!isFormalResult(key)) return;
+      document.getElementById(`${key}Result`)?.querySelectorAll(".review-workflow-bar strong").forEach(node => {
+        const text = node.textContent.trim();
+        if (!/(待审核|退回|失效|尚未建立)/.test(text)) return;
+        const title = `${titles[key] || "材料"}：${text}`;
+        if (seen.has(title)) return;
+        seen.add(title);
+        items.push({ title, source: "人工复核" });
+      });
     });
     return items.slice(0, 4);
   }
@@ -356,17 +368,20 @@
     setText(count, `${items.length} 项`);
     const html = items.length
       ? items.map(item => `<article class="ui-v4-pending-item"><span class="ui-v4-pending-icon">!</span><div><strong>${safe(item.title)}</strong><small>${safe(item.source)} · 请人工核对后使用</small></div></article>`).join("")
-      : '<p class="ui-v4-panel-empty">当前生成结果中没有识别到待确认事项。新材料生成后会自动更新。</p>';
+      : '<p class="ui-v4-panel-empty">当前正式材料中没有识别到待确认事项。新材料生成后会自动更新。</p>';
     if (list.innerHTML !== html) list.innerHTML = html;
   }
 
   function reviewCounts() {
     let confirmed = 0;
     let pending = 0;
-    document.querySelectorAll(".review-workflow-bar strong").forEach(node => {
-      const text = node.textContent;
-      if (/(批准|已确认)/.test(text)) confirmed += 1;
-      if (/(待审核|退回|失效|尚未建立)/.test(text)) pending += 1;
+    RESULT_KEYS.forEach(key => {
+      if (!isFormalResult(key)) return;
+      document.getElementById(`${key}Result`)?.querySelectorAll(".review-workflow-bar strong").forEach(node => {
+        const text = node.textContent || "";
+        if (/(批准|已确认)/.test(text)) confirmed += 1;
+        if (/(待审核|退回|失效|尚未建立)/.test(text)) pending += 1;
+      });
     });
     return { confirmed, pending };
   }
@@ -375,19 +390,20 @@
     const metrics = byId("uiV4Metrics");
     const note = byId("uiV4UsageNote");
     if (!metrics || !note) return;
-    const results = typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem("zhilian_results"), {});
-    const generated = Object.entries(results).filter(([key, value]) => key !== "report" && String(value || "").trim()).length;
+    const generated = typeof window.ZHILINK_DATA_PROVENANCE?.formalCount === "function"
+      ? window.ZHILINK_DATA_PROVENANCE.formalCount()
+      : RESULT_KEYS.filter(isFormalResult).length;
     const project = currentProject();
     const reviews = reviewCounts();
     const html = `
-      <div class="ui-v4-metric"><strong>${generated}</strong><span>已生成材料</span></div>
+      <div class="ui-v4-metric"><strong>${generated}</strong><span>正式材料</span></div>
       <div class="ui-v4-metric"><strong>${latestProjects.total || 0}</strong><span>可访问项目</span></div>
       <div class="ui-v4-metric"><strong>${reviews.confirmed}</strong><span>已确认 / 批准</span></div>
       <div class="ui-v4-metric"><strong>${reviews.pending}</strong><span>待复核状态</span></div>`;
     if (metrics.innerHTML !== html) metrics.innerHTML = html;
     setText(note, project
       ? `当前项目：${project.name} · v${project.lock_version}${project.status === "archived" ? " · 已归档" : ""}`
-      : "当前未打开持久化项目。可从顶部当前项目入口创建或载入项目。");
+      : "当前未打开持久化项目。示例和旧会话材料不会进入正式统计。");
   }
 
   function projectHeaders() {
@@ -484,6 +500,7 @@
       queueApply();
     }));
     window.addEventListener("zhilink:workspace-state-change", queueApply);
+    window.addEventListener("zhilink:data-provenance-ready", queueApply);
   }
 
   function apply() {
