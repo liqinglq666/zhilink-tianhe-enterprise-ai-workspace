@@ -1,0 +1,471 @@
+/* UI V4 workspace: focused input/result workbench for business modules. */
+body.ui-v3-clean-shell.ui-v4-foundation.ui-v4-workspace .page.ui-v4-workspace-page.active-page {
+  width: 100%;
+  max-width: 1580px;
+  margin: 0 auto;
+  grid-template-columns: minmax(360px, .78fr) minmax(520px, 1.22fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane,
+.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane {
+  min-width: 0;
+  border: 1px solid var(--ui4-line);
+  border-radius: var(--ui4-radius);
+  background: var(--ui4-surface);
+  box-shadow: none;
+}
+
+/* Desktop input pane: one stable editing surface with its own scroll context. */
+.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane {
+  position: sticky;
+  top: 102px;
+  max-height: calc(100vh - 118px);
+  padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.ui-v4-workspace .ui-v4-input-pane::-webkit-scrollbar,
+.ui-v4-workspace .ui-v4-result-pane::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ui-v4-workspace .ui-v4-input-pane::-webkit-scrollbar-thumb,
+.ui-v4-workspace .ui-v4-result-pane::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
+  border: 2px solid #fff;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .section-head {
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 11px;
+  margin-bottom: 13px;
+  padding-bottom: 13px;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .section-head > span {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  box-shadow: none;
+  background: #f8fafc;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .section-head > span svg {
+  width: 21px;
+  height: 21px;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .section-head h3 {
+  font-size: 17px;
+  font-weight: 760;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .section-head p {
+  margin-top: 3px;
+  color: var(--ui4-text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .ui-v3-module-meta {
+  gap: 5px;
+  margin: -2px 0 14px;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .ui-v3-module-meta span {
+  min-height: 24px;
+  padding: 3px 8px;
+  color: var(--ui4-text-muted);
+  font-size: 11px;
+  font-weight: 650;
+  border-color: var(--ui4-line);
+  background: #fafbfc;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .quick-fill-bar {
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 9px 10px;
+  border-color: var(--ui4-line);
+  border-radius: var(--ui4-radius-sm);
+  background: #f8fafc;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .quick-fill-bar > span {
+  width: 100%;
+  margin: 0 0 2px;
+  color: var(--ui4-text-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .quick-fill-btn {
+  min-height: 32px;
+  padding: 5px 9px;
+  font-size: 12px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .notice {
+  margin-bottom: 14px;
+  border-radius: var(--ui4-radius-sm);
+}
+
+.ui-v4-workspace .ui-v4-input-pane textarea {
+  min-height: 150px;
+  line-height: 1.65;
+  background: #fff;
+}
+
+.ui-v4-workspace [data-ui-v3-module="meeting"] .ui-v4-input-pane textarea,
+.ui-v4-workspace [data-ui-v3-module="contract"] .ui-v4-input-pane textarea {
+  min-height: 270px;
+}
+
+.ui-v4-workspace [data-ui-v3-module="policy"] .ui-v4-input-pane textarea {
+  min-height: 220px;
+}
+
+.ui-v4-workspace [data-ui-v3-module="match"] .ui-v4-input-pane textarea {
+  min-height: 124px;
+}
+
+.ui-v4-workspace .ui-v4-input-pane .sticky-actions {
+  bottom: -1px;
+  gap: 8px;
+  margin: 18px -4px -4px;
+  padding: 12px 4px 4px;
+  border: 0;
+  border-top: 1px solid var(--ui4-line);
+  border-radius: 0;
+  background: rgba(255, 255, 255, .97);
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+}
+
+.ui-v4-workspace .ui-v4-input-pane .sticky-actions > .primary {
+  flex: 1 1 180px;
+}
+
+/* Result pane: compact when empty, full reading workspace only after content exists. */
+.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane {
+  position: sticky;
+  top: 102px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  color: var(--ui4-text);
+  background: #fff;
+}
+
+.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane:not(.empty) {
+  min-height: calc(100vh - 118px);
+  max-height: calc(100vh - 118px);
+  padding: 18px 22px 28px;
+}
+
+/* V3 generated an additional pseudo title above the real result toolbar. Remove it once ready. */
+.ui-v4-workspace .ui-v4-result-pane:not(.empty)::before,
+.ui-v4-workspace .ui-v4-result-pane:not(.empty)::after {
+  display: none;
+  content: none;
+}
+
+.ui-v4-workspace .ui-v4-result-pane.empty {
+  min-height: 360px;
+  max-height: 460px;
+  padding: 62px 22px 24px;
+  overflow: hidden;
+  font-size: 0;
+  text-align: left;
+  background: #fff;
+}
+
+.ui-v4-workspace .ui-v4-result-pane.empty::before {
+  content: "生成结果";
+  position: absolute;
+  inset: 0 0 auto;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  color: var(--ui4-text);
+  font-size: 13px;
+  font-weight: 720;
+  border-bottom: 1px solid var(--ui4-line);
+  background: #fff;
+}
+
+.ui-v4-workspace .ui-v4-result-pane.empty::after {
+  content: attr(data-ui-v4-empty-title) "\A" attr(data-ui-v4-empty-copy);
+  white-space: pre-wrap;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(440px, calc(100% - 44px));
+  padding: 52px 0 0;
+  transform: translate(-50%, -46%);
+  color: var(--ui4-text-muted);
+  font-size: 13px;
+  line-height: 1.75;
+  text-align: center;
+  background:
+    linear-gradient(#2563eb, #2563eb) 50% 8px / 18px 2px no-repeat,
+    linear-gradient(#2563eb, #2563eb) 50% 15px / 18px 2px no-repeat,
+    linear-gradient(#2563eb, #2563eb) 50% 22px / 12px 2px no-repeat,
+    linear-gradient(#eff6ff, #eff6ff) 50% 0 / 46px 38px no-repeat;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+/* Use the real generated-result toolbar as the reading header. */
+.ui-v4-workspace .ui-v4-result-pane .result-header {
+  position: sticky;
+  top: -18px;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: -18px -22px 14px;
+  padding: 15px 22px 13px;
+  border-bottom: 1px solid var(--ui4-line);
+  background: rgba(255, 255, 255, .97);
+  backdrop-filter: blur(10px);
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-header > div:first-child {
+  min-width: 0;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-label {
+  margin: 0 0 2px;
+  color: var(--ui4-text-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-header h3 {
+  margin: 0;
+  color: var(--ui4-text);
+  font-size: 16px;
+  font-weight: 760;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .inline-download-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .inline-action {
+  min-height: 34px;
+  padding: 6px 9px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 650;
+  border: 1px solid var(--ui4-line);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .inline-action:hover {
+  color: var(--ui4-primary);
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .download-group-label {
+  color: var(--ui4-text-muted);
+  font-size: 11px;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .meta-pill {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  color: var(--ui4-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--ui4-line);
+  border-radius: 999px;
+  background: #f8fafc;
+}
+
+/* Generated sections should read like a document, not cards nested inside a card. */
+.ui-v4-workspace .ui-v4-result-pane .result-body {
+  display: grid;
+  gap: 0;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-section-card {
+  margin: 0;
+  padding: 0 0 22px;
+  border: 0;
+  border-bottom: 1px solid #edf1f5;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-section-card + .result-section-card {
+  padding-top: 22px;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-section-card:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-section-title {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 10px;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-section-title > span {
+  width: 30px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  color: var(--ui4-primary);
+  font-size: 11px;
+  font-weight: 720;
+  border-radius: 6px;
+  background: #eff6ff;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-section-title h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 760;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-section-content {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-section-content > :first-child {
+  margin-top: 0;
+}
+
+.ui-v4-workspace .ui-v4-result-pane .result-section-content > :last-child {
+  margin-bottom: 0;
+}
+
+.ui-v4-workspace .ui-v4-result-pane table {
+  width: 100%;
+  min-width: 560px;
+  border-radius: 8px;
+}
+
+.ui-v4-workspace .ui-v4-result-pane th,
+.ui-v4-workspace .ui-v4-result-pane td {
+  padding: 9px 10px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+/* Report page gets a little more room for its controls. */
+.ui-v4-workspace #report.ui-v4-workspace-page.active-page {
+  grid-template-columns: minmax(390px, .88fr) minmax(520px, 1.12fr);
+}
+
+@media (max-width: 1180px) {
+  body.ui-v3-clean-shell.ui-v4-foundation.ui-v4-workspace .page.ui-v4-workspace-page.active-page,
+  .ui-v4-workspace #report.ui-v4-workspace-page.active-page {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane,
+  .ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane,
+  .ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane:not(.empty) {
+    position: relative;
+    top: auto;
+    max-height: none;
+  }
+
+  .ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane:not(.empty) {
+    min-height: 480px;
+  }
+
+  .ui-v4-workspace .ui-v4-result-pane .result-header {
+    top: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane {
+    padding: 16px;
+  }
+
+  .ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane:not(.empty) {
+    min-height: 420px;
+    padding: 16px 16px 22px;
+  }
+
+  .ui-v4-workspace .ui-v4-result-pane.empty {
+    min-height: 280px;
+    max-height: 340px;
+    padding: 56px 16px 18px;
+  }
+
+  .ui-v4-workspace .ui-v4-result-pane .result-header {
+    position: relative;
+    top: auto;
+    display: grid;
+    margin: -16px -16px 14px;
+    padding: 14px 16px 12px;
+  }
+
+  .ui-v4-workspace .ui-v4-result-pane .result-actions {
+    justify-content: flex-start;
+  }
+
+  .ui-v4-workspace .ui-v4-result-pane table {
+    min-width: 520px;
+  }
+
+  .ui-v4-workspace .ui-v4-input-pane .form-grid.two {
+    grid-template-columns: 1fr;
+  }
+
+  .ui-v4-workspace .ui-v4-input-pane .sticky-actions {
+    position: static;
+    display: grid;
+    grid-template-columns: 1fr;
+    margin: 16px 0 0;
+    padding: 12px 0 0;
+  }
+
+  .ui-v4-workspace .ui-v4-input-pane .sticky-actions > button {
+    width: 100%;
+  }
+}
