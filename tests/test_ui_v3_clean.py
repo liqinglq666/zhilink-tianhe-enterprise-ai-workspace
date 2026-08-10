@@ -78,10 +78,10 @@ def test_ui_v4_dashboard_prioritizes_real_work_over_marketing_chrome() -> None:
     assert 'setText(recent.querySelector(".section-toolbar h3"), "最近材料")' in script.text
     assert 'setText(usage.querySelector(".live-panel-head h3"), "工作状态")' in script.text
     assert "uiV4WorkSignature" in script.text
-    assert ".hero-visual" in stylesheet
-    assert "display: none !important" in stylesheet
-    assert ".ui-v4-attention-panel" in stylesheet
-    assert ".ui-v4-secondary-grid" in stylesheet
+    assert ".hero-visual" in stylesheet.text
+    assert "display: none !important" in stylesheet.text
+    assert ".ui-v4-attention-panel" in stylesheet.text
+    assert ".ui-v4-secondary-grid" in stylesheet.text
 
     # Dashboard copy must not invent success rates, time savings or fake business performance.
     for forbidden in ("98%", "节省时间", "提升 35%", "审核准确率", "效率提升"):
