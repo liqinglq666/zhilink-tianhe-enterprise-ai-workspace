@@ -56,7 +56,7 @@ def test_production_bundle_is_native_v4_and_preserves_business_layers() -> None:
         assert removed_marker not in response.text
 
 
-def test_replaced_legacy_ui_assets_are_deleted() -> None:
+def test_replaced_legacy_and_fake_preview_assets_are_deleted() -> None:
     removed = (
         "ui-redesign-live.js",
         "ui-redesign-live.css",
@@ -66,9 +66,16 @@ def test_replaced_legacy_ui_assets_are_deleted() -> None:
         "ui-v2-dashboard.js",
         "ui-v2-dashboard.css",
         "ui-v4-navigation-compat.css",
+        "ui-preview.html",
+        "ui-preview.css",
+        "ui-preview.js",
     )
     for filename in removed:
         assert not (ASSETS / filename).exists(), filename
+
+    with TestClient(app) as client:
+        preview = client.get("/preview")
+    assert preview.status_code == 404
 
 
 def test_v4_shell_owns_workspace_chrome_without_legacy_names() -> None:
