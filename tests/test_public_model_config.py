@@ -155,9 +155,10 @@ def test_public_quota_fuse_prompts_for_user_api(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_frontend_checks_public_mode_without_embedding_secret() -> None:
-    source = open("frontend/assets/ui-redesign-live-fixes.js", encoding="utf-8").read()
+    source = open("frontend/assets/model-config-save-v4.js", encoding="utf-8").read()
     assert 'fetch("/api/defaults"' in source
-    assert "publicAwareRequireApiConfig" in source
-    assert "公共 Key 永远不会发送到用户指定的地址" in source
+    assert "publicModel.userOverrideAllowed" in source
+    assert "publicModel.available" in source
+    assert 'api_key: publicModel.loaded && !publicModel.userOverrideAllowed ? "" : config.api_key' in source
     assert "PUBLIC_MODEL_API_KEY" not in source
     assert "server-secret-key" not in source
