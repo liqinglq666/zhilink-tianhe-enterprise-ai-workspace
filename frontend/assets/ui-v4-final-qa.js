@@ -68,14 +68,8 @@
 
     const account = document.getElementById("liveAccountToggle");
     const menu = document.getElementById("liveAccountMenu");
-    if (account instanceof HTMLButtonElement) {
-      account.setAttribute("aria-haspopup", "menu");
-      if (menu instanceof HTMLElement && !menu.id) menu.id = "liveAccountMenu";
-      if (menu instanceof HTMLElement) account.setAttribute("aria-controls", menu.id);
-    }
-    if (menu instanceof HTMLElement) {
-      menu.setAttribute("role", "menu");
-      menu.querySelectorAll("button").forEach(button => button.setAttribute("role", "menuitem"));
+    if (account instanceof HTMLButtonElement && menu instanceof HTMLElement) {
+      account.setAttribute("aria-controls", menu.id || "liveAccountMenu");
     }
   }
 
