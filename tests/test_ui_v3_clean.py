@@ -16,14 +16,18 @@ def test_production_bundle_loads_meeting_user_view_after_ui_v3() -> None:
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-08-meeting-user-view-v1"
+    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-10-ui-v4-foundation-v1"
     assert "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY" in response.text
     assert "ZHILINK_UI_V3_READY" in response.text
     assert "ZHILINK_MEETING_USER_VIEW_READY" in response.text
+    assert "ZHILINK_UI_V4_FOUNDATION_READY" in response.text
     assert response.text.rfind("ZHILINK_UI_V3_READY") > response.text.rfind(
         "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY"
     )
     assert response.text.rfind("ZHILINK_MEETING_USER_VIEW_READY") > response.text.rfind("ZHILINK_UI_V3_READY")
+    assert response.text.rfind("ZHILINK_UI_V4_FOUNDATION_READY") > response.text.rfind(
+        "ZHILINK_MEETING_USER_VIEW_READY"
+    )
 
 
 def test_ui_v3_assets_are_served() -> None:
@@ -35,6 +39,24 @@ def test_ui_v3_assets_are_served() -> None:
     assert stylesheet.status_code == 200
     assert "ui-v3-clean-shell" in script.text
     assert ".page.ui-v3-business-page.active-page" in stylesheet.text
+
+
+def test_ui_v4_foundation_assets_are_served_and_business_readable() -> None:
+    with TestClient(app) as client:
+        script = client.get("/assets/ui-v4-foundation.js?v=20260810.1")
+        stylesheet = client.get("/assets/ui-v4-foundation.css?v=20260810.1")
+
+    assert script.status_code == 200
+    assert stylesheet.status_code == 200
+    assert 'document.body.classList.add("ui-v4-foundation")' in script.text
+    assert "--ui4-radius" in stylesheet.text
+    assert "font-size: 14px" in stylesheet.text
+    assert "min-height: 44px" in stylesheet.text
+    assert "ZHILINK_UI_V4_FOUNDATION_READY" in script.text
+
+    # Foundation must not hide core controls or rewrite business behavior.
+    for forbidden in ("display: none !important", "state.results", "fetch(", "sessionStorage", "localStorage"):
+        assert forbidden not in stylesheet.text
 
 
 def test_ui_v3_preserves_all_primary_module_ids_and_adds_scalable_icons() -> None:
