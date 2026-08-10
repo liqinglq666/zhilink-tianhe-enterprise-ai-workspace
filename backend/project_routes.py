@@ -146,15 +146,8 @@ def list_project_versions(
 ) -> ProjectVersionListResponse:
     try:
         items, total = get_account_store().list_history(
-            _scope(request, "history:read"), project_id, limit=limit, offset=offset, include_archived=include_archived
+            _scope(request, "history:read"), project_id, limit=limit, offset=offset
         )
-    except TypeError:
-        try:
-            items, total = get_account_store().list_history(
-                _scope(request, "history:read"), project_id, limit=limit, offset=offset
-            )
-        except _STORE_EXCEPTIONS as exc:
-            raise _store_error(exc) from exc
     except _STORE_EXCEPTIONS as exc:
         raise _store_error(exc) from exc
     return ProjectVersionListResponse(items=[ProjectVersionSummary.model_validate(item) for item in items], total=total)
