@@ -14,6 +14,7 @@ body.ui-v4-overlay-active > .shell[data-ui-v4-overlay-inert="true"] {
 [data-ui-v4-overlay-active="true"] .account-modal-backdrop,
 [data-ui-v4-overlay-active="true"] .project-modal-backdrop,
 [data-ui-v4-overlay-active="true"] .knowledge-backdrop,
+[data-ui-v4-overlay-active="true"] .meeting-source-backdrop,
 #identityModal[data-ui-v4-overlay-active="true"],
 body[data-ui-v4-overlay="api"] #liveApiBackdrop {
   background: rgba(15, 23, 42, .48) !important;
@@ -254,6 +255,45 @@ body[data-ui-v4-overlay="api"] #liveApiBackdrop {
   box-shadow: none;
 }
 
+/* Meeting evidence drawer now uses the same overlay contract. */
+#meetingSourceDialog[data-ui-v4-overlay="meeting-sources"] {
+  padding: 0;
+}
+
+#meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"] {
+  width: min(620px, calc(100vw - 40px));
+  max-width: 620px;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding: 0 20px 22px;
+  overflow: auto;
+  border-left: 1px solid #dbe3ec !important;
+  border-radius: 0 !important;
+}
+
+#meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"] > header {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: 0 -20px 18px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #e5eaf0;
+  background: rgba(255, 255, 255, .98);
+  backdrop-filter: blur(10px);
+}
+
+#meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"] > header > div > span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#meetingSourceDialog .meeting-source-item {
+  border-color: #e1e7ee;
+  border-radius: 10px;
+  background: #fafbfc;
+}
+
 /* Model drawer keeps drawer behavior, but follows the same header/field density. */
 #apiPanel[data-ui-v4-dialog="api"] {
   border-left: 1px solid #dbe3ec !important;
@@ -282,7 +322,8 @@ body[data-ui-v4-overlay="api"] #liveApiBackdrop {
   #accountManagerModal,
   #projectManagerModal,
   #knowledgeBaseModal,
-  #identityModal[data-ui-v4-overlay="identity"] {
+  #identityModal[data-ui-v4-overlay="identity"],
+  #meetingSourceDialog[data-ui-v4-overlay="meeting-sources"] {
     padding: 0 !important;
     align-items: stretch;
   }
@@ -290,8 +331,10 @@ body[data-ui-v4-overlay="api"] #liveApiBackdrop {
   #accountManagerModal .account-dialog,
   #projectManagerModal .project-dialog,
   #knowledgeBaseModal .knowledge-dialog,
-  #identityModal .modal-card[data-ui-v4-dialog="identity"] {
+  #identityModal .modal-card[data-ui-v4-dialog="identity"],
+  #meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"] {
     width: 100vw;
+    max-width: 100vw;
     height: 100dvh;
     max-height: 100dvh;
     margin: 0;
@@ -304,7 +347,8 @@ body[data-ui-v4-overlay="api"] #liveApiBackdrop {
   #accountManagerModal .account-dialog-header,
   #projectManagerModal .project-dialog-header,
   #knowledgeBaseModal .knowledge-dialog-header,
-  #identityModal .modal-card[data-ui-v4-dialog="identity"] .modal-head {
+  #identityModal .modal-card[data-ui-v4-dialog="identity"] .modal-head,
+  #meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"] > header {
     margin: 0 -14px 16px;
     padding: calc(14px + env(safe-area-inset-top)) 14px 12px;
   }
