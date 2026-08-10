@@ -16,17 +16,21 @@ def test_production_bundle_loads_meeting_user_view_after_ui_v3() -> None:
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-10-ui-v4-foundation-v1"
+    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-10-ui-v4-dashboard-v1"
     assert "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY" in response.text
     assert "ZHILINK_UI_V3_READY" in response.text
     assert "ZHILINK_MEETING_USER_VIEW_READY" in response.text
     assert "ZHILINK_UI_V4_FOUNDATION_READY" in response.text
+    assert "ZHILINK_UI_V4_DASHBOARD_READY" in response.text
     assert response.text.rfind("ZHILINK_UI_V3_READY") > response.text.rfind(
         "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY"
     )
     assert response.text.rfind("ZHILINK_MEETING_USER_VIEW_READY") > response.text.rfind("ZHILINK_UI_V3_READY")
     assert response.text.rfind("ZHILINK_UI_V4_FOUNDATION_READY") > response.text.rfind(
         "ZHILINK_MEETING_USER_VIEW_READY"
+    )
+    assert response.text.rfind("ZHILINK_UI_V4_DASHBOARD_READY") > response.text.rfind(
+        "ZHILINK_UI_V4_FOUNDATION_READY"
     )
 
 
@@ -56,6 +60,31 @@ def test_ui_v4_foundation_assets_are_served_and_business_readable() -> None:
 
     # Foundation must not hide core controls or rewrite business behavior.
     for forbidden in ("display: none !important", "state.results", "fetch(", "sessionStorage", "localStorage"):
+        assert forbidden not in stylesheet.text
+
+
+def test_ui_v4_dashboard_prioritizes_real_work_over_marketing_chrome() -> None:
+    with TestClient(app) as client:
+        script = client.get("/assets/ui-v4-dashboard.js?v=20260810.1")
+        stylesheet = client.get("/assets/ui-v4-dashboard.css?v=20260810.1")
+
+    assert script.status_code == 200
+    assert stylesheet.status_code == 200
+    assert "ZHILINK_UI_V4_DASHBOARD_READY" in script.text
+    assert 'const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1"' in script.text
+    assert 'title.textContent = project.name || "当前项目"' in script.text
+    assert 'heading.textContent = "需要你处理"' in script.text
+    assert 'heading.textContent = "新建任务"' in script.text
+    assert 'recentTitle.textContent = "最近材料"' in script.text
+    assert 'usageTitle.textContent = "工作状态"' in script.text
+    assert ".hero-visual" in stylesheet
+    assert "display: none !important" in stylesheet
+    assert ".ui-v4-attention-panel" in stylesheet
+    assert ".ui-v4-secondary-grid" in stylesheet
+
+    # Dashboard copy must not invent success rates, time savings or fake business performance.
+    for forbidden in ("98%", "节省时间", "提升 35%", "审核准确率", "效率提升"):
+        assert forbidden not in script.text
         assert forbidden not in stylesheet.text
 
 
