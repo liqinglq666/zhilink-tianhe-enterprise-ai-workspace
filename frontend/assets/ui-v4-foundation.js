@@ -1,17 +1,18 @@
 /* UI V4 foundation loader. No business behavior changes live in this file. */
 (() => {
-  const VERSION = "20260810.2";
+  const VERSION = "20260810.3";
   const EARLY_STYLE_ASSETS = [
-    ["ui-v4-foundation.css", "20260810.2"],
-    ["ui-v4-dashboard.css", "20260810.1"],
-    ["ui-v4-workspace.css", "20260810.1"],
-    ["ui-v4-navigation.css", "20260810.1"],
-    ["ui-v4-overlays.css", "20260810.2"],
+    ["ui-v4-shell.css", "20260810.3"],
+    ["ui-v4-foundation.css", "20260810.3"],
+    ["ui-v4-dashboard.css", "20260810.3"],
+    ["ui-v4-workspace.css", "20260810.3"],
+    ["ui-v4-navigation.css", "20260810.3"],
+    ["ui-v4-overlays.css", "20260810.3"],
     ["ui-v4-states.css", "20260810.1"],
     ["ui-v4-forms.css", "20260810.1"],
     ["ui-v4-results.css", "20260810.1"],
-    ["ui-v4-final-qa.css", "20260810.1"],
-    ["model-config-save-v4.css", "20260810.1"],
+    ["ui-v4-final-qa.css", "20260810.3"],
+    ["model-config-save-v4.css", "20260810.3"],
   ];
 
   function preloadStyles() {
@@ -37,24 +38,16 @@
     document.head.appendChild(link);
   }
 
-  function removeLegacyDecorations() {
-    document.querySelectorAll(".live-ai-orbit").forEach(node => node.remove());
-  }
-
   function apply() {
     ensureStyles();
     if (!document.body) return;
     document.body.classList.add("ui-v4-foundation");
-    removeLegacyDecorations();
     document.documentElement.dataset.zhilinkUiFoundation = "v4";
     window.ZHILINK_UI_V4_FOUNDATION_READY = true;
   }
 
   preloadStyles();
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", apply, { once: true });
-  } else {
-    apply();
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply, { once: true });
+  else apply();
 })();
