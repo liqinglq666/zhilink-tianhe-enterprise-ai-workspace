@@ -1,6 +1,6 @@
-/* UI V4 dashboard: convert the home screen from feature marketing into a task-oriented workspace. */
+/* UI V4 dashboard: task-first home workspace, backed only by UI V4 shell primitives. */
 (() => {
-  const VERSION = "20260810.1";
+  const VERSION = "20260810.3";
   const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
   const MODULE_ORDER = ["meeting", "contract", "policy", "match", "profile", "landing"];
   let observer = null;
@@ -10,11 +10,9 @@
   function readJson(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
   }
-
   function setText(element, value) {
     if (element && element.textContent !== String(value)) element.textContent = String(value);
   }
-
   function ensureStyles() {
     if (document.querySelector("link[data-ui-v4-dashboard]")) return;
     const link = document.createElement("link");
@@ -23,16 +21,13 @@
     link.dataset.uiV4Dashboard = "true";
     document.head.appendChild(link);
   }
-
   function currentProject() {
     return readJson(localStorage.getItem(CURRENT_PROJECT_STORAGE), null);
   }
-
   function projectSignature(project) {
     if (!project) return "none";
     return [project.id || "", project.name || "", project.status || "", project.lock_version || "", project.updated_at || ""].join("|");
   }
-
   function latestWorkSection() {
     const meta = typeof state !== "undefined" ? state.meta || {} : readJson(sessionStorage.getItem("zhilian_meta"), {});
     const results = typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem("zhilian_results"), {});
@@ -42,21 +37,18 @@
     candidates.sort((a, b) => b.time - a.time);
     return candidates[0]?.key || "meeting";
   }
-
   function gotoSection(section) {
     if (typeof go === "function") go(section);
     else document.querySelector(`.nav button[data-section="${section}"]`)?.click();
   }
-
   function openProjectManager() {
     document.getElementById("openProjectManager")?.click();
   }
-
   function scrollToTasks() {
     const toolbar = document.querySelector("#home > .section-toolbar");
     const grid = document.querySelector("#home .module-grid");
     (toolbar || grid)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.setTimeout(() => grid?.querySelector(".module-card")?.focus(), 300);
+    window.setTimeout(() => grid?.querySelector(".module-card .module-footer button")?.focus(), 300);
   }
 
   function decorateHero() {
@@ -74,12 +66,13 @@
     hero.classList.add("ui-v4-work-hero");
     if (hero.dataset.uiV4WorkSignature === signature) return;
     hero.dataset.uiV4WorkSignature = signature;
-
     setText(eyebrow, project ? "当前工作" : "工作首页");
 
     if (project) {
       setText(title, project.name || "当前项目");
-      const updated = project.updated_at ? new Date(project.updated_at).toLocaleString([], { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+      const updated = project.updated_at
+        ? new Date(project.updated_at).toLocaleString([], { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
+        : "";
       const status = project.status === "archived" ? "已归档" : "进行中";
       setText(description, `项目 ${status} · v${project.lock_version || 1}${updated ? ` · 最近更新 ${updated}` : ""}。继续处理最近的业务材料，或进入项目管理查看版本。`);
       actions.innerHTML = `
@@ -104,7 +97,7 @@
     const home = document.getElementById("home");
     const overview = home?.querySelector(".overview-panel");
     const readiness = home?.querySelector(".readiness-card");
-    const pending = document.getElementById("livePendingPanel");
+    const pending = document.getElementById("uiV4PendingPanel");
     if (!overview || !pending) return;
 
     if (readiness && !readiness.classList.contains("ui-v4-dashboard-hidden")) {
@@ -113,7 +106,7 @@
     }
     pending.classList.add("ui-v4-attention-panel");
     if (pending.parentElement !== overview) overview.appendChild(pending);
-    setText(pending.querySelector(".live-panel-head h3"), "需要你处理");
+    setText(pending.querySelector(".ui-v4-panel-head h3"), "需要你处理");
   }
 
   function decorateTaskSection() {
@@ -122,7 +115,6 @@
       setText(toolbar.querySelector("h3"), "新建任务");
       setText(toolbar.querySelector("p"), "选择一个业务场景开始处理；企业档案与实施计划作为辅助能力放在后面。");
     }
-
     document.querySelectorAll("#home .module-card").forEach(card => {
       const key = card.dataset.toolKey || "";
       card.classList.toggle("ui-v4-secondary-task", ["profile", "landing"].includes(key));
@@ -130,16 +122,15 @@
   }
 
   function decorateLowerPanels() {
-    const grid = document.getElementById("liveHomeGrid");
+    const grid = document.getElementById("uiV4HomeGrid");
     const recent = document.querySelector("#home .recent-card");
-    const usage = document.getElementById("liveUsagePanel");
+    const usage = document.getElementById("uiV4UsagePanel");
     if (!grid || !recent || !usage) return;
-
     grid.classList.add("ui-v4-secondary-grid");
     recent.classList.add("ui-v4-recent-panel");
     usage.classList.add("ui-v4-usage-panel");
     setText(recent.querySelector(".section-toolbar h3"), "最近材料");
-    setText(usage.querySelector(".live-panel-head h3"), "工作状态");
+    setText(usage.querySelector(".ui-v4-panel-head h3"), "工作状态");
   }
 
   function simplifyGovernance() {
@@ -176,13 +167,11 @@
       const home = document.getElementById("home");
       if (home) {
         observer = new MutationObserver(mutations => {
-          const relevant = mutations.some(mutation => mutation.addedNodes.length || mutation.removedNodes.length);
-          if (relevant) queueApply();
+          if (mutations.some(mutation => mutation.addedNodes.length || mutation.removedNodes.length)) queueApply();
         });
         observer.observe(home, { childList: true, subtree: true });
       }
     }
-
     if (!projectObserver) {
       const projectButton = document.getElementById("openProjectManager");
       if (projectButton) {
@@ -192,14 +181,14 @@
     }
   }
 
-  const start = () => {
+  function start() {
     apply();
     installObserver();
     window.addEventListener("zhilink:workspace-state-change", queueApply);
     window.addEventListener("storage", event => {
       if (event.key === CURRENT_PROJECT_STORAGE) queueApply();
     });
-  };
+  }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
