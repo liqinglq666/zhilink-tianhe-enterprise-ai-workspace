@@ -1,0 +1,6 @@
+/* Compatibility override for the legacy V3 mobile selector that hides all direct top-nav buttons. */
+@media (max-width: 720px) {
+  body.ui-v3-clean-shell.ui-v4-navigation #liveTopNav > #uiV4ProjectContext {
+    display: grid !important;
+  }
+}
