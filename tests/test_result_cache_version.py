@@ -2,16 +2,18 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-LOADER = ROOT / "frontend" / "assets" / "ui-redesign-live-fixes.js"
 GUARD = ROOT / "frontend" / "assets" / "data-provenance-guard-v2.js"
 POLICY = ROOT / "frontend" / "assets" / "policy-sources.js"
 
 
-def test_live_loader_uses_versioned_result_cache_guard():
-    source = LOADER.read_text(encoding="utf-8")
+def test_result_cache_guard_loads_its_core_assets_without_legacy_ui_loader():
+    source = GUARD.read_text(encoding="utf-8")
 
-    assert "/assets/data-provenance-guard-v2.js?v=20260807.1" in source
-    assert "script.dataset.zhilinkDataProvenance = \"true\"" in source
+    assert 'const CORE_SCRIPT = "/assets/data-provenance-guard.js?v=20260806.1"' in source
+    assert 'const CORE_STYLE = "/assets/data-provenance-guard.css?v=20260806.1"' in source
+    assert 'style.dataset.zhilinkDataProvenance = "true"' in source
+    assert 'script.dataset.zhilinkDataProvenanceCore = "true"' in source
+    assert "loadCoreGuard();" in source
 
 
 def test_stale_generated_results_are_quarantined_before_reuse():
