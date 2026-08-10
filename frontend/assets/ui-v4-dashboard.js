@@ -4,10 +4,15 @@
   const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
   const MODULE_ORDER = ["meeting", "contract", "policy", "match", "profile", "landing"];
   let observer = null;
+  let projectObserver = null;
   let queued = false;
 
   function readJson(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
+  }
+
+  function setText(element, value) {
+    if (element && element.textContent !== String(value)) element.textContent = String(value);
   }
 
   function ensureStyles() {
@@ -21,6 +26,11 @@
 
   function currentProject() {
     return readJson(localStorage.getItem(CURRENT_PROJECT_STORAGE), null);
+  }
+
+  function projectSignature(project) {
+    if (!project) return "none";
+    return [project.id || "", project.name || "", project.status || "", project.lock_version || "", project.updated_at || ""].join("|");
   }
 
   function latestWorkSection() {
@@ -39,12 +49,11 @@
   }
 
   function openProjectManager() {
-    const trigger = document.getElementById("openProjectManager");
-    if (trigger) trigger.click();
+    document.getElementById("openProjectManager")?.click();
   }
 
   function scrollToTasks() {
-    const toolbar = document.querySelector("#home .section-toolbar");
+    const toolbar = document.querySelector("#home > .section-toolbar");
     const grid = document.querySelector("#home .module-grid");
     (toolbar || grid)?.scrollIntoView({ behavior: "smooth", block: "start" });
     window.setTimeout(() => grid?.querySelector(".module-card")?.focus(), 300);
@@ -61,29 +70,33 @@
     if (!hero || !content || !title || !description || !actions) return;
 
     const project = currentProject();
+    const signature = projectSignature(project);
     hero.classList.add("ui-v4-work-hero");
-    if (eyebrow) eyebrow.textContent = project ? "当前工作" : "工作首页";
+    if (hero.dataset.uiV4WorkSignature === signature) return;
+    hero.dataset.uiV4WorkSignature = signature;
+
+    setText(eyebrow, project ? "当前工作" : "工作首页");
 
     if (project) {
-      title.textContent = project.name || "当前项目";
+      setText(title, project.name || "当前项目");
       const updated = project.updated_at ? new Date(project.updated_at).toLocaleString([], { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
       const status = project.status === "archived" ? "已归档" : "进行中";
-      description.textContent = `项目 ${status} · v${project.lock_version || 1}${updated ? ` · 最近更新 ${updated}` : ""}。继续处理最近的业务材料，或进入项目管理查看版本。`;
+      setText(description, `项目 ${status} · v${project.lock_version || 1}${updated ? ` · 最近更新 ${updated}` : ""}。继续处理最近的业务材料，或进入项目管理查看版本。`);
       actions.innerHTML = `
         <button id="uiV4ContinueWork" class="primary" type="button">继续工作</button>
         <button id="uiV4ProjectDetails" class="secondary" type="button">项目与版本</button>
         <button id="uiV4NewTask" class="ghost" type="button">新建任务</button>`;
-      document.getElementById("uiV4ContinueWork")?.addEventListener("click", () => gotoSection(latestWorkSection()), { once: true });
-      document.getElementById("uiV4ProjectDetails")?.addEventListener("click", openProjectManager, { once: true });
-      document.getElementById("uiV4NewTask")?.addEventListener("click", scrollToTasks, { once: true });
+      document.getElementById("uiV4ContinueWork")?.addEventListener("click", () => gotoSection(latestWorkSection()));
+      document.getElementById("uiV4ProjectDetails")?.addEventListener("click", openProjectManager);
+      document.getElementById("uiV4NewTask")?.addEventListener("click", scrollToTasks);
     } else {
-      title.textContent = "今天要处理什么？";
-      description.textContent = "从一个常用任务开始。生成结果可以人工复核、保存到项目并继续形成版本记录。";
+      setText(title, "今天要处理什么？");
+      setText(description, "从一个常用任务开始。生成结果可以人工复核、保存到项目并继续形成版本记录。");
       actions.innerHTML = `
         <button id="uiV4NewTask" class="primary" type="button">新建任务</button>
         <button id="uiV4CreateProject" class="secondary" type="button">创建项目</button>`;
-      document.getElementById("uiV4NewTask")?.addEventListener("click", scrollToTasks, { once: true });
-      document.getElementById("uiV4CreateProject")?.addEventListener("click", openProjectManager, { once: true });
+      document.getElementById("uiV4NewTask")?.addEventListener("click", scrollToTasks);
+      document.getElementById("uiV4CreateProject")?.addEventListener("click", openProjectManager);
     }
   }
 
@@ -94,22 +107,20 @@
     const pending = document.getElementById("livePendingPanel");
     if (!overview || !pending) return;
 
-    readiness?.setAttribute("aria-hidden", "true");
-    readiness?.classList.add("ui-v4-dashboard-hidden");
+    if (readiness && !readiness.classList.contains("ui-v4-dashboard-hidden")) {
+      readiness.setAttribute("aria-hidden", "true");
+      readiness.classList.add("ui-v4-dashboard-hidden");
+    }
     pending.classList.add("ui-v4-attention-panel");
     if (pending.parentElement !== overview) overview.appendChild(pending);
-
-    const heading = pending.querySelector(".live-panel-head h3");
-    if (heading) heading.textContent = "需要你处理";
+    setText(pending.querySelector(".live-panel-head h3"), "需要你处理");
   }
 
   function decorateTaskSection() {
-    const toolbar = document.querySelector("#home .section-toolbar");
+    const toolbar = document.querySelector("#home > .section-toolbar");
     if (toolbar) {
-      const heading = toolbar.querySelector("h3");
-      const description = toolbar.querySelector("p");
-      if (heading) heading.textContent = "新建任务";
-      if (description) description.textContent = "选择一个业务场景开始处理；企业档案与实施计划作为辅助能力放在后面。";
+      setText(toolbar.querySelector("h3"), "新建任务");
+      setText(toolbar.querySelector("p"), "选择一个业务场景开始处理；企业档案与实施计划作为辅助能力放在后面。");
     }
 
     document.querySelectorAll("#home .module-card").forEach(card => {
@@ -127,11 +138,8 @@
     grid.classList.add("ui-v4-secondary-grid");
     recent.classList.add("ui-v4-recent-panel");
     usage.classList.add("ui-v4-usage-panel");
-
-    const recentTitle = recent.querySelector(".section-toolbar h3");
-    if (recentTitle) recentTitle.textContent = "最近材料";
-    const usageTitle = usage.querySelector(".live-panel-head h3");
-    if (usageTitle) usageTitle.textContent = "工作状态";
+    setText(recent.querySelector(".section-toolbar h3"), "最近材料");
+    setText(usage.querySelector(".live-panel-head h3"), "工作状态");
   }
 
   function simplifyGovernance() {
@@ -164,12 +172,24 @@
   }
 
   function installObserver() {
-    if (observer || !document.body) return;
-    observer = new MutationObserver(mutations => {
-      const relevant = mutations.some(mutation => mutation.addedNodes.length || mutation.removedNodes.length);
-      if (relevant) queueApply();
-    });
-    observer.observe(document.getElementById("home") || document.body, { childList: true, subtree: true });
+    if (!observer) {
+      const home = document.getElementById("home");
+      if (home) {
+        observer = new MutationObserver(mutations => {
+          const relevant = mutations.some(mutation => mutation.addedNodes.length || mutation.removedNodes.length);
+          if (relevant) queueApply();
+        });
+        observer.observe(home, { childList: true, subtree: true });
+      }
+    }
+
+    if (!projectObserver) {
+      const projectButton = document.getElementById("openProjectManager");
+      if (projectButton) {
+        projectObserver = new MutationObserver(queueApply);
+        projectObserver.observe(projectButton, { childList: true, characterData: true, subtree: true, attributes: true });
+      }
+    }
   }
 
   const start = () => {
