@@ -2,22 +2,22 @@
 (() => {
   const VERSION = "20260810.2";
   const EARLY_STYLE_ASSETS = [
-    "ui-v4-foundation.css",
-    "ui-v4-dashboard.css",
-    "ui-v4-workspace.css",
-    "ui-v4-navigation.css",
-    "ui-v4-overlays.css",
-    "ui-v4-states.css",
-    "ui-v4-forms.css",
-    "ui-v4-results.css",
-    "ui-v4-final-qa.css",
-    "model-config-save-v4.css",
+    ["ui-v4-foundation.css", "20260810.2"],
+    ["ui-v4-dashboard.css", "20260810.1"],
+    ["ui-v4-workspace.css", "20260810.1"],
+    ["ui-v4-navigation.css", "20260810.1"],
+    ["ui-v4-overlays.css", "20260810.2"],
+    ["ui-v4-states.css", "20260810.1"],
+    ["ui-v4-forms.css", "20260810.1"],
+    ["ui-v4-results.css", "20260810.1"],
+    ["ui-v4-final-qa.css", "20260810.1"],
+    ["model-config-save-v4.css", "20260810.1"],
   ];
 
   function preloadStyles() {
     if (!document.head) return;
-    EARLY_STYLE_ASSETS.forEach(filename => {
-      const href = `/assets/${filename}?v=${VERSION}`;
+    EARLY_STYLE_ASSETS.forEach(([filename, version]) => {
+      const href = `/assets/${filename}?v=${version}`;
       if (document.querySelector(`link[rel="preload"][href="${href}"]`)) return;
       const link = document.createElement("link");
       link.rel = "preload";
@@ -37,10 +37,15 @@
     document.head.appendChild(link);
   }
 
+  function removeLegacyDecorations() {
+    document.querySelectorAll(".live-ai-orbit").forEach(node => node.remove());
+  }
+
   function apply() {
     ensureStyles();
     if (!document.body) return;
     document.body.classList.add("ui-v4-foundation");
+    removeLegacyDecorations();
     document.documentElement.dataset.zhilinkUiFoundation = "v4";
     window.ZHILINK_UI_V4_FOUNDATION_READY = true;
   }
