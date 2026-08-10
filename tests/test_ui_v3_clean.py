@@ -16,13 +16,14 @@ def test_production_bundle_loads_meeting_user_view_after_ui_v3() -> None:
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-10-ui-v4-workspace-v1"
+    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-10-ui-v4-navigation-v1"
     assert "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY" in response.text
     assert "ZHILINK_UI_V3_READY" in response.text
     assert "ZHILINK_MEETING_USER_VIEW_READY" in response.text
     assert "ZHILINK_UI_V4_FOUNDATION_READY" in response.text
     assert "ZHILINK_UI_V4_DASHBOARD_READY" in response.text
     assert "ZHILINK_UI_V4_WORKSPACE_READY" in response.text
+    assert "ZHILINK_UI_V4_NAVIGATION_READY" in response.text
     assert response.text.rfind("ZHILINK_UI_V3_READY") > response.text.rfind(
         "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY"
     )
@@ -35,6 +36,9 @@ def test_production_bundle_loads_meeting_user_view_after_ui_v3() -> None:
     )
     assert response.text.rfind("ZHILINK_UI_V4_WORKSPACE_READY") > response.text.rfind(
         "ZHILINK_UI_V4_DASHBOARD_READY"
+    )
+    assert response.text.rfind("ZHILINK_UI_V4_NAVIGATION_READY") > response.text.rfind(
+        "ZHILINK_UI_V4_WORKSPACE_READY"
     )
 
 
@@ -117,6 +121,39 @@ def test_ui_v4_workspace_assets_create_a_focused_split_workbench() -> None:
 
     # This layer may decorate DOM and observe result state, but must not alter model calls or persisted business data.
     for forbidden in ("fetch(", "setResult", "state.results", "sessionStorage", "localStorage", "saveConfig"):
+        assert forbidden not in script.text
+
+
+def test_ui_v4_navigation_consolidates_header_actions_and_sidebar_resources() -> None:
+    with TestClient(app) as client:
+        script = client.get("/assets/ui-v4-navigation.js?v=20260810.1")
+        stylesheet = client.get("/assets/ui-v4-navigation.css?v=20260810.1")
+
+    assert script.status_code == 200
+    assert stylesheet.status_code == 200
+    assert "ZHILINK_UI_V4_NAVIGATION_READY" in script.text
+    assert 'const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1"' in script.text
+    assert 'home: "工作首页"' in script.text
+    assert 'report: "报告归档"' in script.text
+    assert 'group.textContent = "工作台"' in script.text
+    assert 'resource.className = "ui-v4-resource-navigation"' in script.text
+    assert 'project.id = "uiV4ProjectContext"' in script.text
+    assert '["liveProjectNav", "liveKnowledgeNav", "liveReportNav"]' in script.text
+    assert 'classList.add("ui-v4-top-redundant")' in script.text
+    assert 'setText(meta, dirty ? "未保存"' in script.text
+    assert 'setText(kicker, group)' in script.text
+
+    assert ".ui-v4-top-redundant" in stylesheet.text
+    assert "display: none !important" in stylesheet.text
+    assert ".ui-v4-project-context" in stylesheet.text
+    assert ".ui-v4-resource-navigation" in stylesheet.text
+    assert ".ui-v4-account-menu" in stylesheet.text
+    assert "--ui4-sidebar-width: 252px" in stylesheet.text
+    assert "@media (max-width: 720px)" in stylesheet.text
+    assert "display: grid !important" in stylesheet.text
+
+    # Navigation can read the current project and trigger existing controls, but cannot own business/model state.
+    for forbidden in ("fetch(", "setResult", "state.results", "saveConfig", "sessionStorage"):
         assert forbidden not in script.text
 
 
