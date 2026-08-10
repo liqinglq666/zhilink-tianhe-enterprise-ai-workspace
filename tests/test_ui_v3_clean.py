@@ -72,11 +72,12 @@ def test_ui_v4_dashboard_prioritizes_real_work_over_marketing_chrome() -> None:
     assert stylesheet.status_code == 200
     assert "ZHILINK_UI_V4_DASHBOARD_READY" in script.text
     assert 'const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1"' in script.text
-    assert 'title.textContent = project.name || "当前项目"' in script.text
-    assert 'heading.textContent = "需要你处理"' in script.text
-    assert 'heading.textContent = "新建任务"' in script.text
-    assert 'recentTitle.textContent = "最近材料"' in script.text
-    assert 'usageTitle.textContent = "工作状态"' in script.text
+    assert 'setText(title, project.name || "当前项目")' in script.text
+    assert 'setText(pending.querySelector(".live-panel-head h3"), "需要你处理")' in script.text
+    assert 'setText(toolbar.querySelector("h3"), "新建任务")' in script.text
+    assert 'setText(recent.querySelector(".section-toolbar h3"), "最近材料")' in script.text
+    assert 'setText(usage.querySelector(".live-panel-head h3"), "工作状态")' in script.text
+    assert "uiV4WorkSignature" in script.text
     assert ".hero-visual" in stylesheet
     assert "display: none !important" in stylesheet
     assert ".ui-v4-attention-panel" in stylesheet
