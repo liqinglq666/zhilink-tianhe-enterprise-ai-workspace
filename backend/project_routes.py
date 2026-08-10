@@ -38,7 +38,7 @@ from .service_workflow_routes import register_service_workflow_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
-UI_BUNDLE_VERSION = "2026-08-10-ui-v4-states-v1"
+UI_BUNDLE_VERSION = "2026-08-10-ui-v4-final-v2"
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
