@@ -24,10 +24,7 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
 
     try:
         preview = client.get("/preview")
-        assert preview.status_code == 200
-        assert "智链天河 · 新版 UI 预览" in preview.text
-        assert "UI 预览 · 展示数据" in preview.text
-        assert preview.headers["cache-control"] == "no-store"
+        assert preview.status_code == 404
 
         bundle = client.get("/assets/app.js")
         assert bundle.status_code == 200
@@ -39,6 +36,8 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
         assert "ZHILINK_POLICY_SOURCES_READY" in bundle.text
         assert "ZHILINK_KNOWLEDGE_READY" in bundle.text
         assert "ZHILINK_SERVICE_WORKFLOW_READY" in bundle.text
+        assert "ZHILINK_UI_V4_SHELL_READY" in bundle.text
+        assert "ZHILINK_UI_REDESIGN_LIVE_READY" not in bundle.text
 
         schema = client.get("/openapi.json")
         assert schema.status_code == 200

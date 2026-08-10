@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Callable
 
 from fastapi import APIRouter, FastAPI, Query, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import JSONResponse, Response
 
 from .auth_routes import register_auth_routes, require_auth, require_csrf
 from .auth_store import get_account_store
@@ -38,7 +38,7 @@ from .service_workflow_routes import register_service_workflow_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
-UI_BUNDLE_VERSION = "2026-08-10-ui-v4-final-v2"
+UI_BUNDLE_VERSION = "2026-08-10-ui-v4-native-v3"
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
@@ -82,13 +82,7 @@ def _store_error(exc: Exception) -> ProjectAPIError:
 
 
 def _deduplicate_workspace_bundle_routes(app: FastAPI, preferred_endpoint: Callable[..., object]) -> None:
-    """Keep one authoritative /assets/app.js route after the app finishes registering routes.
-
-    The legacy base bundle in backend.main used the same path and could silently serve an
-    incomplete script set depending on route ordering. Startup runs after module import, so
-    every duplicate is visible and can be removed deterministically.
-    """
-
+    """Keep one authoritative /assets/app.js route after the app finishes registering routes."""
     retained = []
     preferred_kept = False
     for route in app.router.routes:
@@ -235,13 +229,6 @@ def register_project_routes(app: FastAPI) -> None:
     register_service_workflow_routes(app)
     app.include_router(router)
 
-    @app.get("/preview", include_in_schema=False)
-    def ui_preview() -> FileResponse:
-        return FileResponse(
-            ASSETS_DIR / "ui-preview.html",
-            headers={"Cache-Control": "no-store"},
-        )
-
     @app.get("/assets/app.js", include_in_schema=False)
     def workspace_app_bundle() -> Response:
         scripts = [
@@ -256,9 +243,8 @@ def register_project_routes(app: FastAPI) -> None:
             "knowledge-base.js",
             "service-workflow.js",
             "product-simplification.js",
-            "ui-redesign-live.js",
-            "ui-redesign-live-fixes.js",
-            "ui-v3-clean.js",
+            "data-provenance-guard-v2.js",
+            "ui-v4-shell.js",
             "api-drawer-v4.js",
             "meeting-user-view.js",
             "ui-v4-foundation.js",

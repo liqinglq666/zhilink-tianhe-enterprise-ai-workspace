@@ -7,9 +7,9 @@ from backend.main import app
 
 def test_overlay_layer_loads_explicit_model_config_controller() -> None:
     with TestClient(app) as client:
-        overlays = client.get("/assets/ui-v4-overlays.js?v=20260810.1")
-        controller = client.get("/assets/model-config-save-v4.js?v=20260810.1")
-        stylesheet = client.get("/assets/model-config-save-v4.css?v=20260810.1")
+        overlays = client.get("/assets/ui-v4-overlays.js?v=20260810.3")
+        controller = client.get("/assets/model-config-save-v4.js?v=20260810.3")
+        stylesheet = client.get("/assets/model-config-save-v4.css?v=20260810.3")
 
     assert overlays.status_code == 200
     assert controller.status_code == 200
@@ -17,11 +17,13 @@ def test_overlay_layer_loads_explicit_model_config_controller() -> None:
     assert "model-config-save-v4.js" in overlays.text
     assert "data-model-config-save-v4" in overlays.text
     assert "ZHILINK_MODEL_CONFIG_SAVE_V4_READY" in controller.text
+    assert 'close: () => document.getElementById("uiV4ApiClose")' in overlays.text
+    assert "liveApiClose" not in overlays.text
 
 
 def test_model_config_uses_draft_test_and_explicit_commit() -> None:
     with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260810.1")
+        response = client.get("/assets/model-config-save-v4.js?v=20260810.3")
 
     script = response.text
     assert "function readDraft()" in script
@@ -38,7 +40,7 @@ def test_model_config_uses_draft_test_and_explicit_commit() -> None:
 
 def test_model_config_clear_key_is_draft_only_until_save() -> None:
     with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260810.1")
+        response = client.get("/assets/model-config-save-v4.js?v=20260810.3")
 
     script = response.text
     clear_block = script[script.index(f'if (target.closest(`#${{IDS.clear}}`))'):script.index(f'if (target.closest(`#${{IDS.test}}`))')]
@@ -47,23 +49,41 @@ def test_model_config_clear_key_is_draft_only_until_save() -> None:
     assert "保存后生效" in clear_block
 
 
-def test_model_config_saved_status_tracks_committed_config_not_live_input() -> None:
+def test_model_config_supports_public_model_without_browser_key() -> None:
     with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260810.1")
+        response = client.get("/assets/model-config-save-v4.js?v=20260810.3")
 
     script = response.text
-    assert "const key = getActiveConfig().api_key.trim();" in script
-    assert "renderSavedStatus" in script
-    assert "请先打开“模型配置”" in script
-    assert "并保存后再生成" in script
+    assert "const publicModel =" in script
+    assert 'fetch("/api/defaults"' in script
+    assert 'return publicModel.available ? "public" : "unconfigured"' in script
+    assert 'api_key: publicModel.loaded && !publicModel.userOverrideAllowed ? "" : config.api_key' in script
+    assert 'publicModel.userOverrideAllowed = status?.user_override_allowed !== false' in script
+    assert 'publicModel.available ? "恢复公共模型" : "清空 API Key"' in script
+    assert "当前部署未开放用户自定义 API" in script
+    assert "公共模型已连接" in script
+
+
+def test_model_config_generation_requires_saved_custom_or_available_public_model() -> None:
+    with TestClient(app) as client:
+        response = client.get("/assets/model-config-save-v4.js?v=20260810.3")
+
+    script = response.text
+    assert 'window.requireApiConfig = function requireAvailableModel()' in script
+    assert "使用自定义 API 时，请完整保存 API Key、Base URL 和模型名称" in script
+    assert "当前公共模型尚未配置" in script
+    assert "renderModelStatus" in script
+    assert "zhilink:model-mode-change" in script
 
 
 def test_model_config_save_state_has_mobile_safe_area_and_disabled_save_feedback() -> None:
     with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.css?v=20260810.1")
+        response = client.get("/assets/model-config-save-v4.css?v=20260810.3")
+        drawer = client.get("/assets/api-drawer-v4.css?v=20260810.3")
 
     stylesheet = response.text
     assert ".model-config-draft-status" in stylesheet
     assert '[data-state="dirty"]' in stylesheet
     assert '#saveApiConfig:disabled' in stylesheet
     assert "env(safe-area-inset-bottom)" in stylesheet
+    assert ".public-model-mode-notice" in drawer.text

@@ -14,6 +14,8 @@ def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     assert '#meetingSourceDialog .meeting-source-dialog' in script
     assert '[data-open-meeting-sources]' in script
     assert 'button[data-close-meeting-sources]' in script
+    assert 'document.getElementById("uiV4ApiClose")' in script
+    assert '[data-ui-v4-account=' in script
     assert 'dialog.setAttribute("aria-modal", "true")' in script
     assert 'dialog.setAttribute("tabindex", "-1")' in script
     assert 'shell.inert = true' in script
@@ -23,6 +25,7 @@ def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     assert 'last.focus({ preventScroll: true })' in script
     assert 'first.focus({ preventScroll: true })' in script
     assert 'target.focus({ preventScroll: true })' in script
+    assert 'opener instanceof HTMLElement && visible(opener)' in script
     assert 'window.ZHILINK_UI_V4_OVERLAYS_READY = true' in script
 
 
@@ -37,6 +40,8 @@ def test_overlay_controller_does_not_own_business_or_persistence_logic() -> None
         "sessionStorage",
         "localStorage",
         "/api/",
+        "liveApiClose",
+        "liveAccount",
     ):
         assert forbidden not in script
 
@@ -53,7 +58,9 @@ def test_overlay_styles_unify_desktop_and_mobile_surfaces() -> None:
     assert '#meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"]' in stylesheet
     assert ".meeting-source-backdrop" in stylesheet
     assert '#apiPanel[data-ui-v4-dialog="api"]' in stylesheet
+    assert "#uiV4ApiBackdrop" in stylesheet
     assert "100dvh" in stylesheet
     assert "env(safe-area-inset-top)" in stylesheet
     assert "env(safe-area-inset-bottom)" in stylesheet
     assert "@media (prefers-reduced-motion: reduce)" in stylesheet
+    assert "live-api-" not in stylesheet

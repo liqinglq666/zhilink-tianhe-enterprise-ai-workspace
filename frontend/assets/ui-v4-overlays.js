@@ -1,6 +1,6 @@
 /* UI V4 overlays: one accessibility and interaction contract for dialogs and drawers. */
 (() => {
-  const VERSION = "20260810.2";
+  const VERSION = "20260810.3";
   const FOCUSABLE = [
     "a[href]",
     "button:not([disabled])",
@@ -16,8 +16,8 @@
       key: "api",
       container: () => document.getElementById("apiPanel"),
       dialog: () => document.getElementById("apiPanel"),
-      isOpen: () => document.body.classList.contains("live-api-open"),
-      close: () => document.getElementById("liveApiClose"),
+      isOpen: () => document.body.classList.contains("ui-v4-api-open"),
+      close: () => document.getElementById("uiV4ApiClose"),
       initial: () => document.getElementById("apiKey"),
     },
     {
@@ -71,10 +71,10 @@
     "#identityChip",
     "#uiV4ProjectContext",
     "#uiV4KnowledgeNav",
-    "#liveSidebarAllProjects",
-    "[data-live-account='account']",
-    "[data-live-account='identity']",
-    "[data-live-account='api']",
+    "#uiV4SidebarAllProjects",
+    "[data-ui-v4-account='account']",
+    "[data-ui-v4-account='identity']",
+    "[data-ui-v4-account='api']",
     "[data-open-meeting-sources]",
   ].join(",");
 
@@ -92,7 +92,6 @@
     link.dataset.uiV4Overlays = "true";
     document.head.appendChild(link);
   }
-
   function ensureModelConfigSaveController() {
     if (document.querySelector("script[data-model-config-save-v4]")) return;
     const script = document.createElement("script");
@@ -101,7 +100,6 @@
     script.dataset.modelConfigSaveV4 = "true";
     document.head.appendChild(script);
   }
-
   function visible(element) {
     if (!(element instanceof HTMLElement)) return false;
     if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
@@ -109,12 +107,10 @@
     if (style.display === "none" || style.visibility === "hidden") return false;
     return Boolean(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
   }
-
   function focusables(dialog) {
     if (!dialog) return [];
     return Array.from(dialog.querySelectorAll(FOCUSABLE)).filter(visible);
   }
-
   function decorate(entry) {
     const container = entry.container();
     const dialog = entry.dialog();
@@ -125,7 +121,6 @@
     dialog.setAttribute("aria-modal", "true");
     if (!dialog.hasAttribute("tabindex")) dialog.setAttribute("tabindex", "-1");
   }
-
   function setWorkspaceInert(inert) {
     const shell = document.querySelector(".shell");
     if (!shell) return;
@@ -137,12 +132,10 @@
       delete shell.dataset.uiV4OverlayInert;
     }
   }
-
   function findOpenOverlay() {
     if (active?.isOpen()) return active;
     return OVERLAYS.find(entry => entry.isOpen() && entry.container() && entry.dialog()) || null;
   }
-
   function focusInside(entry) {
     const dialog = entry?.dialog();
     if (!dialog) return;
@@ -157,44 +150,35 @@
     if (first) first.focus({ preventScroll: true });
     else dialog.focus({ preventScroll: true });
   }
-
   function activate(entry) {
     active = entry;
     const container = entry.container();
     const dialog = entry.dialog();
     if (!container || !dialog) return;
-
     returnFocus = pendingOpener && visible(pendingOpener)
       ? pendingOpener
       : (document.activeElement instanceof HTMLElement && !dialog.contains(document.activeElement) ? document.activeElement : null);
     pendingOpener = null;
-
     document.body.classList.add("ui-v4-overlay-active");
     document.body.dataset.uiV4Overlay = entry.key;
     container.dataset.uiV4OverlayActive = "true";
     container.setAttribute("aria-hidden", "false");
     setWorkspaceInert(true);
-
     window.setTimeout(() => focusInside(entry), 60);
   }
-
   function deactivate(previous) {
     const container = previous?.container();
     if (container) delete container.dataset.uiV4OverlayActive;
     document.body.classList.remove("ui-v4-overlay-active");
     delete document.body.dataset.uiV4Overlay;
     setWorkspaceInert(false);
-
     const target = returnFocus;
     returnFocus = null;
     active = null;
     window.setTimeout(() => {
-      if (target instanceof HTMLElement && target.isConnected && !target.disabled && visible(target)) {
-        target.focus({ preventScroll: true });
-      }
+      if (target instanceof HTMLElement && target.isConnected && !target.disabled && visible(target)) target.focus({ preventScroll: true });
     }, 0);
   }
-
   function sync() {
     OVERLAYS.forEach(decorate);
     const next = findOpenOverlay();
@@ -202,17 +186,12 @@
     if (active) deactivate(active);
     if (next) activate(next);
   }
-
   function requestClose() {
     if (!active) return;
     const close = active.close();
-    if (close instanceof HTMLElement) {
-      close.click();
-      return;
-    }
-    console.warn(`Overlay ${active.key} has no close control.`);
+    if (close instanceof HTMLElement) close.click();
+    else console.warn(`Overlay ${active.key} has no close control.`);
   }
-
   function trapFocus(event) {
     if (!active || event.key !== "Tab") return;
     const dialog = active.dialog();
@@ -223,7 +202,6 @@
       dialog.focus({ preventScroll: true });
       return;
     }
-
     const first = items[0];
     const last = items[items.length - 1];
     const current = document.activeElement;
@@ -240,7 +218,6 @@
       first.focus({ preventScroll: true });
     }
   }
-
   function handleKeydown(event) {
     if (!active) return;
     if (event.key === "Escape") {
@@ -251,7 +228,6 @@
     }
     trapFocus(event);
   }
-
   function queueSync() {
     if (queued) return;
     queued = true;
@@ -260,7 +236,6 @@
       sync();
     });
   }
-
   function installObserver() {
     if (observer || !document.body) return;
     observer = new MutationObserver(mutations => {
@@ -277,14 +252,13 @@
       attributeFilter: ["class", "aria-hidden"],
     });
   }
-
   function start() {
     ensureStyles();
     ensureModelConfigSaveController();
     OVERLAYS.forEach(decorate);
     document.addEventListener("click", event => {
       const opener = event.target.closest?.(OPENER_SELECTOR);
-      if (opener instanceof HTMLElement) pendingOpener = opener;
+      if (opener instanceof HTMLElement && visible(opener)) pendingOpener = opener;
     }, true);
     document.addEventListener("keydown", handleKeydown, true);
     installObserver();

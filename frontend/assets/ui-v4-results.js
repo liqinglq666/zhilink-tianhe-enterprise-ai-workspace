@@ -1,6 +1,7 @@
 /* UI V4 results: present generated business output as a readable enterprise document without changing content. */
 (() => {
-  const VERSION = "20260810.1";
+  const STYLE_VERSION = "20260810.1";
+  const FINAL_QA_VERSION = "20260810.3";
   const PANEL_SELECTOR = ".result-panel";
   const KIND_RULES = [
     ["pending", /(待确认|待补充|需确认|未确认|信息缺口|未知事项|待核实)/],
@@ -26,7 +27,7 @@
     if (document.querySelector("link[data-ui-v4-results]")) return;
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = `/assets/ui-v4-results.css?v=${VERSION}`;
+    link.href = `/assets/ui-v4-results.css?v=${STYLE_VERSION}`;
     link.dataset.uiV4Results = "true";
     document.head.appendChild(link);
   }
@@ -34,7 +35,7 @@
   function ensureFinalQa() {
     if (window.ZHILINK_UI_V4_FINAL_QA_READY || document.querySelector("script[data-ui-v4-final-qa]")) return;
     const script = document.createElement("script");
-    script.src = `/assets/ui-v4-final-qa.js?v=${VERSION}`;
+    script.src = `/assets/ui-v4-final-qa.js?v=${FINAL_QA_VERSION}`;
     script.dataset.uiV4FinalQa = "true";
     script.async = false;
     document.body.appendChild(script);

@@ -18,7 +18,6 @@
   const META_STORAGE = "zhilian_meta";
   const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
   const FORMAL_ORIGINS = new Set(["user", "project", "imported"]);
-  const PENDING_PATTERN = /(待确认|需确认|人工确认|尚未明确|未明确|待补充|待核实|需核实)/;
 
   let started = false;
   let bootstrapObserver = null;
@@ -27,28 +26,22 @@
   function readJson(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
   }
-
   function appState() {
     return typeof state !== "undefined" ? state : null;
   }
-
   function examples() {
     return typeof exampleScenarios !== "undefined" ? exampleScenarios : {};
   }
-
   function contexts() {
     return readJson(sessionStorage.getItem(EXAMPLE_CONTEXT_STORAGE), {});
   }
-
   function saveContexts(value) {
     sessionStorage.setItem(EXAMPLE_CONTEXT_STORAGE, JSON.stringify(value || {}));
   }
-
   function moduleFromExampleKey(key) {
     const module = String(key || "").split("-", 1)[0];
     return RESULT_KEYS.includes(module) ? module : "";
   }
-
   function exampleMatchesCurrentInput(exampleKey) {
     const example = examples()[exampleKey];
     if (!example) return false;
@@ -57,7 +50,6 @@
       return Boolean(element) && String(element.value || "") === String(value || "");
     });
   }
-
   function inferLegacyOrigin(key) {
     const marked = contexts()[key];
     if (marked?.exampleKey && exampleMatchesCurrentInput(marked.exampleKey)) return "example";
@@ -72,27 +64,25 @@
     }
     return localStorage.getItem(CURRENT_PROJECT_STORAGE) ? "project" : "legacy";
   }
-
   function originFor(key) {
     return String(appState()?.meta?.[key]?.origin || "") || inferLegacyOrigin(key);
   }
-
   function isFormalResult(key) {
     return Boolean(appState()?.results?.[key]) && FORMAL_ORIGINS.has(originFor(key));
   }
-
   function isolatedKeys() {
     const current = appState();
     return current
       ? Object.keys(current.results || {}).filter(key => current.results[key] && !isFormalResult(key))
       : [];
   }
-
+  function formalCount() {
+    return RESULT_KEYS.filter(isFormalResult).length;
+  }
   function persistMeta() {
     const current = appState();
     if (current) sessionStorage.setItem(META_STORAGE, JSON.stringify(current.meta || {}));
   }
-
   function migrateExistingResults() {
     const current = appState();
     if (!current) return;
@@ -104,7 +94,6 @@
     });
     persistMeta();
   }
-
   function markExample(exampleKey) {
     const module = moduleFromExampleKey(exampleKey);
     if (!module) return;
@@ -112,14 +101,12 @@
     next[module] = { exampleKey, markedAt: new Date().toISOString() };
     saveContexts(next);
   }
-
   function clearExampleMarker(module) {
     const next = contexts();
     if (!module || !next[module]) return;
     delete next[module];
     saveContexts(next);
   }
-
   function generationOrigin(key) {
     const marker = contexts()[key];
     return marker?.exampleKey && exampleMatchesCurrentInput(marker.exampleKey) ? "example" : "user";
@@ -134,7 +121,7 @@
       window.applyExample = function provenanceAwareApplyExample(exampleKey) {
         const value = original.apply(this, arguments);
         markExample(exampleKey);
-        renderFormalWorkspace();
+        refreshFormalWorkspace();
         return value;
       };
     }
@@ -190,10 +177,6 @@
     };
   }
 
-  function formalCount() {
-    return RESULT_KEYS.filter(isFormalResult).length;
-  }
-
   function renderFormalProgress() {
     const current = appState();
     if (!current) return;
@@ -211,7 +194,7 @@
     });
     document.querySelectorAll("[data-tool-key]").forEach(card => card.classList.toggle("done", isFormalResult(card.dataset.toolKey)));
     renderFormalRecentMaterials();
-    renderFormalWorkspace();
+    refreshFormalWorkspace();
   }
 
   function renderFormalRecentMaterials() {
@@ -221,7 +204,8 @@
     const items = Object.keys(current.results || {})
       .filter(key => isFormalResult(key) && RESULT_TITLES[key])
       .map(key => ({ key, title: RESULT_TITLES[key], time: current.meta?.[key]?.time || "", content: current.results[key] || "" }))
-      .sort((a, b) => String(b.time).localeCompare(String(a.time))).slice(0, 5);
+      .sort((a, b) => String(b.time).localeCompare(String(a.time)))
+      .slice(0, 5);
     if (!items.length) {
       const isolated = isolatedKeys().length;
       container.className = "recent-list empty";
@@ -241,63 +225,9 @@
     if (container.innerHTML !== html) container.innerHTML = html;
   }
 
-  function collectFormalPendingItems() {
-    const current = appState();
-    const seen = new Set();
-    const items = [];
-    if (!current) return items;
-    RESULT_KEYS.forEach(key => {
-      if (!isFormalResult(key)) return;
-      String(current.results[key] || "").split(/\n+/).forEach(raw => {
-        const text = raw.replace(/^[#>*\-\d.、\s]+/, "").replace(/\[[A-Z0-9-]+\]/g, "")
-          .replace(/\s+/g, " ").trim();
-        if (!text || !PENDING_PATTERN.test(text) || seen.has(text)) return;
-        seen.add(text);
-        items.push({ key, title: text.slice(0, 90), source: RESULT_TITLES[key] || key });
-      });
-    });
-    return items.slice(0, 6);
-  }
-
-  function reviewCounts() {
-    let confirmed = 0;
-    let pending = 0;
-    RESULT_KEYS.forEach(key => {
-      if (!isFormalResult(key)) return;
-      document.getElementById(`${key}Result`)?.querySelectorAll(".review-workflow-bar strong").forEach(node => {
-        const text = node.textContent || "";
-        if (/(批准|已确认)/.test(text)) confirmed += 1;
-        if (/(待审核|退回|失效|尚未建立)/.test(text)) pending += 1;
-      });
-    });
-    return { confirmed, pending };
-  }
-
-  function ensureFormalPanels() {
-    const grid = document.getElementById("liveHomeGrid");
-    if (!grid) return false;
-    if (!document.getElementById("formalPendingPanel")) {
-      const pending = document.createElement("section");
-      pending.id = "formalPendingPanel";
-      pending.className = "live-home-panel formal-pending-panel";
-      pending.innerHTML = '<div class="live-panel-head"><div><h3>AI 待人工核对</h3><p>只显示真实业务材料中需要人工确认的内容。</p></div><span id="formalPendingCount">0 项</span></div><div id="formalPendingList" class="live-pending-list"></div>';
-      grid.appendChild(pending);
-    }
-    if (!document.getElementById("formalUsagePanel")) {
-      const usage = document.createElement("section");
-      usage.id = "formalUsagePanel";
-      usage.className = "live-home-panel live-usage-panel formal-usage-panel";
-      usage.innerHTML = '<div class="live-panel-head"><h3>正式工作台数据</h3><span>真实数据</span></div><div id="formalMetrics" class="live-metrics"></div><p id="formalUsageNote" class="live-usage-note"></p>';
-      grid.appendChild(usage);
-    }
-    bootstrapObserver?.disconnect();
-    bootstrapObserver = null;
-    return true;
-  }
-
   function renderIsolationNotice() {
-    const grid = document.getElementById("liveHomeGrid");
-    if (!grid) return;
+    const home = document.getElementById("home");
+    if (!home) return;
     const keys = isolatedKeys();
     let notice = document.getElementById("dataIsolationNotice");
     if (!keys.length) {
@@ -308,7 +238,11 @@
       notice = document.createElement("section");
       notice.id = "dataIsolationNotice";
       notice.className = "data-isolation-notice";
-      grid.parentNode.insertBefore(notice, grid);
+      const grid = document.getElementById("uiV4HomeGrid");
+      const governance = home.querySelector(".governance-card");
+      const anchor = grid || governance;
+      if (anchor?.parentNode) anchor.parentNode.insertBefore(notice, anchor);
+      else home.appendChild(notice);
     }
     const labels = keys.map(key => RESULT_TITLES[key] || key).join("、");
     const html = `<div><strong>已隔离 ${keys.length} 项示例或旧会话材料</strong><p>${labels} 不计入待核对、统计和正式报告。需要正式使用时，请替换为真实业务输入并重新生成。</p></div><button id="clearIsolatedResults" type="button">清除隔离材料</button>`;
@@ -342,33 +276,10 @@
     });
   }
 
-  function renderFormalWorkspace() {
+  function refreshFormalWorkspace() {
     decorateResultOrigins();
-    if (!ensureFormalPanels()) return;
-    const pendingItems = collectFormalPendingItems();
-    const count = document.getElementById("formalPendingCount");
-    if (count) count.textContent = `${pendingItems.length} 项`;
-    const list = document.getElementById("formalPendingList");
-    if (list) {
-      const safe = value => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
-      const html = pendingItems.length
-        ? pendingItems.map(item => `<article class="live-pending-item formal-pending-item"><span class="live-pending-icon">!</span><div><strong>${safe(item.title)}</strong><small>${safe(item.source)} · 请核对原始材料后使用</small></div><button type="button" data-formal-goto="${safe(item.key)}">前往核对</button></article>`).join("")
-        : '<p class="live-panel-empty">当前正式生成结果中没有识别到待人工核对事项。</p>';
-      if (list.innerHTML !== html) list.innerHTML = html;
-    }
-    const reviews = reviewCounts();
-    const projectCount = Number(document.getElementById("liveSidebarProjectCount")?.textContent || 0) || 0;
-    const metrics = document.getElementById("formalMetrics");
-    const metricsHtml = `<div class="live-metric"><strong>${formalCount()}</strong><span>正式材料</span></div><div class="live-metric"><strong>${projectCount}</strong><span>可访问项目</span></div><div class="live-metric"><strong>${reviews.confirmed}</strong><span>已确认 / 批准</span></div><div class="live-metric"><strong>${reviews.pending}</strong><span>待复核状态</span></div>`;
-    if (metrics && metrics.innerHTML !== metricsHtml) metrics.innerHTML = metricsHtml;
-    const project = readJson(localStorage.getItem(CURRENT_PROJECT_STORAGE), null);
-    const note = document.getElementById("formalUsageNote");
-    const noteText = project
-      ? `当前项目：${project.name} · v${project.lock_version}${project.status === "archived" ? " · 已归档" : ""}`
-      : "当前未打开持久化项目。只有真实生成结果会进入正式统计。";
-    if (note && note.textContent !== noteText) note.textContent = noteText;
     renderIsolationNotice();
+    window.ZHILINK_UI_V4_SHELL?.refresh?.();
   }
 
   function clearIsolatedResults() {
@@ -393,8 +304,6 @@
       if (module && event.isTrusted) clearExampleMarker(module);
     }, true);
     document.addEventListener("click", event => {
-      const goto = event.target.closest("[data-formal-goto]");
-      if (goto && typeof window.go === "function") window.go(goto.dataset.formalGoto);
       if (event.target.closest("#clearIsolatedResults")) clearIsolatedResults();
       const projectSave = event.target.closest("#createProjectButton, #saveProjectButton");
       if (projectSave && isolatedKeys().length) {
@@ -404,27 +313,25 @@
       }
     }, true);
     ["zhilink:account-ready", "zhilink:workspace-state-change"].forEach(name => {
-      window.addEventListener(name, renderFormalWorkspace);
-      document.addEventListener(name, renderFormalWorkspace);
+      window.addEventListener(name, refreshFormalWorkspace);
+      document.addEventListener(name, refreshFormalWorkspace);
     });
-    window.addEventListener("storage", renderFormalWorkspace);
+    window.addEventListener("storage", refreshFormalWorkspace);
   }
 
-  function waitForHomePanels() {
-    if (ensureFormalPanels()) {
-      renderFormalWorkspace();
+  function waitForV4Home() {
+    if (document.getElementById("uiV4HomeGrid")) {
+      refreshFormalWorkspace();
       return;
     }
     if (bootstrapObserver || !document.body) return;
     bootstrapObserver = new MutationObserver(() => {
-      if (ensureFormalPanels()) renderFormalWorkspace();
-    });
-    bootstrapObserver.observe(document.body, { childList: true, subtree: true });
-    window.setTimeout(() => {
+      if (!document.getElementById("uiV4HomeGrid")) return;
       bootstrapObserver?.disconnect();
       bootstrapObserver = null;
-      renderFormalWorkspace();
-    }, 5000);
+      refreshFormalWorkspace();
+    });
+    bootstrapObserver.observe(document.body, { childList: true, subtree: true });
   }
 
   function start() {
@@ -438,14 +345,20 @@
     migrateExistingResults();
     bindEvents();
     renderFormalProgress();
-    waitForHomePanels();
-    refreshTimer = window.setInterval(renderFormalWorkspace, 30000);
+    waitForV4Home();
+    refreshTimer = window.setInterval(refreshFormalWorkspace, 30000);
     window.addEventListener("beforeunload", () => window.clearInterval(refreshTimer), { once: true });
+    window.ZHILINK_DATA_PROVENANCE = {
+      originFor,
+      isFormalResult,
+      isolatedKeys,
+      formalCount,
+      refresh: refreshFormalWorkspace,
+    };
     window.ZHILINK_DATA_PROVENANCE_READY = true;
     window.dispatchEvent(new CustomEvent("zhilink:data-provenance-ready"));
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else window.setTimeout(start, 0);
-  window.addEventListener("zhilink:ui-v3-ready", start, { once: true });
 })();
