@@ -7,9 +7,13 @@ ASSETS = ROOT / "frontend" / "assets"
 def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     script = (ASSETS / "ui-v4-overlays.js").read_text(encoding="utf-8")
 
-    for key in ("api", "account", "project", "knowledge", "identity"):
+    for key in ("api", "account", "project", "knowledge", "identity", "meeting-sources"):
         assert f'key: "{key}"' in script
 
+    assert 'document.getElementById("meetingSourceDialog")' in script
+    assert '#meetingSourceDialog .meeting-source-dialog' in script
+    assert '[data-open-meeting-sources]' in script
+    assert 'button[data-close-meeting-sources]' in script
     assert 'dialog.setAttribute("aria-modal", "true")' in script
     assert 'dialog.setAttribute("tabindex", "-1")' in script
     assert 'shell.inert = true' in script
@@ -46,7 +50,10 @@ def test_overlay_styles_unify_desktop_and_mobile_surfaces() -> None:
     assert "#projectManagerModal .project-dialog-header" in stylesheet
     assert "#knowledgeBaseModal .knowledge-dialog-header" in stylesheet
     assert '#identityModal .modal-card[data-ui-v4-dialog="identity"] .modal-head' in stylesheet
+    assert '#meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"]' in stylesheet
+    assert ".meeting-source-backdrop" in stylesheet
     assert '#apiPanel[data-ui-v4-dialog="api"]' in stylesheet
     assert "100dvh" in stylesheet
+    assert "env(safe-area-inset-top)" in stylesheet
     assert "env(safe-area-inset-bottom)" in stylesheet
     assert "@media (prefers-reduced-motion: reduce)" in stylesheet
