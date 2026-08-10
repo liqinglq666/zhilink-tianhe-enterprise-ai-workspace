@@ -38,7 +38,7 @@ from .service_workflow_routes import register_service_workflow_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
-UI_BUNDLE_VERSION = "2026-08-10-ui-v4-navigation-v1"
+UI_BUNDLE_VERSION = "2026-08-10-ui-v4-overlays-v1"
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
@@ -265,6 +265,7 @@ def register_project_routes(app: FastAPI) -> None:
             "ui-v4-dashboard.js",
             "ui-v4-workspace.js",
             "ui-v4-navigation.js",
+            "ui-v4-overlays.js",
         ]
         content = "\n\n".join((ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts)
         return Response(
