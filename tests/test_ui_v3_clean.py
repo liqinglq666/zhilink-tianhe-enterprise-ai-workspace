@@ -16,7 +16,7 @@ def test_production_bundle_loads_meeting_user_view_after_ui_v3() -> None:
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-10-ui-v4-overlays-v1"
+    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-10-ui-v4-states-v1"
     assert "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY" in response.text
     assert "ZHILINK_UI_V3_READY" in response.text
     assert "ZHILINK_MEETING_USER_VIEW_READY" in response.text
@@ -25,6 +25,7 @@ def test_production_bundle_loads_meeting_user_view_after_ui_v3() -> None:
     assert "ZHILINK_UI_V4_WORKSPACE_READY" in response.text
     assert "ZHILINK_UI_V4_NAVIGATION_READY" in response.text
     assert "ZHILINK_UI_V4_OVERLAYS_READY" in response.text
+    assert "ZHILINK_UI_V4_STATES_READY" in response.text
     assert response.text.rfind("ZHILINK_UI_V3_READY") > response.text.rfind(
         "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY"
     )
@@ -43,6 +44,9 @@ def test_production_bundle_loads_meeting_user_view_after_ui_v3() -> None:
     )
     assert response.text.rfind("ZHILINK_UI_V4_OVERLAYS_READY") > response.text.rfind(
         "ZHILINK_UI_V4_NAVIGATION_READY"
+    )
+    assert response.text.rfind("ZHILINK_UI_V4_STATES_READY") > response.text.rfind(
+        "ZHILINK_UI_V4_OVERLAYS_READY"
     )
 
 
