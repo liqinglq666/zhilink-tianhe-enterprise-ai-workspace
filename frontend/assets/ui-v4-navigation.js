@@ -1,6 +1,6 @@
 /* UI V4 navigation: one navigation system, one project context, one account menu. */
 (() => {
-  const VERSION = "20260810.1";
+  const VERSION = "20260810.3";
   const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
   const SECTION_GROUPS = {
     home: "工作台",
@@ -33,59 +33,40 @@
   function readJson(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
   }
-
   function setText(element, value) {
     if (element && element.textContent !== String(value)) element.textContent = String(value);
   }
-
   function ensureStyles() {
-    if (!document.querySelector("link[data-ui-v4-navigation]")) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = `/assets/ui-v4-navigation.css?v=${VERSION}`;
-      link.dataset.uiV4Navigation = "true";
-      document.head.appendChild(link);
-    }
-    if (!document.querySelector("link[data-ui-v4-navigation-compat]")) {
-      const compat = document.createElement("link");
-      compat.rel = "stylesheet";
-      compat.href = `/assets/ui-v4-navigation-compat.css?v=${VERSION}`;
-      compat.dataset.uiV4NavigationCompat = "true";
-      document.head.appendChild(compat);
-    }
+    if (document.querySelector("link[data-ui-v4-navigation]")) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = `/assets/ui-v4-navigation.css?v=${VERSION}`;
+    link.dataset.uiV4Navigation = "true";
+    document.head.appendChild(link);
   }
-
   function triggerExisting(id) {
     const target = document.getElementById(id);
     if (!target) return false;
     target.click();
     return true;
   }
-
   function activeSection() {
     return document.querySelector(".page.active-page")?.id
       || document.querySelector("#navList button.active")?.dataset.section
       || "home";
   }
-
   function currentProject() {
     return readJson(localStorage.getItem(CURRENT_PROJECT_STORAGE), null);
   }
-
   function replaceDirectText(button, text) {
     if (!button) return;
     let label = button.querySelector(":scope > .ui-v4-nav-label");
     if (!label) {
       const textNode = Array.from(button.childNodes).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
-      if (textNode) {
-        label = document.createElement("span");
-        label.className = "ui-v4-nav-label";
-        textNode.replaceWith(label);
-      } else {
-        label = document.createElement("span");
-        label.className = "ui-v4-nav-label";
-        button.appendChild(label);
-      }
+      label = document.createElement("span");
+      label.className = "ui-v4-nav-label";
+      if (textNode) textNode.replaceWith(label);
+      else button.appendChild(label);
     }
     setText(label, text);
   }
@@ -93,7 +74,6 @@
   function normalizeSidebarGroups() {
     const nav = document.getElementById("navList");
     if (!nav) return;
-
     const home = nav.querySelector('button[data-section="home"]');
     if (home && !document.getElementById("uiV4WorkspaceGroup")) {
       const group = document.createElement("div");
@@ -102,15 +82,12 @@
       group.textContent = "工作台";
       nav.insertBefore(group, home);
     }
-
     nav.querySelectorAll("button[data-section]").forEach(button => {
       const section = button.dataset.section || "";
       replaceDirectText(button, SECTION_LABELS[section] || section);
       button.dataset.uiV4Nav = "true";
     });
-
-    const groups = Array.from(nav.querySelectorAll(":scope > .nav-group-label"));
-    groups.forEach(group => {
+    Array.from(nav.querySelectorAll(":scope > .nav-group-label")).forEach(group => {
       const text = group.textContent.trim();
       if (text === "资料与计划") setText(group, "资料与执行");
       if (text === "输出归档") setText(group, "归档");
@@ -120,9 +97,8 @@
 
   function buildKnowledgeNavigation() {
     const sidebar = document.querySelector(".sidebar");
-    const recent = document.getElementById("liveSidebarRecent");
+    const recent = document.getElementById("uiV4SidebarRecent");
     if (!sidebar || !recent) return;
-
     if (!document.getElementById("uiV4ResourceNavigation")) {
       const resource = document.createElement("section");
       resource.id = "uiV4ResourceNavigation";
@@ -140,7 +116,6 @@
         else triggerExisting("openAccountManager");
       });
     }
-
     syncKnowledgeNavigation();
   }
 
@@ -152,18 +127,12 @@
     button.classList.toggle("is-locked", !available);
     button.setAttribute("aria-disabled", String(!available));
     button.title = available ? (source.title || "打开组织知识库") : "登录并选择组织后使用知识库";
-    const note = button.querySelector("small");
-    setText(note, available ? "组织材料与内部知识" : "登录并选择组织后启用");
+    setText(button.querySelector("small"), available ? "组织材料与内部知识" : "登录并选择组织后启用");
   }
 
   function simplifyTopNavigation() {
-    const nav = document.getElementById("liveTopNav");
+    const nav = document.getElementById("uiV4TopNav");
     if (!nav) return;
-
-    ["liveProjectNav", "liveKnowledgeNav", "liveReportNav"].forEach(id => {
-      document.getElementById(id)?.classList.add("ui-v4-top-redundant");
-    });
-
     if (!document.getElementById("uiV4ProjectContext")) {
       const project = document.createElement("button");
       project.id = "uiV4ProjectContext";
@@ -176,30 +145,14 @@
           <strong id="uiV4ProjectName">未选择项目</strong>
         </span>
         <span id="uiV4ProjectMeta" class="ui-v4-project-meta">创建 / 打开</span>`;
-      const account = nav.querySelector(".live-account-wrap");
+      const account = nav.querySelector(".ui-v4-account-wrap");
       nav.insertBefore(project, account || nav.firstChild);
       project.addEventListener("click", () => triggerExisting("openProjectManager"));
     }
-
-    const account = nav.querySelector(".live-account-wrap");
+    const account = nav.querySelector(".ui-v4-account-wrap");
     account?.classList.add("ui-v4-account-context");
-    const toggle = document.getElementById("liveAccountToggle");
+    const toggle = document.getElementById("uiV4AccountToggle");
     if (toggle) toggle.setAttribute("aria-label", "账户、组织与设置");
-
-    const menu = document.getElementById("liveAccountMenu");
-    if (menu) {
-      menu.classList.add("ui-v4-account-menu");
-      const labels = {
-        account: "账户与组织",
-        identity: "使用身份",
-        api: "模型配置",
-        clear: "清空本次会话",
-      };
-      menu.querySelectorAll("[data-live-account]").forEach(button => {
-        setText(button, labels[button.dataset.liveAccount] || button.textContent.trim());
-      });
-    }
-
     syncProjectContext();
   }
 
@@ -218,9 +171,7 @@
       button.title = "创建或打开项目";
       return;
     }
-
-    const sourceText = source?.textContent?.trim() || "";
-    const dirty = sourceText.includes("未保存");
+    const dirty = (source?.textContent?.trim() || "").includes("未保存");
     const archived = project.status === "archived";
     setText(name, project.name || "当前项目");
     setText(meta, dirty ? "未保存" : archived ? "已归档" : `v${project.lock_version || 1}`);
@@ -236,7 +187,6 @@
     const kicker = document.getElementById("pageKicker");
     const title = document.getElementById("pageTitle");
     const subtitle = document.getElementById("pageSubtitle");
-
     setText(kicker, group);
     if (title) title.dataset.uiV4Section = section;
     if (subtitle) subtitle.dataset.uiV4Context = "true";
@@ -244,10 +194,11 @@
   }
 
   function syncMobileSidebarState() {
-    const mobile = document.getElementById("liveMobileMenu");
+    const mobile = document.getElementById("uiV4MobileMenu");
     if (!mobile) return;
-    const open = document.body.classList.contains("live-sidebar-open");
+    const open = document.body.classList.contains("ui-v4-sidebar-open");
     mobile.setAttribute("aria-expanded", String(open));
+    mobile.setAttribute("aria-label", open ? "关闭导航" : "打开导航");
   }
 
   function apply() {
@@ -279,9 +230,7 @@
     observer = new MutationObserver(mutations => {
       const relevant = mutations.some(mutation => {
         if (mutation.type === "characterData") return true;
-        if (mutation.type === "attributes") {
-          return ["class", "hidden", "aria-hidden"].includes(mutation.attributeName);
-        }
+        if (mutation.type === "attributes") return ["class", "hidden", "aria-hidden"].includes(mutation.attributeName);
         return mutation.addedNodes.length || mutation.removedNodes.length;
       });
       if (relevant) queueApply();
@@ -295,7 +244,7 @@
     });
   }
 
-  const start = () => {
+  function start() {
     apply();
     installObserver();
     window.addEventListener("storage", event => {
@@ -303,7 +252,7 @@
     });
     window.addEventListener("zhilink:account-ready", queueApply);
     window.addEventListener("zhilink:workspace-state-change", queueApply);
-  };
+  }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
