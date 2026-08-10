@@ -34,6 +34,15 @@
     document.body.appendChild(script);
   }
 
+  function ensureResults() {
+    if (window.ZHILINK_UI_V4_RESULTS_READY || document.querySelector("script[data-ui-v4-results]")) return;
+    const script = document.createElement("script");
+    script.src = `/assets/ui-v4-results.js?v=${VERSION}`;
+    script.dataset.uiV4Results = "true";
+    script.async = false;
+    document.body.appendChild(script);
+  }
+
   function normalizedText(element) {
     return String(element?.textContent || "").replace(/\s+/g, " ").trim();
   }
@@ -215,6 +224,7 @@
     sync(document);
     installObserver();
     ensureForms();
+    ensureResults();
     window.ZHILINK_UI_V4_STATES_READY = true;
   }
 
