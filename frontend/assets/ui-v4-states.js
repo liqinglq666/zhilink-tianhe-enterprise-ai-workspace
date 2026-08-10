@@ -25,6 +25,15 @@
     document.head.appendChild(link);
   }
 
+  function ensureForms() {
+    if (window.ZHILINK_UI_V4_FORMS_READY || document.querySelector("script[data-ui-v4-forms]")) return;
+    const script = document.createElement("script");
+    script.src = `/assets/ui-v4-forms.js?v=${VERSION}`;
+    script.dataset.uiV4Forms = "true";
+    script.async = false;
+    document.body.appendChild(script);
+  }
+
   function normalizedText(element) {
     return String(element?.textContent || "").replace(/\s+/g, " ").trim();
   }
@@ -205,6 +214,7 @@
     document.body.classList.add("ui-v4-states");
     sync(document);
     installObserver();
+    ensureForms();
     window.ZHILINK_UI_V4_STATES_READY = true;
   }
 
