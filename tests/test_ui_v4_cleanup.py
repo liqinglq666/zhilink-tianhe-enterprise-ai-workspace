@@ -17,7 +17,6 @@ def test_native_index_loads_v4_styles_at_first_paint_without_runtime_preload() -
         "ui-v4-foundation.css",
         "ui-v4-dashboard.css",
         "ui-v4-workspace.css",
-        "ui-v4-navigation.css",
         "api-drawer-v4.css",
         "model-config-save-v4.css",
         "ui-v4-overlays.css",
@@ -30,6 +29,7 @@ def test_native_index_loads_v4_styles_at_first_paint_without_runtime_preload() -
     assert positions == sorted(positions)
     for name in styles:
         assert name in html
+    assert "ui-v4-navigation.css" not in html
 
     assert 'link.rel = "preload"' not in foundation
     assert "EARLY_STYLE_ASSETS" not in foundation
