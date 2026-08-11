@@ -15,9 +15,11 @@ def test_production_bundle_loads_unified_provenance_after_result_event_bridge() 
         response = client.get("/assets/app.js")
 
     assert response.status_code == 200
+    assert "ZHILINK_WORKSPACE_HOOKS_READY" in response.text
     assert "ZHILINK_RESULT_EVENTS_READY" in response.text
     assert "ZHILINK_DATA_PROVENANCE_READY" in response.text
     assert "ZHILINK_UI_V4_RUNTIME_READY" in response.text
+    assert response.text.index("ZHILINK_WORKSPACE_HOOKS_READY") < response.text.index("ZHILINK_DATA_PROVENANCE_READY")
     assert response.text.index("ZHILINK_RESULT_EVENTS_READY") < response.text.index("ZHILINK_DATA_PROVENANCE_READY")
     assert response.text.index("ZHILINK_DATA_PROVENANCE_READY") < response.text.index("ZHILINK_UI_V4_RUNTIME_READY")
     assert "ZHILINK_DATA_PROVENANCE_V2_READY" not in response.text
@@ -51,8 +53,10 @@ def test_example_and_legacy_results_are_not_formal_workspace_data() -> None:
     assert 'return "example"' in script
     assert 'return localStorage.getItem(CURRENT_PROJECT_STORAGE) ? "project" : "legacy"' in script
     assert "isFormalResult" in script
-    assert "collectFormalBaseResults" in script
-    assert "collectFormalResultsForReport" in script
+    assert "collectFormalResults" in script
+    assert 'hooks.register("results:collect", collectFormalResults)' in script
+    assert "collectBaseResults =" not in script
+    assert "collectResultsForReport =" not in script
     assert "示例生成 · 不计入正式工作台" in script
     assert "旧会话材料 · 已隔离" in script
 
