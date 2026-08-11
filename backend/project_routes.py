@@ -38,7 +38,7 @@ from .service_workflow_routes import register_service_workflow_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
-UI_BUNDLE_VERSION = "2026-08-11-ui-v4-event-refresh-v10"
+UI_BUNDLE_VERSION = "2026-08-11-ui-v4-fetch-hooks-v11"
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
