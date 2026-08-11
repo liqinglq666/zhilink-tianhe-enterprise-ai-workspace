@@ -70,15 +70,17 @@ def test_business_extensions_register_hooks_and_events_without_wrapping_globals(
             assert marker not in source, f"{marker} leaked into {filename}"
 
 
-def test_bundle_loads_one_runtime_immediately_after_core_app() -> None:
+def test_bundle_loads_lazy_examples_then_one_runtime_before_consumers() -> None:
     routes = ROUTES.read_text(encoding="utf-8")
     assert '"result-events.js"' not in routes
     assert '"workspace-hooks.js"' not in routes
+    assert '"example-loader.js"' in routes
     assert '"ui-v4-runtime.js"' in routes
 
     app_position = routes.index('"app.js"')
+    examples_position = routes.index('"example-loader.js"')
     runtime_position = routes.index('"ui-v4-runtime.js"')
-    assert app_position < runtime_position
+    assert app_position < examples_position < runtime_position
     for filename in (
         "generation-controls.js",
         "project-result-meta.js",
@@ -96,7 +98,8 @@ def test_bundle_loads_one_runtime_immediately_after_core_app() -> None:
         old_hook_bridge = client.get("/assets/workspace-hooks.js")
 
     assert bundle.status_code == 200
-    assert bundle.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-core-runtime-v7"
+    assert bundle.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-core-slim-v8"
+    assert bundle.text.index("ZHILINK_EXAMPLE_LOADER_READY") < bundle.text.index("ZHILINK_UI_V4_RUNTIME_READY")
     assert bundle.text.index("ZHILINK_WORKSPACE_HOOKS_READY") < bundle.text.index("ZHILINK_GENERATION_CONTROLS_READY")
     assert bundle.text.index("ZHILINK_RESULT_EVENTS_READY") < bundle.text.index("ZHILINK_DATA_PROVENANCE_READY")
     assert old_result_bridge.status_code == 404
