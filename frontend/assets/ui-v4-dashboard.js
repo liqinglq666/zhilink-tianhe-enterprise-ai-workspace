@@ -3,7 +3,8 @@
   const VERSION = "20260811.3";
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const ICONS = window.ZHILINK_UI_V4_ICONS;
-  if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before dashboard.");
+  const HELPERS = window.ZHILINK_UI_V4_HELPERS;
+  if (!contracts || !ICONS || !HELPERS) throw new Error("Workspace runtime, icons and helpers must load before dashboard.");
 
   const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
   const RESULTS_STORAGE = contracts.storage.results;
@@ -13,18 +14,8 @@
   const RESULT_TITLES = contracts.resultTitles;
   const MODULES = contracts.modules;
   const MODULE_ORDER = contracts.moduleOrder;
+  const { readJson, setText, escapeHtml: safe } = HELPERS;
 
-  function readJson(raw, fallback) { try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; } }
-  function setText(element, value) { if (element && element.textContent !== String(value)) element.textContent = String(value); }
-  function safe(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
-  function ensureStyles() {
-    if (document.querySelector("link[data-ui-v4-dashboard]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `/assets/ui-v4-dashboard.css?v=${VERSION}`;
-    link.dataset.uiV4Dashboard = "true";
-    document.head.appendChild(link);
-  }
   function currentProject() { return readJson(localStorage.getItem(CURRENT_PROJECT_STORAGE), null); }
   function resultState() {
     return {
@@ -233,7 +224,7 @@
     governance.setAttribute("aria-label", "使用边界");
   }
   function apply() {
-    ensureStyles();
+    HELPERS.ensureStylesheet("dashboard", `/assets/ui-v4-dashboard.css?v=${VERSION}`);
     if (!document.body) return;
     document.body.classList.add("ui-v4-dashboard");
     document.documentElement.dataset.zhilinkDashboard = "v4";
