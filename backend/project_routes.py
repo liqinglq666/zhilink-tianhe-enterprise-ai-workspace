@@ -38,7 +38,7 @@ from .service_workflow_routes import register_service_workflow_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
-UI_BUNDLE_VERSION = "2026-08-11-ui-v4-core-slim-v8"
+UI_BUNDLE_VERSION = "2026-08-11-ui-v4-runtime-contracts-v9"
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
@@ -233,8 +233,8 @@ def register_project_routes(app: FastAPI) -> None:
     def workspace_app_bundle() -> Response:
         scripts = [
             "app.js",
-            "example-loader.js",
             "ui-v4-runtime.js",
+            "example-loader.js",
             "generation-controls.js",
             "account-access.js",
             "project-storage.js",
