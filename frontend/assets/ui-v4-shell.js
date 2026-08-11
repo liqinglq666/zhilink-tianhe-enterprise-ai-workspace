@@ -52,18 +52,12 @@
   const notify = message => typeof toast === "function" ? toast(message) : console.info(message);
 
   function ensureStyles() {
-    const assets = [
-      ["ui-v4-shell", "ui-v4-shell.css"],
-      ["ui-v4-navigation", "ui-v4-navigation.css"],
-    ];
-    assets.forEach(([key, file]) => {
-      if (document.querySelector(`link[data-${key}]`)) return;
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = `/assets/${file}?v=${VERSION}`;
-      link.setAttribute(`data-${key}`, "true");
-      document.head.appendChild(link);
-    });
+    if (document.querySelector("link[data-ui-v4-shell]")) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = `/assets/ui-v4-shell.css?v=${VERSION}`;
+    link.dataset.uiV4Shell = "true";
+    document.head.appendChild(link);
   }
   function ensureWorkspaceKey() {
     let key = localStorage.getItem(WORKSPACE_KEY_STORAGE) || "";
