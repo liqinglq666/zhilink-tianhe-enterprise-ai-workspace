@@ -42,7 +42,7 @@ def test_final_bundle_exposes_result_event_version_and_overlay_after_meeting_vie
         response = client.get("/assets/app.js")
 
     assert response.status_code == 200
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-result-events-v5"
+    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-hooks-v6"
     assert response.text.rfind('key: "meeting-sources"') > response.text.rfind("ZHILINK_MEETING_USER_VIEW_READY")
     assert "ZHILINK_RESULT_EVENTS_READY" in response.text
     assert "ZHILINK_UI_V4_RUNTIME_READY" in response.text
