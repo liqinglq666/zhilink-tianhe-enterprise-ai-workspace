@@ -25,11 +25,14 @@
   const events = Object.freeze({
     accountReady: "zhilink:account-ready",
     workspaceStateChange: "zhilink:workspace-state-change",
+    projectChanged: "zhilink:project-changed",
     dataProvenanceReady: "zhilink:data-provenance-ready",
     resultSchemaStamped: "zhilink:result-schema-stamped",
     modelModeChange: "zhilink:model-mode-change",
     resultUpdated: "zhilink:result-updated",
     progressUpdated: "zhilink:progress-updated",
+    structuredUpdated: "zhilink:structured-updated",
+    reviewUpdated: "zhilink:review-updated",
   });
   const contracts = Object.freeze({
     resultKeys: Object.freeze(coreResultKeys),
@@ -179,6 +182,7 @@
   const EVENT_NAMES = [
     events.accountReady,
     events.workspaceStateChange,
+    events.projectChanged,
     events.dataProvenanceReady,
     events.resultSchemaStamped,
     events.modelModeChange,
