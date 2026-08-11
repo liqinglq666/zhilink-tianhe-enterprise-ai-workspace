@@ -68,3 +68,77 @@ def test_foundation_leaves_topbar_navigation_typography_to_navigation_layer() ->
     assert ".ui-v4-foundation .topbar h2 {\n  font-size: clamp" not in foundation
     assert ".ui-v4-navigation .topbar .track" in navigation
     assert ".ui-v4-navigation .topbar h2" in navigation
+
+
+def test_base_stylesheet_only_owns_shared_business_primitives() -> None:
+    base = read("style.css")
+
+    forbidden = (
+        "\n.shell {",
+        "\n.sidebar {",
+        "\n.brand {",
+        "\n.nav {",
+        "tool-status-card",
+        "tool-status-item",
+        ".api-panel",
+        ".topbar {",
+        ".top-actions",
+        ".overview-panel",
+        ".hero-card",
+        ".hero-visual",
+        ".module-grid",
+        ".module-card",
+        ".governance-card",
+        ".recent-card",
+        ".identity-chip",
+        ".top-status",
+        "hero-enterprise-ai.png",
+    )
+    for selector in forbidden:
+        assert selector not in base, selector
+
+    required = (
+        ".form-grid {",
+        ".quick-fill-bar {",
+        ".button-row {",
+        ".content-card,\n.result-panel,\n.report-card {",
+        ".result-panel {",
+        ".report-grid {",
+        ".modal-backdrop {",
+        ".toast {",
+    )
+    for selector in required:
+        assert selector in base, selector
+
+    assert len(base.splitlines()) < 500
+
+
+def test_dashboard_owns_all_home_layout_primitives_after_base_cleanup() -> None:
+    dashboard = read("ui-v4-dashboard.css")
+
+    for marker in (
+        ".ui-v4-dashboard #home .overview-panel {\n  display: grid;",
+        ".ui-v4-dashboard #home .ui-v4-work-hero {\n  position: relative;",
+        "padding: 0;",
+        ".ui-v4-dashboard #home .module-grid {\n  display: grid;",
+        ".ui-v4-dashboard #home .module-card {",
+        "display: flex;\n  flex-direction: column;",
+        ".ui-v4-dashboard #home .module-footer {",
+        ".ui-v4-dashboard #home .recent-list { display: grid; gap: 10px; }",
+        ".ui-v4-dashboard #home .ui-v4-safety-strip {\n  display: grid;",
+        "grid-template-columns: 310px minmax(0, 1fr);",
+        ".ui-v4-dashboard #home .ui-v4-recent-panel,\n.ui-v4-dashboard #home .ui-v4-usage-panel {",
+        "margin: 0;",
+    ):
+        assert marker in dashboard, marker
+
+
+def test_shell_and_dashboard_assets_no_longer_depend_on_legacy_hero_image() -> None:
+    base = read("style.css")
+    dashboard = read("ui-v4-dashboard.css")
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+
+    assert "hero-enterprise-ai.png" not in base
+    assert "hero-enterprise-ai.png" not in dashboard
+    assert "hero-enterprise-ai.png" not in html
+    assert not (ASSETS / "hero-enterprise-ai.png").exists()
