@@ -88,7 +88,7 @@
   const statusClass = status => `review-status-${String(status || "ai_draft").replaceAll("_", "-")}`;
 
   async function decorate(module) {
-    if (!MODULES.includes(module) || !state.results[module]) return;
+    if (!MODULES.includes(module) || typeof state === "undefined" || !state.results[module]) return;
     const panel = document.getElementById(`${module}Result`);
     if (!panel) return;
     panel.querySelector(".review-workflow-bar")?.remove();
@@ -108,6 +108,7 @@
     bar.innerHTML = `<div class="review-workflow-state"><span class="review-state-dot"></span><div><strong>${safe(label)}</strong><small>${current ? `项目 v${current.lock_version}` : "当前仅为浏览器会话内容"}</small></div></div><button class="inline-action" data-open-review="${safe(module)}" type="button" ${current ? "" : "disabled"}>人工复核</button>`;
     const meta = panel.querySelector(".result-meta");
     if (meta) meta.insertAdjacentElement("afterend", bar); else panel.prepend(bar);
+    window.dispatchEvent(new CustomEvent("zhilink:review-updated", { detail: { module } }));
   }
 
   async function decorateAll() {
@@ -232,12 +233,10 @@
     }
   }
 
-  const originalShowResult = showResult;
-  showResult = function reviewAwareShowResult(key, result) {
-    originalShowResult(key, result);
-    Promise.resolve().then(() => decorate(key));
-  };
-
+  window.addEventListener("zhilink:result-updated", event => {
+    const module = event.detail?.key;
+    if (MODULES.includes(module)) Promise.resolve().then(() => decorate(module));
+  });
   document.addEventListener("click", event => {
     const open = event.target.closest("[data-open-review]");
     if (open) { openReview(open.dataset.openReview); return; }
@@ -251,6 +250,7 @@
 
   injectUi();
   document.addEventListener("zhilink:account-ready", loadSummaries, { once: true });
-  setTimeout(loadSummaries, 300);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", loadSummaries, { once: true });
+  else loadSummaries();
   window.REVIEW_WORKFLOW_READY = true;
 })();
