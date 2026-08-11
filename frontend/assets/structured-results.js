@@ -1,7 +1,11 @@
 /* Deterministic structured JSON views for generated Markdown. */
 (() => {
-  const STORAGE_KEY = "zhilian_structured_results_v1";
-  const MODULES = ["profile", "meeting", "contract", "policy", "match", "landing", "report"];
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  if (!contracts) throw new Error("Workspace contracts must load before structured results.");
+
+  const STORAGE_KEY = contracts.storage.structuredResults;
+  const MODULES = contracts.schemaResultKeys;
+  const TITLES = contracts.resultTitles;
   const cache = read(sessionStorage.getItem(STORAGE_KEY), {});
   const pending = new Map();
   let activeModule = "";
@@ -130,7 +134,7 @@
       if (meta) meta.insertAdjacentElement("afterend", bar);
       else panel.prepend(bar);
     }
-    window.dispatchEvent(new CustomEvent("zhilink:structured-updated", { detail: { module, data: data || null } }));
+    window.dispatchEvent(new CustomEvent(contracts.events.structuredUpdated, { detail: { module, data: data || null } }));
   }
 
   function itemList(title, items) {
@@ -143,7 +147,7 @@
   function render(data) {
     const valid = Boolean(data.validation?.valid);
     const warnings = data.validation?.warnings || [];
-    document.getElementById("structuredDialogTitle").textContent = `${resultTitles[activeModule] || data.title} · 结构化 JSON`;
+    document.getElementById("structuredDialogTitle").textContent = `${TITLES[activeModule] || data.title} · 结构化 JSON`;
     document.getElementById("structuredValidationCard").innerHTML = `
       <div><strong>${valid ? "Schema 校验通过" : "需要人工复核"}</strong>
       <span>SHA-256 ${safe(data.source_sha256.slice(0, 16))}…</span></div>
@@ -197,7 +201,7 @@
   function downloadJson() {
     const data = cache[activeModule];
     if (!data) return;
-    const title = (resultTitles[activeModule] || activeModule).replace(/[\\/:*?"<>|]/g, "_");
+    const title = (TITLES[activeModule] || activeModule).replace(/[\\/:*?"<>|]/g, "_");
     downloadTextFile(`${title}.structured.json`, JSON.stringify(data, null, 2), "application/json;charset=utf-8");
     toast("已开始下载结构化 JSON。");
   }
@@ -223,7 +227,7 @@
   }
 
   injectUi();
-  window.addEventListener("zhilink:result-updated", handleResultUpdated);
+  window.addEventListener(contracts.events.resultUpdated, handleResultUpdated);
   document.addEventListener("click", event => {
     const openButton = event.target.closest("[data-open-structured]");
     if (openButton) { open(openButton.dataset.openStructured); return; }
