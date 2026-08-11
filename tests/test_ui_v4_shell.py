@@ -117,6 +117,8 @@ def test_v4_shell_owns_only_navigation_project_and_account_context() -> None:
     assert "window.ZHILINK_UI_V4_ICONS" in script
     assert "contracts.storage.currentProject" in script
     assert "contracts.storage.workspaceKey" in script
+    assert "const MODULES = contracts.modules" in script
+    assert "const MODULES = {" not in script
     assert "contracts.resultKeys" not in script
     assert "contracts.resultTitles" not in script
     assert 'document.body.classList.add("ui-v4-shell")' in script
@@ -183,6 +185,10 @@ def test_dashboard_keeps_task_first_information_architecture() -> None:
     assert "function ensureHomePanels" in script
     assert "function renderPending" in script
     assert "function renderUsage" in script
+    assert "const MODULES = contracts.modules" in script
+    assert "const MODULE_ORDER = contracts.moduleOrder" in script
+    assert 'const MODULE_ORDER = ["meeting"' not in script
+    assert 'key === "landing" ? "plan" : key' not in script
     assert "ZHILINK_UI_V4_SHELL?.projectCount?.()" in script
 
 
@@ -192,8 +198,12 @@ def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> 
     assert 'page.classList.add("ui-v4-workspace-page", "ui-v4-business-page")' in script
     assert 'result.dataset.uiV4ResultState = result.classList.contains("empty") ? "empty" : "ready"' in script
     assert 'emptyTitle: "会议纪要将在这里生成"' in script
+    assert "const SHARED_MODULES = contracts.modules" in script
+    assert "const WORKSPACE_MODULES = {" in script
+    assert "resultLabel:" not in script
     assert 'meta.className = "ui-v4-module-meta"' in script
-    assert 'result.setAttribute("aria-label", config.resultLabel)' in script
+    assert 'result.setAttribute("aria-label", shared.resultLabel)' in script
+    assert "ICONS[shared.icon]" in script
     assert 'button.insertAdjacentHTML("beforeend", ICONS.arrow)' in script
     assert "grid-template-columns: minmax(360px, .78fr) minmax(520px, 1.22fr)" in stylesheet
     assert "@media (max-width: 1180px)" in stylesheet
