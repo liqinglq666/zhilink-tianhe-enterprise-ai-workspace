@@ -3,7 +3,8 @@
   const VERSION = "20260811.3";
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const ICONS = window.ZHILINK_UI_V4_ICONS;
-  if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before workspace.");
+  const HELPERS = window.ZHILINK_UI_V4_HELPERS;
+  if (!contracts || !ICONS || !HELPERS) throw new Error("Workspace runtime, icons and helpers must load before workspace.");
 
   const SHARED_MODULES = contracts.modules;
   const WORKSPACE_MODULES = {
@@ -15,15 +16,6 @@
     landing: { input: "实施条件", emptyTitle: "实施计划将在这里生成", emptyCopy: "补充试点场景、角色、数据范围与复核机制后生成执行计划。" },
     report: { input: "归档与导出", emptyTitle: "运营报告将在这里生成", emptyCopy: "先完成至少一个业务模块，再整合或导出当前已有材料。" },
   };
-
-  function ensureStyles() {
-    if (document.querySelector("link[data-ui-v4-workspace]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `/assets/ui-v4-workspace.css?v=${VERSION}`;
-    link.dataset.uiV4Workspace = "true";
-    document.head.appendChild(link);
-  }
 
   function moduleMeta(id) {
     if (id === "report") return ["汇总已有结果", "支持多格式导出", "不导出 API Key"];
@@ -77,7 +69,7 @@
   }
 
   function apply() {
-    ensureStyles();
+    HELPERS.ensureStylesheet("workspace", `/assets/ui-v4-workspace.css?v=${VERSION}`);
     if (!document.body) return;
     document.body.classList.add("ui-v4-workspace");
     document.documentElement.dataset.zhilinkWorkspace = "v4";
