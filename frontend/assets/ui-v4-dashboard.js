@@ -1,6 +1,6 @@
 /* UI V4 dashboard: task-first home workspace and home-only presentation. */
 (() => {
-  const VERSION = "20260811.2";
+  const VERSION = "20260811.3";
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const ICONS = window.ZHILINK_UI_V4_ICONS;
   if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before dashboard.");
@@ -11,7 +11,8 @@
   const FORMAL_ORIGINS = new Set(contracts.formalOrigins);
   const RESULT_KEYS = contracts.resultKeys;
   const RESULT_TITLES = contracts.resultTitles;
-  const MODULE_ORDER = ["meeting", "contract", "policy", "match", "profile", "landing"];
+  const MODULES = contracts.modules;
+  const MODULE_ORDER = contracts.moduleOrder;
 
   function readJson(raw, fallback) { try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; } }
   function setText(element, value) { if (element && element.textContent !== String(value)) element.textContent = String(value); }
@@ -45,7 +46,7 @@
     const { results, meta } = resultState();
     const candidates = MODULE_ORDER.filter(key => String(results[key] || "").trim()).map(key => ({ key, time: Date.parse(meta[key]?.time || "") || 0 }));
     candidates.sort((a, b) => b.time - a.time);
-    return candidates[0]?.key || "meeting";
+    return candidates[0]?.key || MODULE_ORDER[0] || "meeting";
   }
   function gotoSection(section) {
     if (typeof go === "function") go(section);
@@ -89,11 +90,11 @@
   function decorateHomeCards() {
     document.querySelectorAll("#home .module-card[data-tool-key]").forEach(card => {
       const key = card.dataset.toolKey || "";
+      const module = MODULES[key];
       const holder = card.querySelector(".module-icon");
-      const iconKey = key === "landing" ? "plan" : key;
-      if (holder && ICONS[iconKey] && holder.dataset.uiV4Icon !== "true") {
+      if (holder && module && ICONS[module.icon] && holder.dataset.uiV4Icon !== "true") {
         holder.classList.add("ui-v4-module-icon");
-        holder.innerHTML = ICONS[iconKey];
+        holder.innerHTML = ICONS[module.icon];
         holder.dataset.uiV4Icon = "true";
       }
       const button = card.querySelector(".module-footer button");
