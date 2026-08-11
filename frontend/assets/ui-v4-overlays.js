@@ -1,6 +1,6 @@
 /* UI V4 overlays: one accessibility and interaction contract for dialogs and drawers. */
 (() => {
-  const VERSION = "20260810.3";
+  const VERSION = "20260811.1";
   const FOCUSABLE = [
     "a[href]",
     "button:not([disabled])",
@@ -60,29 +60,41 @@
       close: () => document.querySelector("#meetingSourceDialog button[data-close-meeting-sources]"),
       initial: () => document.querySelector("#meetingSourceDialog button[data-close-meeting-sources]"),
     },
+    {
+      key: "structured",
+      container: () => document.getElementById("structuredResultModal"),
+      dialog: () => document.querySelector("#structuredResultModal .structured-dialog"),
+      isOpen: () => document.getElementById("structuredResultModal")?.classList.contains("show") === true,
+      close: () => document.querySelector("#structuredResultModal [data-close-structured]"),
+      initial: () => document.querySelector("#structuredResultModal [data-close-structured]"),
+    },
+    {
+      key: "review",
+      container: () => document.getElementById("reviewWorkflowModal"),
+      dialog: () => document.querySelector("#reviewWorkflowModal .review-dialog"),
+      isOpen: () => document.getElementById("reviewWorkflowModal")?.classList.contains("show") === true,
+      close: () => document.querySelector("#reviewWorkflowModal [data-close-review]"),
+      initial: () => document.getElementById("reviewContentInput"),
+    },
+    {
+      key: "service",
+      container: () => document.getElementById("serviceWorkflowModal"),
+      dialog: () => document.querySelector("#serviceWorkflowModal .service-workflow-dialog"),
+      isOpen: () => document.getElementById("serviceWorkflowModal")?.classList.contains("show") === true,
+      close: () => document.querySelector("#serviceWorkflowModal [data-sw-close]"),
+      initial: () => document.getElementById("swFilter"),
+    },
   ];
 
   const OPENER_SELECTOR = [
-    "#openApiSettings",
-    "#openAccountManager",
-    "#openProjectManager",
-    "#openKnowledgeBase",
-    "#openIdentity",
-    "#identityChip",
-    "#uiV4ProjectContext",
-    "#uiV4KnowledgeNav",
-    "#uiV4SidebarAllProjects",
-    "[data-ui-v4-account='account']",
-    "[data-ui-v4-account='identity']",
-    "[data-ui-v4-account='api']",
-    "[data-open-meeting-sources]",
+    "#openApiSettings", "#openAccountManager", "#openProjectManager", "#openKnowledgeBase", "#openIdentity", "#identityChip",
+    "#uiV4ProjectContext", "#uiV4KnowledgeNav", "#uiV4SidebarAllProjects", "[data-ui-v4-account]",
+    "[data-open-meeting-sources]", "[data-open-structured]", "[data-open-review]", "#openServiceWorkflow",
   ].join(",");
 
   let active = null;
   let returnFocus = null;
   let pendingOpener = null;
-  let observer = null;
-  let queued = false;
 
   function ensureStyles() {
     if (document.querySelector("link[data-ui-v4-overlays]")) return;
@@ -92,14 +104,6 @@
     link.dataset.uiV4Overlays = "true";
     document.head.appendChild(link);
   }
-  function ensureModelConfigSaveController() {
-    if (document.querySelector("script[data-model-config-save-v4]")) return;
-    const script = document.createElement("script");
-    script.src = `/assets/model-config-save-v4.js?v=${VERSION}`;
-    script.defer = true;
-    script.dataset.modelConfigSaveV4 = "true";
-    document.head.appendChild(script);
-  }
   function visible(element) {
     if (!(element instanceof HTMLElement)) return false;
     if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
@@ -107,10 +111,7 @@
     if (style.display === "none" || style.visibility === "hidden") return false;
     return Boolean(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
   }
-  function focusables(dialog) {
-    if (!dialog) return [];
-    return Array.from(dialog.querySelectorAll(FOCUSABLE)).filter(visible);
-  }
+  function focusables(dialog) { return dialog ? Array.from(dialog.querySelectorAll(FOCUSABLE)).filter(visible) : []; }
   function decorate(entry) {
     const container = entry.container();
     const dialog = entry.dialog();
@@ -139,16 +140,11 @@
   function focusInside(entry) {
     const dialog = entry?.dialog();
     if (!dialog) return;
-    const current = document.activeElement;
-    if (current instanceof Element && dialog.contains(current)) return;
+    if (document.activeElement instanceof Element && dialog.contains(document.activeElement)) return;
     const preferred = entry.initial();
-    if (visible(preferred)) {
-      preferred.focus({ preventScroll: true });
-      return;
-    }
+    if (visible(preferred)) return preferred.focus({ preventScroll: true });
     const first = focusables(dialog)[0];
-    if (first) first.focus({ preventScroll: true });
-    else dialog.focus({ preventScroll: true });
+    if (first) first.focus({ preventScroll: true }); else dialog.focus({ preventScroll: true });
   }
   function activate(entry) {
     active = entry;
@@ -187,36 +183,21 @@
     if (next) activate(next);
   }
   function requestClose() {
-    if (!active) return;
-    const close = active.close();
+    const close = active?.close();
     if (close instanceof HTMLElement) close.click();
-    else console.warn(`Overlay ${active.key} has no close control.`);
   }
   function trapFocus(event) {
     if (!active || event.key !== "Tab") return;
     const dialog = active.dialog();
     if (!dialog) return;
     const items = focusables(dialog);
-    if (!items.length) {
-      event.preventDefault();
-      dialog.focus({ preventScroll: true });
-      return;
-    }
+    if (!items.length) { event.preventDefault(); dialog.focus({ preventScroll: true }); return; }
     const first = items[0];
     const last = items[items.length - 1];
     const current = document.activeElement;
-    if (!dialog.contains(current)) {
-      event.preventDefault();
-      (event.shiftKey ? last : first).focus({ preventScroll: true });
-      return;
-    }
-    if (event.shiftKey && current === first) {
-      event.preventDefault();
-      last.focus({ preventScroll: true });
-    } else if (!event.shiftKey && current === last) {
-      event.preventDefault();
-      first.focus({ preventScroll: true });
-    }
+    if (!dialog.contains(current)) { event.preventDefault(); (event.shiftKey ? last : first).focus({ preventScroll: true }); return; }
+    if (event.shiftKey && current === first) { event.preventDefault(); last.focus({ preventScroll: true }); }
+    else if (!event.shiftKey && current === last) { event.preventDefault(); first.focus({ preventScroll: true }); }
   }
   function handleKeydown(event) {
     if (!active) return;
@@ -228,44 +209,18 @@
     }
     trapFocus(event);
   }
-  function queueSync() {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      sync();
-    });
-  }
-  function installObserver() {
-    if (observer || !document.body) return;
-    observer = new MutationObserver(mutations => {
-      const relevant = mutations.some(mutation => {
-        if (mutation.type === "childList") return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
-        return mutation.type === "attributes" && ["class", "aria-hidden"].includes(mutation.attributeName);
-      });
-      if (relevant) queueSync();
-    });
-    observer.observe(document.body, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ["class", "aria-hidden"],
-    });
-  }
   function start() {
     ensureStyles();
-    ensureModelConfigSaveController();
     OVERLAYS.forEach(decorate);
     document.addEventListener("click", event => {
       const opener = event.target.closest?.(OPENER_SELECTOR);
       if (opener instanceof HTMLElement && visible(opener)) pendingOpener = opener;
     }, true);
     document.addEventListener("keydown", handleKeydown, true);
-    installObserver();
+    window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(sync, { immediate: false });
     sync();
     window.ZHILINK_UI_V4_OVERLAYS_READY = true;
   }
-
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
 })();
