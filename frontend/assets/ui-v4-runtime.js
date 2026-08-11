@@ -86,6 +86,25 @@
   const originalCollectSingleModuleResult = typeof collectSingleModuleResult === "function" ? collectSingleModuleResult : null;
   const originalFetch = window.fetch.bind(window);
 
+  function requestUrl(input) {
+    try {
+      const raw = typeof input === "string" ? input : input?.url || "";
+      return new URL(raw, location.origin);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function requestMethod(input, init) {
+    return String(init?.method || (typeof input !== "string" ? input?.method : "") || "GET").toUpperCase();
+  }
+
+  function isProjectWrite(input, init) {
+    const url = requestUrl(input);
+    const method = requestMethod(input, init);
+    return Boolean(url && url.origin === location.origin && url.pathname.startsWith("/api/projects") && ["POST", "PUT", "PATCH", "DELETE"].includes(method));
+  }
+
   if (originalApiStream) {
     apiStream = async function hookedApiStream(url, payload, key) {
       const request = await runHookAsync("generation:request", { url, payload, key });
@@ -114,9 +133,23 @@
     };
   }
 
+  function emitWindowEvent(name, detail) {
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+  }
+
   window.fetch = async function hookedWorkspaceFetch(input, init = {}) {
     const request = await runHookAsync("fetch:request", { input, init });
-    return originalFetch(request?.input ?? input, request?.init ?? init);
+    const finalInput = request?.input ?? input;
+    const finalInit = request?.init ?? init;
+    const response = await originalFetch(finalInput, finalInit);
+    if (response.ok && isProjectWrite(finalInput, finalInit)) {
+      const url = requestUrl(finalInput);
+      emitWindowEvent(events.projectChanged, {
+        method: requestMethod(finalInput, finalInit),
+        path: url?.pathname || "",
+      });
+    }
+    return response;
   };
 
   window.ZHILINK_WORKSPACE_HOOKS = {
@@ -131,10 +164,6 @@
   const RESULT_EVENT = events.resultUpdated;
   const PROGRESS_EVENT = events.progressUpdated;
   let commitDepth = 0;
-
-  function emitWindowEvent(name, detail) {
-    window.dispatchEvent(new CustomEvent(name, { detail }));
-  }
 
   const originalShowResult = window.showResult;
   const originalSetResult = window.setResult;
