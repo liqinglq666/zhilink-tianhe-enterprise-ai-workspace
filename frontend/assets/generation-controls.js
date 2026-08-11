@@ -1,10 +1,12 @@
-/* Generation cancellation and timeout controls. Appended to app.js by backend. */
+/* Generation cancellation and timeout transport for the workspace hook bridge. */
 (() => {
   const CONNECT_TIMEOUT_MS = 30000;
   const IDLE_TIMEOUT_MS = 120000;
   const HARD_TIMEOUT_MS = 600000;
   const activeGenerations = new Map();
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
 
+  if (!hooks) throw new Error("Workspace hooks must load before generation controls.");
   window.__activeGenerations = activeGenerations;
 
   if (!document.querySelector('link[data-generation-controls]')) {
@@ -72,7 +74,8 @@
     `;
   };
 
-  apiStream = async function apiStreamWithCancellation(url, payload, key) {
+  async function runGeneration(request) {
+    const { url, payload, key } = request;
     saveConfig();
     if (activeGenerations.size) {
       throw createGenerationError("当前已有生成任务正在运行，请先等待完成或点击“停止生成”。", "GENERATION_ALREADY_RUNNING");
@@ -99,7 +102,7 @@
       clearTimeout(idleTimer);
       clearTimeout(hardTimer);
     };
-    const abortFor = (kind) => {
+    const abortFor = kind => {
       if (controller.signal.aborted) return;
       task.timeoutKind = kind;
       controller.abort();
@@ -227,9 +230,11 @@
       clearTimers();
       if (activeGenerations.get(key) === task) activeGenerations.delete(key);
     }
-  };
+  }
 
-  document.addEventListener("click", (event) => {
+  hooks.setGenerationTransport(runGeneration);
+
+  document.addEventListener("click", event => {
     const button = event.target.closest("[data-cancel-generation]");
     if (!button) return;
     const key = button.dataset.cancelGeneration;
@@ -242,7 +247,9 @@
   });
 
   window.addEventListener("pagehide", () => {
-    activeGenerations.forEach((task) => task.controller.abort());
+    activeGenerations.forEach(task => task.controller.abort());
     activeGenerations.clear();
   });
+
+  window.ZHILINK_GENERATION_CONTROLS_READY = true;
 })();
