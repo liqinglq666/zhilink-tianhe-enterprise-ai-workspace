@@ -23,7 +23,7 @@ def test_stale_generated_results_are_quarantined_before_reuse():
     assert 'const BASE_RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2"' in source
     assert 'contract: "20260807-contract-grounded-v3"' in source
     assert 'policy: "20260807-policy-grounded-v3"' in source
-    assert 'const QUARANTINE_STORAGE = "zhilian_legacy_result_quarantine_v1"' in source
+    assert "const QUARANTINE_STORAGE = contracts.storage.legacyQuarantine" in source
     assert 'String(meta?.[key]?.result_schema_version || "") !== expectedVersion(key)' in source
     assert "expected_versions" in source
     assert "delete results[key]" in source
@@ -61,9 +61,9 @@ def test_module_schema_upgrades_do_not_invalidate_unrelated_current_results():
 def test_new_results_receive_module_schema_version_from_commit_event():
     source = GUARD.read_text(encoding="utf-8")
 
-    assert 'window.addEventListener("zhilink:result-updated", event =>' in source
+    assert "window.addEventListener(EVENTS.resultUpdated, event =>" in source
     assert 'event.detail?.source === "commit"' in source
     assert "stampCommittedResult(key)" in source
     assert "current.meta[key].result_schema_version = expectedVersion(key)" in source
     assert "persistMeta()" in source
-    assert "zhilink:result-schema-stamped" in source
+    assert "EVENTS.resultSchemaStamped" in source
