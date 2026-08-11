@@ -21,6 +21,7 @@ def test_production_bundle_is_consolidated_v4_and_preserves_business_layers() ->
 
     required = [
         "ZHILINK_WORKSPACE_CONTRACTS_READY",
+        "ZHILINK_UI_V4_ICONS_READY",
         "ZHILINK_WORKSPACE_HOOKS_READY",
         "ZHILINK_RESULT_EVENTS_READY",
         "ZHILINK_UI_V4_RUNTIME_READY",
@@ -107,24 +108,36 @@ def test_native_index_owns_workspace_chrome_before_javascript_runs() -> None:
     assert "ui-v4-navigation" not in html
 
 
-def test_v4_shell_owns_navigation_project_context_and_dashboard_support() -> None:
+def test_v4_shell_owns_only_navigation_project_and_account_context() -> None:
     script = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "ui-v4-shell.css").read_text(encoding="utf-8")
 
     assert "ZHILINK_UI_V4_SHELL_READY" in script
     assert "window.ZHILINK_WORKSPACE_CONTRACTS" in script
+    assert "window.ZHILINK_UI_V4_ICONS" in script
     assert "contracts.storage.currentProject" in script
-    assert "contracts.resultKeys" in script
-    assert "contracts.resultTitles" in script
+    assert "contracts.storage.workspaceKey" in script
+    assert "contracts.resultKeys" not in script
+    assert "contracts.resultTitles" not in script
     assert 'document.body.classList.add("ui-v4-shell")' in script
     assert "uiV4TopNav" in script
     assert "uiV4ProjectContext" in script
     assert "uiV4ResourceNavigation" in script
-    assert "uiV4PendingPanel" in script
-    assert "uiV4UsagePanel" in script
     assert 'triggerExisting("openProjectManager")' in script
     assert 'triggerExisting("openServiceWorkflow")' in script
-    assert "ui-v4-navigation.css" not in script
+    assert "projectCount: () => Number(latestProjects.total || 0)" in script
+    assert "projects-refreshed" in script
+    for forbidden in (
+        "decorateBusinessPages",
+        "decorateHomeCards",
+        "ensureHomePanels",
+        "renderPending",
+        "renderUsage",
+        "uiV4PendingPanel",
+        "uiV4UsagePanel",
+        "ui-v4-navigation.css",
+    ):
+        assert forbidden not in script
     assert ".ui-v4-shell .shell" in stylesheet
     assert ".ui-v4-shell .ui-v4-project-context" in stylesheet
     assert ".ui-v4-shell .ui-v4-resource-navigation" in stylesheet
@@ -166,13 +179,32 @@ def test_dashboard_keeps_task_first_information_architecture() -> None:
     assert 'data-tool-key="match"' in html
     assert 'data-tool-key="report"' not in html
     assert "企业档案与实施计划作为辅助能力" in script
+    assert "function decorateHomeCards" in script
+    assert "function ensureHomePanels" in script
+    assert "function renderPending" in script
+    assert "function renderUsage" in script
+    assert "ZHILINK_UI_V4_SHELL?.projectCount?.()" in script
 
 
-def test_workspace_keeps_split_workbench_semantics() -> None:
+def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> None:
     script = (ASSETS / "ui-v4-workspace.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "ui-v4-workspace.css").read_text(encoding="utf-8")
     assert 'page.classList.add("ui-v4-workspace-page", "ui-v4-business-page")' in script
     assert 'result.dataset.uiV4ResultState = result.classList.contains("empty") ? "empty" : "ready"' in script
     assert 'emptyTitle: "会议纪要将在这里生成"' in script
+    assert 'meta.className = "ui-v4-module-meta"' in script
+    assert 'result.setAttribute("aria-label", config.resultLabel)' in script
+    assert 'button.insertAdjacentHTML("beforeend", ICONS.arrow)' in script
     assert "grid-template-columns: minmax(360px, .78fr) minmax(520px, 1.22fr)" in stylesheet
     assert "@media (max-width: 1180px)" in stylesheet
+
+
+def test_runtime_is_the_single_shared_v4_icon_catalog() -> None:
+    runtime = (ASSETS / "ui-v4-runtime.js").read_text(encoding="utf-8")
+    assert "const icons = Object.freeze({" in runtime
+    assert "window.ZHILINK_UI_V4_ICONS = icons" in runtime
+    assert "window.ZHILINK_UI_V4_ICONS_READY = true" in runtime
+    for filename in ("ui-v4-shell.js", "ui-v4-workspace.js", "ui-v4-dashboard.js"):
+        source = (ASSETS / filename).read_text(encoding="utf-8")
+        assert "window.ZHILINK_UI_V4_ICONS" in source
+        assert '<svg viewBox="0 0 24 24"' not in source
