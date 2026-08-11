@@ -2,8 +2,11 @@
 (() => {
   if (window.ZHILINK_EXAMPLE_LOADER_READY) return;
 
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  if (!contracts) throw new Error("Workspace contracts must load before example data.");
+
   const EXAMPLES_URL = "/assets/examples.json?v=20260811.1";
-  const CONTEXT_STORAGE = "zhilian_example_contexts_v1";
+  const CONTEXT_STORAGE = contracts.storage.exampleContexts;
   let loadPromise = null;
 
   function hasLoadedExamples() {
