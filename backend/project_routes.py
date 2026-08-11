@@ -38,7 +38,7 @@ from .service_workflow_routes import register_service_workflow_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
-UI_BUNDLE_VERSION = "2026-08-11-ui-v4-result-events-v5"
+UI_BUNDLE_VERSION = "2026-08-11-ui-v4-hooks-v6"
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
@@ -140,6 +140,10 @@ def list_project_versions(
 ) -> ProjectVersionListResponse:
     try:
         items, total = get_account_store().list_history(
+            _scope(request, "history:read"), project_id, limit=limit, offset=offset, include_archived=False
+        )
+    except TypeError:
+        items, total = get_account_store().list_history(
             _scope(request, "history:read"), project_id, limit=limit, offset=offset
         )
     except _STORE_EXCEPTIONS as exc:
@@ -233,6 +237,7 @@ def register_project_routes(app: FastAPI) -> None:
     def workspace_app_bundle() -> Response:
         scripts = [
             "app.js",
+            "workspace-hooks.js",
             "generation-controls.js",
             "result-events.js",
             "account-access.js",
