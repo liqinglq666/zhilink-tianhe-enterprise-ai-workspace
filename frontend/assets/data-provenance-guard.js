@@ -28,8 +28,11 @@
   const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
   const FORMAL_ORIGINS = new Set(["user", "project", "imported"]);
   const STYLE_URL = "/assets/data-provenance-guard.css?v=20260806.1";
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
   let started = false;
   let eventsBound = false;
+
+  if (!hooks) throw new Error("Workspace hooks must load before data provenance.");
 
   function readJson(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
@@ -196,25 +199,16 @@
     }
   }
 
-  function installFormalCollectors() {
-    window.collectBaseResults = function collectFormalBaseResults() {
-      const current = appState();
-      return {
-        "企业档案": isFormalResult("profile") ? current?.results?.profile || "" : "",
-        "会议纪要": isFormalResult("meeting") ? current?.results?.meeting || "" : "",
-        "合同审阅": isFormalResult("contract") ? current?.results?.contract || "" : "",
-        "政策准备": isFormalResult("policy") ? current?.results?.policy || "" : "",
-        "供需协作": isFormalResult("match") ? current?.results?.match || "" : "",
-        "实施计划": isFormalResult("landing") ? current?.results?.landing || "" : "",
-      };
-    };
-    window.collectResultsForReport = function collectFormalResultsForReport(includeAiSummary = false) {
-      const base = window.collectBaseResults();
-      if (includeAiSummary && isFormalResult("report")) {
-        return { "AI整合报告": appState()?.results?.report || "", ...base };
-      }
-      return base;
-    };
+  function collectFormalResults(context) {
+    if (context.scope !== "report") return context;
+    const base = Object.fromEntries(BUSINESS_KEYS.map(key => [
+      RESULT_TITLES[key],
+      isFormalResult(key) ? context.results?.[RESULT_TITLES[key]] || "" : "",
+    ]));
+    const results = context.includeAiSummary && isFormalResult("report")
+      ? { "AI整合报告": context.results?.["AI整合报告"] || "", ...base }
+      : base;
+    return { ...context, results };
   }
 
   function renderFormalRecentMaterials() {
@@ -388,7 +382,7 @@
     ensureStyles();
     const migrated = quarantineLegacyResults();
     migrateExistingOrigins();
-    installFormalCollectors();
+    hooks.register("results:collect", collectFormalResults);
     renderFormalProgress();
     notifyMigration(migrated);
 
