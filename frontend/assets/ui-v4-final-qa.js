@@ -1,10 +1,8 @@
 /* UI V4 final QA: responsive and accessibility guardrails without owning business state. */
 (() => {
-  const VERSION = "20260810.3";
+  const VERSION = "20260811.1";
   const PAGE_NAV_SELECTOR = "#navList button[data-section], [data-goto]";
   const SCROLLABLE_SELECTOR = ".result-section-content, .structured-table-wrap";
-  let observer = null;
-  let queued = false;
   let keyboardNavigationPending = false;
 
   function ensureStyles() {
@@ -60,7 +58,7 @@
   }
   function ensureBaseInteractiveSemantics() {
     const identity = document.getElementById("identityChip");
-    if (identity instanceof HTMLElement) {
+    if (identity instanceof HTMLElement && !identity.hidden) {
       identity.setAttribute("role", "button");
       identity.setAttribute("tabindex", "0");
       identity.setAttribute("aria-label", `当前使用身份：${document.getElementById("identityDisplay")?.textContent?.trim() || "未设置"}。打开身份设置`);
@@ -85,23 +83,8 @@
   }
   function syncViewportClass() {
     const width = window.innerWidth;
-    const viewport = width <= 360 ? "compact-360"
-      : width <= 390 ? "compact-390"
-        : width <= 768 ? "mobile"
-          : width <= 1024 ? "tablet"
-            : width <= 1280 ? "desktop-compact"
-              : "desktop";
+    const viewport = width <= 360 ? "compact-360" : width <= 390 ? "compact-390" : width <= 768 ? "mobile" : width <= 1024 ? "tablet" : width <= 1280 ? "desktop-compact" : "desktop";
     document.documentElement.dataset.uiV4Viewport = viewport;
-  }
-  function sync() {
-    ensureSkipLink();
-    ensureSidebarSemantics();
-    ensureTopbarSemantics();
-    ensureBaseInteractiveSemantics();
-    decorateScrollableRegions();
-    syncViewportClass();
-    document.body.classList.add("ui-v4-final-qa");
-    window.ZHILINK_UI_V4_FINAL_QA_READY = true;
   }
   function focusPageContextAfterKeyboardNavigation() {
     if (!keyboardNavigationPending) return;
@@ -112,15 +95,16 @@
       title.scrollIntoView({ block: "nearest", behavior: "auto" });
     }
   }
-  function queueSync({ focusPage = false } = {}) {
-    if (focusPage) keyboardNavigationPending = true;
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      sync();
-      if (keyboardNavigationPending) requestAnimationFrame(focusPageContextAfterKeyboardNavigation);
-    });
+  function sync() {
+    ensureSkipLink();
+    ensureSidebarSemantics();
+    ensureTopbarSemantics();
+    ensureBaseInteractiveSemantics();
+    decorateScrollableRegions();
+    syncViewportClass();
+    document.body.classList.add("ui-v4-final-qa");
+    window.ZHILINK_UI_V4_FINAL_QA_READY = true;
+    if (keyboardNavigationPending) requestAnimationFrame(focusPageContextAfterKeyboardNavigation);
   }
   function handleKeydown(event) {
     document.body.classList.add("ui-v4-keyboard-user");
@@ -133,35 +117,19 @@
     if ((event.key === "Enter" || event.key === " ") && event.target.closest?.(PAGE_NAV_SELECTOR)) keyboardNavigationPending = true;
   }
   function handleClick(event) {
-    if (event.detail === 0 && event.target.closest?.(PAGE_NAV_SELECTOR)) window.setTimeout(() => queueSync({ focusPage: true }), 0);
-  }
-  function installObserver() {
-    if (observer || !document.body) return;
-    observer = new MutationObserver(mutations => {
-      const relevant = mutations.some(mutation => {
-        if (mutation.type === "childList") return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
-        return mutation.type === "attributes" && ["class", "hidden", "aria-expanded"].includes(mutation.attributeName);
-      });
-      if (relevant) queueSync();
-    });
-    observer.observe(document.body, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ["class", "hidden", "aria-expanded"],
-    });
+    if (event.detail === 0 && event.target.closest?.(PAGE_NAV_SELECTOR)) {
+      keyboardNavigationPending = true;
+      window.ZHILINK_UI_V4_RUNTIME?.schedule?.("keyboard-navigation");
+    }
   }
   function start() {
     ensureStyles();
     sync();
-    installObserver();
+    window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(sync, { immediate: false });
     document.addEventListener("keydown", handleKeydown, true);
     document.addEventListener("click", handleClick, true);
     document.addEventListener("pointerdown", () => document.body.classList.remove("ui-v4-keyboard-user"), true);
-    window.addEventListener("resize", () => queueSync(), { passive: true });
-    window.addEventListener("orientationchange", () => queueSync(), { passive: true });
   }
-
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
 })();
