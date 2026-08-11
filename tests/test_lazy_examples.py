@@ -9,6 +9,7 @@ from backend.main import app
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
+ROUTES = ROOT / "backend" / "project_routes.py"
 
 
 def test_examples_are_a_separate_valid_asset() -> None:
@@ -40,7 +41,16 @@ def test_examples_are_a_separate_valid_asset() -> None:
     assert response.json()["contract-ai"]["label"] == "AI服务采购条款"
 
 
-def test_shipped_core_bundle_does_not_inline_example_payloads() -> None:
+def test_core_source_and_bundle_do_not_duplicate_example_payloads() -> None:
+    source = (ASSETS / "app.js").read_text(encoding="utf-8")
+    routes = ROUTES.read_text(encoding="utf-8")
+
+    assert "const exampleScenarios = {};" in source
+    assert "天河路商圈青年品牌联动运营小组" not in source
+    assert "会议主题：天河路商圈暑期青年品牌联动促消费活动筹备会" not in source
+    assert "_strip_embedded_examples" not in routes
+    assert "_workspace_script" not in routes
+
     with TestClient(app) as client:
         bundle = client.get("/assets/app.js")
 
