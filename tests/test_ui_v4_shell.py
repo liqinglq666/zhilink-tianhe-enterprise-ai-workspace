@@ -68,6 +68,7 @@ def test_replaced_ui_layers_and_fake_preview_assets_are_deleted() -> None:
         "ui-v2-dashboard.css",
         "ui-v4-navigation-compat.css",
         "ui-v4-navigation.js",
+        "ui-v4-navigation.css",
         "product-simplification.js",
         "product-simplification.css",
         "data-provenance-guard-v2.js",
@@ -102,12 +103,13 @@ def test_native_index_owns_workspace_chrome_before_javascript_runs() -> None:
     assert "readiness-card" not in html
     assert "hero-visual" not in html
     assert 'data-tool-key="report"' not in html
+    assert "ui-v4-navigation.css" not in html
+    assert "ui-v4-navigation" not in html
 
 
 def test_v4_shell_owns_navigation_project_context_and_dashboard_support() -> None:
     script = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "ui-v4-shell.css").read_text(encoding="utf-8")
-    navigation_css = (ASSETS / "ui-v4-navigation.css").read_text(encoding="utf-8")
 
     assert "ZHILINK_UI_V4_SHELL_READY" in script
     assert "window.ZHILINK_WORKSPACE_CONTRACTS" in script
@@ -122,9 +124,13 @@ def test_v4_shell_owns_navigation_project_context_and_dashboard_support() -> Non
     assert "uiV4UsagePanel" in script
     assert 'triggerExisting("openProjectManager")' in script
     assert 'triggerExisting("openServiceWorkflow")' in script
+    assert "ui-v4-navigation.css" not in script
     assert ".ui-v4-shell .shell" in stylesheet
-    assert ".ui-v4-project-context" in navigation_css
-    assert ".ui-v4-resource-navigation" in navigation_css
+    assert ".ui-v4-shell .ui-v4-project-context" in stylesheet
+    assert ".ui-v4-shell .ui-v4-resource-navigation" in stylesheet
+    assert ".ui-v4-shell .topbar .track" in stylesheet
+    assert "@media (min-width: 1181px)" in stylesheet
+    assert "top: 88px;" in stylesheet
 
 
 def test_v4_presentation_layers_do_not_reintroduce_legacy_names() -> None:
