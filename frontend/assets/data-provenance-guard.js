@@ -1,11 +1,13 @@
 /* Keep example and legacy session data out of the formal enterprise workspace. */
 (() => {
-  const BUSINESS_KEYS = ["profile", "meeting", "contract", "policy", "match", "landing"];
-  const SCHEMA_KEYS = [...BUSINESS_KEYS, "report"];
-  const RESULT_TITLES = {
-    profile: "企业档案", meeting: "会议纪要", contract: "合同审阅", policy: "政策准备",
-    match: "供需协作", landing: "实施计划", report: "运营报告",
-  };
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
+  if (!contracts || !hooks) throw new Error("Workspace runtime must load before data provenance.");
+
+  const BUSINESS_KEYS = contracts.resultKeys;
+  const SCHEMA_KEYS = contracts.schemaResultKeys;
+  const RESULT_TITLES = contracts.resultTitles;
+  const EVENTS = contracts.events;
   const INPUT_MODULES = {
     profileName: "profile", profileIndustry: "profile", profileLocation: "profile", profileScale: "profile",
     profileStage: "profile", profileRole: "profile", profileDemands: "profile",
@@ -20,19 +22,16 @@
     contract: "20260807-contract-grounded-v3",
     policy: "20260807-policy-grounded-v3",
   };
-  const EXAMPLE_CONTEXT_STORAGE = "zhilian_example_contexts_v1";
-  const RESULTS_STORAGE = "zhilian_results";
-  const META_STORAGE = "zhilian_meta";
-  const STRUCTURED_STORAGE = "zhilian_structured_results_v1";
-  const QUARANTINE_STORAGE = "zhilian_legacy_result_quarantine_v1";
-  const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
-  const FORMAL_ORIGINS = new Set(["user", "project", "imported"]);
+  const EXAMPLE_CONTEXT_STORAGE = contracts.storage.exampleContexts;
+  const RESULTS_STORAGE = contracts.storage.results;
+  const META_STORAGE = contracts.storage.meta;
+  const STRUCTURED_STORAGE = contracts.storage.structuredResults;
+  const QUARANTINE_STORAGE = contracts.storage.legacyQuarantine;
+  const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
+  const FORMAL_ORIGINS = new Set(contracts.formalOrigins);
   const STYLE_URL = "/assets/data-provenance-guard.css?v=20260806.1";
-  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
   let started = false;
   let eventsBound = false;
-
-  if (!hooks) throw new Error("Workspace hooks must load before data provenance.");
 
   function readJson(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
@@ -191,7 +190,7 @@
     else delete current.meta[key].example_key;
     persistMeta();
 
-    window.dispatchEvent(new CustomEvent("zhilink:result-schema-stamped", {
+    window.dispatchEvent(new CustomEvent(EVENTS.resultSchemaStamped, {
       detail: { key, version: expectedVersion(key) },
     }));
     if (origin === "example" && typeof toast === "function") {
@@ -353,13 +352,13 @@
         if (typeof toast === "function") toast("当前包含示例或旧会话材料。请先清除隔离材料，再保存正式项目。");
       }
     }, true);
-    window.addEventListener("zhilink:result-updated", event => {
+    window.addEventListener(EVENTS.resultUpdated, event => {
       const key = event.detail?.key;
       if (event.detail?.source === "commit" && key) stampCommittedResult(key);
       refreshFormalWorkspace();
     });
-    window.addEventListener("zhilink:progress-updated", renderFormalProgress);
-    ["zhilink:account-ready", "zhilink:workspace-state-change"].forEach(name => {
+    window.addEventListener(EVENTS.progressUpdated, renderFormalProgress);
+    [EVENTS.accountReady, EVENTS.workspaceStateChange].forEach(name => {
       window.addEventListener(name, refreshFormalWorkspace);
       document.addEventListener(name, refreshFormalWorkspace);
     });
@@ -403,7 +402,7 @@
       refresh: refreshFormalWorkspace,
     };
     window.ZHILINK_DATA_PROVENANCE_READY = true;
-    window.dispatchEvent(new CustomEvent("zhilink:data-provenance-ready"));
+    window.dispatchEvent(new CustomEvent(EVENTS.dataProvenanceReady));
   }
 
   bindEvents();
