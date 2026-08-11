@@ -1,43 +1,23 @@
-/* UI V4 shell: owns workspace chrome, navigation and lightweight dashboard context. */
+/* UI V4 shell: owns workspace chrome, navigation, project and account context. */
 (() => {
-  const VERSION = "20260811.1";
+  const VERSION = "20260811.2";
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
-  if (!contracts) throw new Error("Workspace contracts must load before shell.");
+  const ICONS = window.ZHILINK_UI_V4_ICONS;
+  if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before shell.");
 
   const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
   const WORKSPACE_KEY_STORAGE = contracts.storage.workspaceKey;
-  const RESULTS_STORAGE = contracts.storage.results;
-  const META_STORAGE = contracts.storage.meta;
   const ACCOUNT_READY_EVENT = contracts.events.accountReady;
   const PROJECT_CHANGED_EVENT = contracts.events.projectChanged;
-  const FORMAL_ORIGINS = new Set(contracts.formalOrigins);
-  const RESULT_KEYS = contracts.resultKeys;
-  const RESULT_TITLES = contracts.resultTitles;
   const MODULES = {
     home: { label: "工作首页", group: "工作台", icon: "home" },
-    meeting: { label: "会议纪要", group: "业务处理", result: "会议纪要 · AI 生成结果", icon: "meeting" },
-    contract: { label: "合同审阅", group: "业务处理", result: "合同风险 · AI 审阅结果", icon: "contract" },
-    policy: { label: "政策助手", group: "业务处理", result: "政策方向 · AI 建议结果", icon: "policy" },
-    match: { label: "供需协作", group: "业务处理", result: "供需协作 · AI 方案结果", icon: "match" },
-    profile: { label: "企业档案", group: "资料与执行", result: "企业档案 · 生成结果", icon: "profile" },
-    landing: { label: "实施计划", group: "资料与执行", result: "实施计划 · AI 生成结果", icon: "plan" },
-    report: { label: "报告归档", group: "归档", result: "运营报告 · 汇总与导出", icon: "report" },
-  };
-  const ICONS = {
-    menu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
-    down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>',
-    project: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6.7l2 2h8.3v10.5h-17z"/><path d="M3.5 9h17"/></svg>',
-    knowledge: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h6a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H5z"/><path d="M19 4h-2a3 3 0 0 0-3 3v13a3 3 0 0 1 3-3h2z"/></svg>',
-    home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5M9 20v-6h6v6"/></svg>',
-    meeting: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h9l3 3V21H6z"/><path d="M15 3.5V7h3M9 12h6M9 16h4"/></svg>',
-    contract: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h9l3 3V21H6z"/><path d="M15 3.5V7h3M9 11h5M9 15h3"/><circle cx="15.5" cy="15.5" r="4"/></svg>',
-    policy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M6 9V7l6-3 6 3v2M7 9v8M11 9v8M15 9v8M19 17H5v3h14z"/></svg>',
-    match: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 12.5 11 15a2.4 2.4 0 0 0 3.4 0l4.1-4.1"/><path d="m9.5 8.5 2-2a2.8 2.8 0 0 1 4 0l4 4-3 3"/></svg>',
-    profile: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V8h8v12M12 20V4h8v16"/><path d="M7 11h2M7 14h2M15 7h2M15 10h2M15 13h2"/></svg>',
-    plan: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M7 3v4M17 3v4M3.5 9h17"/></svg>',
-    report: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h9l3 3V21H6z"/><path d="M15 3.5V7h3M9 17v-3M12 17v-6M15 17v-4"/></svg>',
-    account: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>',
-    arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>',
+    meeting: { label: "会议纪要", group: "业务处理", icon: "meeting" },
+    contract: { label: "合同审阅", group: "业务处理", icon: "contract" },
+    policy: { label: "政策助手", group: "业务处理", icon: "policy" },
+    match: { label: "供需协作", group: "业务处理", icon: "match" },
+    profile: { label: "企业档案", group: "资料与执行", icon: "profile" },
+    landing: { label: "实施计划", group: "资料与执行", icon: "plan" },
+    report: { label: "报告归档", group: "归档", icon: "report" },
   };
 
   let latestProjects = { items: [], total: 0 };
@@ -76,18 +56,6 @@
     return true;
   }
   function currentProject() { return readJson(localStorage.getItem(CURRENT_PROJECT_STORAGE), null); }
-  function resultState() {
-    return {
-      results: typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem(RESULTS_STORAGE), {}),
-      meta: typeof state !== "undefined" ? state.meta || {} : readJson(sessionStorage.getItem(META_STORAGE), {}),
-    };
-  }
-  function isFormalResult(key) {
-    const external = window.ZHILINK_DATA_PROVENANCE?.isFormalResult;
-    if (typeof external === "function") return external(key);
-    const { results, meta } = resultState();
-    return Boolean(results[key]) && FORMAL_ORIGINS.has(String(meta?.[key]?.origin || ""));
-  }
   function accountLabel() {
     const text = byId("openAccountManager")?.textContent?.trim() || "登录 / 组织";
     return text === "登录 / 组织" ? text : text.split(" · ")[0]?.trim() || "企业账户";
@@ -216,146 +184,6 @@
     }
   }
 
-  function decorateBusinessPages() {
-    Object.entries(MODULES).forEach(([id, config]) => {
-      if (id === "home") return;
-      const page = byId(id);
-      const content = page?.querySelector(":scope > .content-card");
-      const result = page?.querySelector(":scope > .result-panel");
-      if (!page || !content || !result) return;
-      page.classList.add("ui-v4-business-page");
-      page.dataset.uiV4Module = id;
-      const head = content.querySelector(".section-head");
-      const iconHolder = head?.querySelector(":scope > span");
-      if (iconHolder && iconHolder.dataset.uiV4Icon !== "true") {
-        iconHolder.innerHTML = ICONS[config.icon] || ICONS.home;
-        iconHolder.dataset.uiV4Icon = "true";
-        iconHolder.setAttribute("aria-hidden", "true");
-      }
-      if (head && !content.querySelector(".ui-v4-module-meta")) {
-        const meta = document.createElement("div");
-        meta.className = "ui-v4-module-meta";
-        const labels = id === "report" ? ["汇总已有结果", "支持多格式导出", "不导出 API Key"]
-          : id === "profile" ? ["可选上下文", "支持快速示例", "结果可归档"]
-            : ["AI 辅助生成", "人工复核后使用", "结果可归档"];
-        meta.innerHTML = labels.map(label => `<span>${label}</span>`).join("");
-        head.insertAdjacentElement("afterend", meta);
-      }
-      result.setAttribute("aria-label", config.result);
-      content.querySelectorAll("textarea").forEach(textarea => textarea.setAttribute("spellcheck", "false"));
-      content.querySelectorAll(".sticky-actions button.primary").forEach(button => {
-        if (button.dataset.uiV4Arrow === "true") return;
-        button.insertAdjacentHTML("beforeend", ICONS.arrow);
-        button.dataset.uiV4Arrow = "true";
-      });
-    });
-  }
-
-  function decorateHomeCards() {
-    document.querySelectorAll("#home .module-card[data-tool-key]").forEach(card => {
-      const config = MODULES[card.dataset.toolKey];
-      const holder = card.querySelector(".module-icon");
-      if (config && holder && holder.dataset.uiV4Icon !== "true") {
-        holder.classList.add("ui-v4-module-icon");
-        holder.innerHTML = ICONS[config.icon] || ICONS.home;
-        holder.dataset.uiV4Icon = "true";
-      }
-      const button = card.querySelector(".module-footer button");
-      if (button && button.dataset.uiV4Arrow !== "true") {
-        button.insertAdjacentHTML("beforeend", ICONS.arrow);
-        button.dataset.uiV4Arrow = "true";
-      }
-    });
-  }
-
-  function ensureHomePanels() {
-    const home = byId("home");
-    const recent = home?.querySelector(".recent-card");
-    const governance = home?.querySelector(".governance-card");
-    if (!home || !recent || !governance) return;
-    let grid = byId("uiV4HomeGrid");
-    if (!grid) {
-      grid = document.createElement("div");
-      grid.id = "uiV4HomeGrid";
-      grid.className = "ui-v4-home-grid";
-      governance.parentNode.insertBefore(grid, governance);
-      grid.appendChild(recent);
-    }
-    if (!byId("uiV4PendingPanel")) {
-      const pending = document.createElement("section");
-      pending.id = "uiV4PendingPanel";
-      pending.className = "ui-v4-home-panel";
-      pending.innerHTML = `<div class="ui-v4-panel-head"><h3>需要你处理</h3><span id="uiV4PendingCount">0 项</span></div><div id="uiV4PendingList" class="ui-v4-pending-list"></div>`;
-      grid.appendChild(pending);
-    }
-    if (!byId("uiV4UsagePanel")) {
-      const usage = document.createElement("section");
-      usage.id = "uiV4UsagePanel";
-      usage.className = "ui-v4-home-panel ui-v4-usage-panel";
-      usage.innerHTML = `<div class="ui-v4-panel-head"><h3>工作状态</h3><span>正式材料</span></div><div id="uiV4Metrics" class="ui-v4-metrics"></div><p id="uiV4UsageNote" class="ui-v4-usage-note"></p>`;
-      grid.appendChild(usage);
-    }
-  }
-
-  function collectPendingItems() {
-    const items = [];
-    const seen = new Set();
-    const pattern = /(待确认|需确认|人工确认|尚未明确|未明确|待补充|待核实|需核实)/;
-    const { results } = resultState();
-    RESULT_KEYS.forEach(key => {
-      if (!isFormalResult(key)) return;
-      String(results[key] || "").split(/\n+/).forEach(raw => {
-        const text = raw.replace(/^[#>*\-\d.、\s]+/, "").replace(/\[[A-Z0-9-]+\]/g, "").replace(/\s+/g, " ").trim();
-        if (!text || !pattern.test(text) || seen.has(text)) return;
-        seen.add(text);
-        items.push({ title: text.slice(0, 70), source: RESULT_TITLES[key] || key });
-      });
-    });
-    RESULT_KEYS.forEach(key => {
-      if (!isFormalResult(key)) return;
-      byId(`${key}Result`)?.querySelectorAll(".review-workflow-bar strong").forEach(node => {
-        const text = node.textContent.trim();
-        if (!/(待审核|退回|失效|尚未建立)/.test(text)) return;
-        const title = `${RESULT_TITLES[key] || "材料"}：${text}`;
-        if (!seen.has(title)) { seen.add(title); items.push({ title, source: "人工复核" }); }
-      });
-    });
-    return items.slice(0, 4);
-  }
-  function renderPending() {
-    const list = byId("uiV4PendingList");
-    const count = byId("uiV4PendingCount");
-    if (!list || !count) return;
-    const items = collectPendingItems();
-    setText(count, `${items.length} 项`);
-    const html = items.length
-      ? items.map(item => `<article class="ui-v4-pending-item"><span class="ui-v4-pending-icon">!</span><div><strong>${safe(item.title)}</strong><small>${safe(item.source)} · 请人工核对后使用</small></div></article>`).join("")
-      : '<p class="ui-v4-panel-empty">当前正式材料中没有识别到待确认事项。新材料生成后会自动更新。</p>';
-    if (list.innerHTML !== html) list.innerHTML = html;
-  }
-  function reviewCounts() {
-    let confirmed = 0; let pending = 0;
-    RESULT_KEYS.forEach(key => {
-      if (!isFormalResult(key)) return;
-      byId(`${key}Result`)?.querySelectorAll(".review-workflow-bar strong").forEach(node => {
-        const text = node.textContent || "";
-        if (/(批准|已确认)/.test(text)) confirmed += 1;
-        if (/(待审核|退回|失效|尚未建立)/.test(text)) pending += 1;
-      });
-    });
-    return { confirmed, pending };
-  }
-  function renderUsage() {
-    const metrics = byId("uiV4Metrics");
-    const note = byId("uiV4UsageNote");
-    if (!metrics || !note) return;
-    const generated = typeof window.ZHILINK_DATA_PROVENANCE?.formalCount === "function" ? window.ZHILINK_DATA_PROVENANCE.formalCount() : RESULT_KEYS.filter(isFormalResult).length;
-    const project = currentProject();
-    const reviews = reviewCounts();
-    const html = `<div class="ui-v4-metric"><strong>${generated}</strong><span>正式材料</span></div><div class="ui-v4-metric"><strong>${latestProjects.total || 0}</strong><span>可访问项目</span></div><div class="ui-v4-metric"><strong>${reviews.confirmed}</strong><span>已确认 / 批准</span></div><div class="ui-v4-metric"><strong>${reviews.pending}</strong><span>待复核状态</span></div>`;
-    if (metrics.innerHTML !== html) metrics.innerHTML = html;
-    setText(note, project ? `当前项目：${project.name} · v${project.lock_version}${project.status === "archived" ? " · 已归档" : ""}` : "当前未打开持久化项目。示例和旧会话材料不会进入正式统计。");
-  }
   function syncProjectContext() {
     const project = currentProject();
     const source = byId("openProjectManager");
@@ -413,7 +241,7 @@
       latestProjects = { items: [], total: 0 };
       renderSidebarProjects(true);
     }
-    renderUsage();
+    window.ZHILINK_UI_V4_RUNTIME?.schedule?.("projects-refreshed");
   }
   function projectTime(value) {
     if (!value) return "";
@@ -516,15 +344,10 @@
     ensureTopNavigation();
     normalizeSidebar();
     ensureSidebarSupport();
-    ensureHomePanels();
-    decorateBusinessPages();
-    decorateHomeCards();
     setText(byId("uiV4AccountLabel"), accountLabel());
     syncProjectContext();
     syncPageContext();
     syncKnowledgeNavigation();
-    renderPending();
-    renderUsage();
     resolvePendingProjectOpen();
     const mobile = byId("uiV4MobileMenu");
     if (mobile) {
@@ -547,6 +370,7 @@
     openModelConfig,
     closeAccountMenu,
     setSidebarOpen,
+    projectCount: () => Number(latestProjects.total || 0),
     refresh: () => window.ZHILINK_UI_V4_RUNTIME?.schedule?.("shell-refresh"),
   };
 
