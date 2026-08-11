@@ -9,7 +9,6 @@
   function read(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
   }
-
   function safe(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -18,7 +17,6 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
-
   function saveCache() {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
   }
@@ -113,7 +111,7 @@
 
   function decorate(module) {
     const panel = document.getElementById(`${module}Result`);
-    if (!panel || !state.results[module]) return;
+    if (!panel || typeof state === "undefined" || !state.results[module]) return;
     panel.querySelector(".structured-result-bar")?.remove();
     const data = cache[module];
     const bar = document.createElement("div");
@@ -132,6 +130,7 @@
       if (meta) meta.insertAdjacentElement("afterend", bar);
       else panel.prepend(bar);
     }
+    window.dispatchEvent(new CustomEvent("zhilink:structured-updated", { detail: { module, data: data || null } }));
   }
 
   function itemList(title, items) {
@@ -183,21 +182,18 @@
     modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");
   }
-
   function close() {
     const modal = document.getElementById("structuredResultModal");
     modal.classList.remove("show");
     modal.setAttribute("aria-hidden", "true");
     activeModule = "";
   }
-
   async function copyJson() {
     const data = cache[activeModule];
     if (!data) return;
     await copyText(JSON.stringify(data, null, 2));
     toast("已复制结构化 JSON。");
   }
-
   function downloadJson() {
     const data = cache[activeModule];
     if (!data) return;
@@ -206,29 +202,28 @@
     toast("已开始下载结构化 JSON。");
   }
 
-  const originalShowResult = showResult;
-  showResult = function structuredAwareShowResult(key, result) {
-    originalShowResult(key, result);
-    if (result?.structured) {
-      cache[key] = result.structured;
+  function handleResultUpdated(event) {
+    const detail = event.detail || {};
+    const module = detail.key;
+    if (!MODULES.includes(module)) return;
+    if (detail.result?.structured) {
+      cache[module] = detail.result.structured;
       saveCache();
+      decorate(module);
+      return;
     }
-    Promise.resolve().then(() => ensure(key, result?.content || state.results[key] || ""));
-  };
+    ensure(module, detail.content || (typeof state !== "undefined" ? state.results?.[module] || "" : ""));
+  }
 
-  const originalSetResult = setResult;
-  setResult = function structuredAwareSetResult(key, result) {
-    originalSetResult(key, result);
-    if (result?.structured) {
-      cache[key] = result.structured;
-      saveCache();
-      decorate(key);
-    } else {
-      ensure(key, result?.content || "");
-    }
-  };
+  function syncExisting() {
+    if (typeof state === "undefined") return;
+    MODULES.forEach(module => {
+      if (state.results?.[module]) ensure(module, state.results[module]);
+    });
+  }
 
   injectUi();
+  window.addEventListener("zhilink:result-updated", handleResultUpdated);
   document.addEventListener("click", event => {
     const openButton = event.target.closest("[data-open-structured]");
     if (openButton) { open(openButton.dataset.openStructured); return; }
@@ -237,14 +232,10 @@
   document.addEventListener("keydown", event => {
     if (event.key === "Escape" && document.getElementById("structuredResultModal")?.classList.contains("show")) close();
   });
-  document.getElementById("copyStructuredJson").addEventListener("click", () => copyJson().catch(error => toast(error.message || String(error))));
-  document.getElementById("downloadStructuredJson").addEventListener("click", downloadJson);
-
-  setTimeout(() => {
-    MODULES.forEach(module => {
-      if (state.results[module]) ensure(module, state.results[module]);
-    });
-  }, 500);
+  document.getElementById("copyStructuredJson")?.addEventListener("click", () => copyJson().catch(error => toast(error.message || String(error))));
+  document.getElementById("downloadStructuredJson")?.addEventListener("click", downloadJson);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", syncExisting, { once: true });
+  else syncExisting();
 
   window.ZHILINK_STRUCTURED = {
     get: module => cache[module] || null,
