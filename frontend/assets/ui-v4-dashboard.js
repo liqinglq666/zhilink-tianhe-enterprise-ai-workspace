@@ -1,16 +1,21 @@
-/* UI V4 dashboard: task-first home workspace, backed only by UI V4 shell primitives. */
+/* UI V4 dashboard: task-first home workspace and home-only presentation. */
 (() => {
-  const VERSION = "20260811.1";
+  const VERSION = "20260811.2";
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
-  if (!contracts) throw new Error("Workspace contracts must load before dashboard.");
+  const ICONS = window.ZHILINK_UI_V4_ICONS;
+  if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before dashboard.");
 
   const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
   const RESULTS_STORAGE = contracts.storage.results;
   const META_STORAGE = contracts.storage.meta;
+  const FORMAL_ORIGINS = new Set(contracts.formalOrigins);
+  const RESULT_KEYS = contracts.resultKeys;
+  const RESULT_TITLES = contracts.resultTitles;
   const MODULE_ORDER = ["meeting", "contract", "policy", "match", "profile", "landing"];
 
   function readJson(raw, fallback) { try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; } }
   function setText(element, value) { if (element && element.textContent !== String(value)) element.textContent = String(value); }
+  function safe(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
   function ensureStyles() {
     if (document.querySelector("link[data-ui-v4-dashboard]")) return;
     const link = document.createElement("link");
@@ -20,13 +25,24 @@
     document.head.appendChild(link);
   }
   function currentProject() { return readJson(localStorage.getItem(CURRENT_PROJECT_STORAGE), null); }
+  function resultState() {
+    return {
+      results: typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem(RESULTS_STORAGE), {}),
+      meta: typeof state !== "undefined" ? state.meta || {} : readJson(sessionStorage.getItem(META_STORAGE), {}),
+    };
+  }
+  function isFormalResult(key) {
+    const external = window.ZHILINK_DATA_PROVENANCE?.isFormalResult;
+    if (typeof external === "function") return external(key);
+    const { results, meta } = resultState();
+    return Boolean(results[key]) && FORMAL_ORIGINS.has(String(meta?.[key]?.origin || ""));
+  }
   function projectSignature(project) {
     if (!project) return "none";
     return [project.id || "", project.name || "", project.status || "", project.lock_version || "", project.updated_at || ""].join("|");
   }
   function latestWorkSection() {
-    const meta = typeof state !== "undefined" ? state.meta || {} : readJson(sessionStorage.getItem(META_STORAGE), {});
-    const results = typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem(RESULTS_STORAGE), {});
+    const { results, meta } = resultState();
     const candidates = MODULE_ORDER.filter(key => String(results[key] || "").trim()).map(key => ({ key, time: Date.parse(meta[key]?.time || "") || 0 }));
     candidates.sort((a, b) => b.time - a.time);
     return candidates[0]?.key || "meeting";
@@ -41,6 +57,111 @@
     const grid = document.querySelector("#home .module-grid");
     (toolbar || grid)?.scrollIntoView({ behavior: "smooth", block: "start" });
     window.setTimeout(() => grid?.querySelector(".module-card .module-footer button")?.focus(), 300);
+  }
+  function ensureHomePanels() {
+    const home = document.getElementById("home");
+    const recent = home?.querySelector(".recent-card");
+    const governance = home?.querySelector(".governance-card");
+    if (!home || !recent || !governance) return;
+    let grid = document.getElementById("uiV4HomeGrid");
+    if (!grid) {
+      grid = document.createElement("div");
+      grid.id = "uiV4HomeGrid";
+      grid.className = "ui-v4-home-grid";
+      governance.parentNode.insertBefore(grid, governance);
+      grid.appendChild(recent);
+    }
+    if (!document.getElementById("uiV4PendingPanel")) {
+      const pending = document.createElement("section");
+      pending.id = "uiV4PendingPanel";
+      pending.className = "ui-v4-home-panel";
+      pending.innerHTML = `<div class="ui-v4-panel-head"><h3>需要你处理</h3><span id="uiV4PendingCount">0 项</span></div><div id="uiV4PendingList" class="ui-v4-pending-list"></div>`;
+      grid.appendChild(pending);
+    }
+    if (!document.getElementById("uiV4UsagePanel")) {
+      const usage = document.createElement("section");
+      usage.id = "uiV4UsagePanel";
+      usage.className = "ui-v4-home-panel ui-v4-usage-panel";
+      usage.innerHTML = `<div class="ui-v4-panel-head"><h3>工作状态</h3><span>正式材料</span></div><div id="uiV4Metrics" class="ui-v4-metrics"></div><p id="uiV4UsageNote" class="ui-v4-usage-note"></p>`;
+      grid.appendChild(usage);
+    }
+  }
+  function decorateHomeCards() {
+    document.querySelectorAll("#home .module-card[data-tool-key]").forEach(card => {
+      const key = card.dataset.toolKey || "";
+      const holder = card.querySelector(".module-icon");
+      const iconKey = key === "landing" ? "plan" : key;
+      if (holder && ICONS[iconKey] && holder.dataset.uiV4Icon !== "true") {
+        holder.classList.add("ui-v4-module-icon");
+        holder.innerHTML = ICONS[iconKey];
+        holder.dataset.uiV4Icon = "true";
+      }
+      const button = card.querySelector(".module-footer button");
+      if (button && button.dataset.uiV4Arrow !== "true") {
+        button.insertAdjacentHTML("beforeend", ICONS.arrow);
+        button.dataset.uiV4Arrow = "true";
+      }
+    });
+  }
+  function collectPendingItems() {
+    const items = [];
+    const seen = new Set();
+    const pattern = /(待确认|需确认|人工确认|尚未明确|未明确|待补充|待核实|需核实)/;
+    const { results } = resultState();
+    RESULT_KEYS.forEach(key => {
+      if (!isFormalResult(key)) return;
+      String(results[key] || "").split(/\n+/).forEach(raw => {
+        const text = raw.replace(/^[#>*\-\d.、\s]+/, "").replace(/\[[A-Z0-9-]+\]/g, "").replace(/\s+/g, " ").trim();
+        if (!text || !pattern.test(text) || seen.has(text)) return;
+        seen.add(text);
+        items.push({ title: text.slice(0, 70), source: RESULT_TITLES[key] || key });
+      });
+    });
+    RESULT_KEYS.forEach(key => {
+      if (!isFormalResult(key)) return;
+      document.getElementById(`${key}Result`)?.querySelectorAll(".review-workflow-bar strong").forEach(node => {
+        const text = node.textContent.trim();
+        if (!/(待审核|退回|失效|尚未建立)/.test(text)) return;
+        const title = `${RESULT_TITLES[key] || "材料"}：${text}`;
+        if (!seen.has(title)) { seen.add(title); items.push({ title, source: "人工复核" }); }
+      });
+    });
+    return items.slice(0, 4);
+  }
+  function renderPending() {
+    const list = document.getElementById("uiV4PendingList");
+    const count = document.getElementById("uiV4PendingCount");
+    if (!list || !count) return;
+    const items = collectPendingItems();
+    setText(count, `${items.length} 项`);
+    const html = items.length
+      ? items.map(item => `<article class="ui-v4-pending-item"><span class="ui-v4-pending-icon">!</span><div><strong>${safe(item.title)}</strong><small>${safe(item.source)} · 请人工核对后使用</small></div></article>`).join("")
+      : '<p class="ui-v4-panel-empty">当前正式材料中没有识别到待确认事项。新材料生成后会自动更新。</p>';
+    if (list.innerHTML !== html) list.innerHTML = html;
+  }
+  function reviewCounts() {
+    let confirmed = 0; let pending = 0;
+    RESULT_KEYS.forEach(key => {
+      if (!isFormalResult(key)) return;
+      document.getElementById(`${key}Result`)?.querySelectorAll(".review-workflow-bar strong").forEach(node => {
+        const text = node.textContent || "";
+        if (/(批准|已确认)/.test(text)) confirmed += 1;
+        if (/(待审核|退回|失效|尚未建立)/.test(text)) pending += 1;
+      });
+    });
+    return { confirmed, pending };
+  }
+  function renderUsage() {
+    const metrics = document.getElementById("uiV4Metrics");
+    const note = document.getElementById("uiV4UsageNote");
+    if (!metrics || !note) return;
+    const generated = typeof window.ZHILINK_DATA_PROVENANCE?.formalCount === "function" ? window.ZHILINK_DATA_PROVENANCE.formalCount() : RESULT_KEYS.filter(isFormalResult).length;
+    const project = currentProject();
+    const reviews = reviewCounts();
+    const projectCount = Number(window.ZHILINK_UI_V4_SHELL?.projectCount?.() || 0);
+    const html = `<div class="ui-v4-metric"><strong>${generated}</strong><span>正式材料</span></div><div class="ui-v4-metric"><strong>${projectCount}</strong><span>可访问项目</span></div><div class="ui-v4-metric"><strong>${reviews.confirmed}</strong><span>已确认 / 批准</span></div><div class="ui-v4-metric"><strong>${reviews.pending}</strong><span>待复核状态</span></div>`;
+    if (metrics.innerHTML !== html) metrics.innerHTML = html;
+    setText(note, project ? `当前项目：${project.name} · v${project.lock_version}${project.status === "archived" ? " · 已归档" : ""}` : "当前未打开持久化项目。示例和旧会话材料不会进入正式统计。");
   }
   function decorateHero() {
     const home = document.getElementById("home");
@@ -115,11 +236,15 @@
     if (!document.body) return;
     document.body.classList.add("ui-v4-dashboard");
     document.documentElement.dataset.zhilinkDashboard = "v4";
+    ensureHomePanels();
+    decorateHomeCards();
     decorateHero();
     arrangeAttentionPanel();
     decorateTaskSection();
     decorateLowerPanels();
     simplifyGovernance();
+    renderPending();
+    renderUsage();
     window.ZHILINK_UI_V4_DASHBOARD_READY = true;
   }
   function start() {
