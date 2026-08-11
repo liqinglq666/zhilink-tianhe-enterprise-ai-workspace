@@ -17,12 +17,13 @@ def test_production_bundle_is_consolidated_v4_and_preserves_business_layers() ->
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION == "2026-08-11-ui-v4-hooks-v6"
+    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION == "2026-08-11-ui-v4-core-runtime-v7"
 
     required = [
+        "ZHILINK_WORKSPACE_HOOKS_READY",
         "ZHILINK_RESULT_EVENTS_READY",
-        "ZHILINK_DATA_PROVENANCE_READY",
         "ZHILINK_UI_V4_RUNTIME_READY",
+        "ZHILINK_DATA_PROVENANCE_READY",
         "ZHILINK_UI_V4_SHELL_READY",
         "ZHILINK_API_DRAWER_V4_READY",
         "ZHILINK_MODEL_CONFIG_SAVE_V4_READY",
@@ -39,24 +40,7 @@ def test_production_bundle_is_consolidated_v4_and_preserves_business_layers() ->
     for marker in required:
         assert marker in response.text
 
-    ordered = [
-        "ZHILINK_RESULT_EVENTS_READY",
-        "ZHILINK_DATA_PROVENANCE_READY",
-        "ZHILINK_UI_V4_RUNTIME_READY",
-        "ZHILINK_UI_V4_SHELL_READY",
-        "ZHILINK_API_DRAWER_V4_READY",
-        "ZHILINK_MODEL_CONFIG_SAVE_V4_READY",
-        "ZHILINK_MEETING_USER_VIEW_READY",
-        "ZHILINK_UI_V4_FOUNDATION_READY",
-        "ZHILINK_UI_V4_DASHBOARD_READY",
-        "ZHILINK_UI_V4_WORKSPACE_READY",
-        "ZHILINK_UI_V4_OVERLAYS_READY",
-        "ZHILINK_UI_V4_STATES_READY",
-        "ZHILINK_UI_V4_FORMS_READY",
-        "ZHILINK_UI_V4_RESULTS_READY",
-        "ZHILINK_UI_V4_FINAL_QA_READY",
-    ]
-    positions = [response.text.rfind(marker) for marker in ordered]
+    positions = [response.text.rfind(marker) for marker in required]
     assert positions == sorted(positions)
 
     for removed_marker in (
@@ -85,6 +69,8 @@ def test_replaced_ui_layers_and_fake_preview_assets_are_deleted() -> None:
         "product-simplification.js",
         "product-simplification.css",
         "data-provenance-guard-v2.js",
+        "result-events.js",
+        "workspace-hooks.js",
         "ui-preview.html",
         "ui-preview.css",
         "ui-preview.js",
