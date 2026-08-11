@@ -1,9 +1,13 @@
 /* Same-origin account, organization, CSRF, and RBAC controls. */
 (() => {
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
+  if (!contracts || !hooks) throw new Error("Workspace runtime must load before account access.");
+
   const ACTIVE_ORG_STORAGE = "zhilian_active_organization_v1";
-  const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
-  const WORKSPACE_KEY_STORAGE = "zhilian_workspace_key_v1";
-  const nativeFetch = window.fetch.bind(window);
+  const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
+  const WORKSPACE_KEY_STORAGE = contracts.storage.workspaceKey;
+  const ACCOUNT_READY_EVENT = contracts.events.accountReady;
   let account = {
     authenticated: false,
     user: null,
@@ -42,7 +46,9 @@
     return ["POST", "PUT", "PATCH", "DELETE"].includes(String(method || "GET").toUpperCase());
   }
 
-  window.fetch = async function securedWorkspaceFetch(input, init = {}) {
+  hooks.register("fetch:request", async request => {
+    const input = request.input;
+    const init = request.init || {};
     const path = pathOf(input);
     const method = init.method || (typeof input !== "string" && input.method) || "GET";
     if (activeOrganizationId && isWrite(method) && !account.csrf_token) {
@@ -60,12 +66,15 @@
     ) {
       headers.set("X-CSRF-Token", account.csrf_token);
     }
-    return nativeFetch(input, {
-      ...init,
-      headers,
-      credentials: "same-origin",
-    });
-  };
+    return {
+      ...request,
+      init: {
+        ...init,
+        headers,
+        credentials: "same-origin",
+      },
+    };
+  });
 
   async function request(path, options = {}) {
     const response = await fetch(path, options);
@@ -465,7 +474,7 @@
   injectUI();
   sessionReady = loadSession().finally(() => {
     window.ACCOUNT_ACCESS_READY = true;
-    document.dispatchEvent(new CustomEvent("zhilink:account-ready"));
+    document.dispatchEvent(new CustomEvent(ACCOUNT_READY_EVENT));
   });
   window.ZHILINK_ACCOUNT = {
     getSession: () => account,
