@@ -56,6 +56,39 @@ def test_workspace_sticky_offset_is_desktop_only_and_owned_by_shell() -> None:
     assert "position: relative; top: auto; max-height: none;" in workspace
 
 
+def test_shell_does_not_own_home_dashboard_primitives() -> None:
+    shell = read("ui-v4-shell.css")
+    dashboard = read("ui-v4-dashboard.css")
+
+    home_markers = (
+        ".ui-v4-home-grid",
+        ".ui-v4-home-panel",
+        ".ui-v4-panel-head",
+        ".ui-v4-pending-list",
+        ".ui-v4-pending-item",
+        ".ui-v4-pending-icon",
+        ".ui-v4-panel-empty",
+        ".ui-v4-usage-note",
+        ".ui-v4-metrics",
+        ".ui-v4-metric",
+    )
+    for marker in home_markers:
+        assert marker not in shell, marker
+
+    for marker in (
+        ".ui-v4-dashboard #home .ui-v4-home-grid",
+        ".ui-v4-dashboard #home .ui-v4-panel-head",
+        ".ui-v4-dashboard #home .ui-v4-pending-list",
+        ".ui-v4-dashboard #home .ui-v4-pending-item",
+        ".ui-v4-dashboard #home .ui-v4-pending-icon",
+        ".ui-v4-dashboard #home .ui-v4-panel-empty",
+        ".ui-v4-dashboard #home .ui-v4-usage-note",
+        ".ui-v4-dashboard #home .ui-v4-metrics",
+        ".ui-v4-dashboard #home .ui-v4-metric",
+    ):
+        assert marker in dashboard, marker
+
+
 def test_deleted_native_v4_dom_does_not_keep_compatibility_css() -> None:
     foundation = read("ui-v4-foundation.css")
     dashboard = read("ui-v4-dashboard.css")
@@ -125,6 +158,8 @@ def test_dashboard_owns_all_home_layout_primitives_after_base_cleanup() -> None:
     dashboard = read("ui-v4-dashboard.css")
 
     for marker in (
+        ".ui-v4-dashboard #home .ui-v4-home-grid {\n  display: grid;",
+        ".ui-v4-dashboard #home .ui-v4-panel-head {\n  display: flex;",
         ".ui-v4-dashboard #home .overview-panel {\n  display: grid;",
         ".ui-v4-dashboard #home .ui-v4-work-hero {\n  position: relative;",
         "padding: 0;",
