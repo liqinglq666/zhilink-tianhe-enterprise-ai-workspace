@@ -17,7 +17,7 @@ def test_production_bundle_is_consolidated_v4_and_preserves_business_layers() ->
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION == "2026-08-11-ui-v4-result-events-v5"
+    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION == "2026-08-11-ui-v4-hooks-v6"
 
     required = [
         "ZHILINK_RESULT_EVENTS_READY",
