@@ -5,27 +5,28 @@ from fastapi.testclient import TestClient
 from backend.main import app
 
 
-def test_v4_results_loads_current_final_qa_layer_last() -> None:
+def test_v4_results_and_final_qa_are_direct_ordered_bundle_layers() -> None:
     with TestClient(app) as client:
-        results = client.get("/assets/ui-v4-results.js?v=20260810.1")
-        final_qa = client.get("/assets/ui-v4-final-qa.js?v=20260810.3")
-        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260810.3")
+        bundle = client.get("/assets/app.js")
+        results = client.get("/assets/ui-v4-results.js?v=20260811.1")
+        final_qa = client.get("/assets/ui-v4-final-qa.js?v=20260811.1")
+        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260811.1")
 
+    assert bundle.status_code == 200
     assert results.status_code == 200
     assert final_qa.status_code == 200
     assert stylesheet.status_code == 200
     assert "ZHILINK_UI_V4_RESULTS_READY" in results.text
-    assert "function ensureFinalQa()" in results.text
-    assert 'const FINAL_QA_VERSION = "20260810.3"' in results.text
-    assert '/assets/ui-v4-final-qa.js?v=${FINAL_QA_VERSION}' in results.text
-    assert 'script.dataset.uiV4FinalQa = "true"' in results.text
-    assert "ensureFinalQa();" in results.text
     assert "ZHILINK_UI_V4_FINAL_QA_READY" in final_qa.text
+    assert bundle.text.index("ZHILINK_UI_V4_RESULTS_READY") < bundle.text.index("ZHILINK_UI_V4_FINAL_QA_READY")
+    assert "ensureFinalQa" not in results.text
+    assert "document.createElement(\"script\")" not in results.text
+    assert "ZHILINK_UI_V4_RUNTIME" in final_qa.text
 
 
 def test_v4_final_qa_adds_keyboard_navigation_and_landmark_support() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.3")
+        script = client.get("/assets/ui-v4-final-qa.js?v=20260811.1")
 
     text = script.text
     assert 'link.id = "uiV4SkipLink"' in text
@@ -44,7 +45,7 @@ def test_v4_final_qa_adds_keyboard_navigation_and_landmark_support() -> None:
 
 def test_v4_final_qa_makes_horizontal_result_content_keyboard_reachable() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.3")
+        script = client.get("/assets/ui-v4-final-qa.js?v=20260811.1")
 
     text = script.text
     assert 'const SCROLLABLE_SELECTOR = ".result-section-content, .structured-table-wrap"' in text
@@ -57,12 +58,11 @@ def test_v4_final_qa_makes_horizontal_result_content_keyboard_reachable() -> Non
 
 def test_v4_final_qa_covers_required_responsive_widths_and_touch_targets() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.3")
-        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260810.3")
+        script = client.get("/assets/ui-v4-final-qa.js?v=20260811.1")
+        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260811.1")
 
     script_text = script.text
     css = stylesheet.text
-
     for marker in ("360", "390", "768", "1024", "1280"):
         assert marker in script_text
 
@@ -86,7 +86,7 @@ def test_v4_final_qa_covers_required_responsive_widths_and_touch_targets() -> No
 
 def test_v4_final_qa_supports_reduced_motion_and_high_contrast_focus() -> None:
     with TestClient(app) as client:
-        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260810.3")
+        stylesheet = client.get("/assets/ui-v4-final-qa.css?v=20260811.1")
 
     css = stylesheet.text
     assert ".ui-v4-skip-link" in css
@@ -99,18 +99,10 @@ def test_v4_final_qa_supports_reduced_motion_and_high_contrast_focus() -> None:
 
 def test_v4_final_qa_does_not_own_business_or_persistence_state() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-final-qa.js?v=20260810.3")
+        script = client.get("/assets/ui-v4-final-qa.js?v=20260811.1")
 
     for forbidden in (
-        "fetch(",
-        "localStorage",
-        "sessionStorage",
-        "state.results",
-        "setResult(",
-        "saveConfig(",
-        "apiStream(",
-        "setAttribute(\"type\", \"button\")",
-        "liveMobileMenu",
-        "liveAccountToggle",
+        "fetch(", "localStorage", "sessionStorage", "state.results", "setResult(", "saveConfig(", "apiStream(",
+        "setAttribute(\"type\", \"button\")", "liveMobileMenu", "liveAccountToggle", "MutationObserver",
     ):
         assert forbidden not in script.text
