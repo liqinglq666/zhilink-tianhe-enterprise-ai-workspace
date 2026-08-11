@@ -1,6 +1,8 @@
 /* UI V4 results: present generated business output as a readable enterprise document without changing content. */
 (() => {
   const VERSION = "20260811.1";
+  const { ensureStylesheet } = window.ZHILINK_UI_V4_HELPERS || {};
+  if (!ensureStylesheet) throw new Error("UI V4 helpers must load before results.");
   const PANEL_SELECTOR = ".result-panel";
   const KIND_RULES = [
     ["pending", /(待确认|待补充|需确认|未确认|信息缺口|未知事项|待核实)/],
@@ -12,14 +14,6 @@
   ];
   const KIND_LABELS = { summary: "摘要", decision: "决策", action: "执行", risk: "风险", pending: "待确认", evidence: "依据" };
 
-  function ensureStyles() {
-    if (document.querySelector("link[data-ui-v4-results]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `/assets/ui-v4-results.css?v=${VERSION}`;
-    link.dataset.uiV4Results = "true";
-    document.head.appendChild(link);
-  }
   function cleanText(value) { return String(value || "").replace(/\s+/g, " ").trim(); }
   function moduleFromPanel(panel) {
     const id = String(panel?.id || "");
@@ -137,7 +131,7 @@
   }
   function sync() { document.querySelectorAll(PANEL_SELECTOR).forEach(decoratePanel); }
   function start() {
-    ensureStyles();
+    ensureStylesheet("results", `/assets/ui-v4-results.css?v=${VERSION}`);
     document.body.classList.add("ui-v4-results");
     sync();
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(sync, { immediate: false });
