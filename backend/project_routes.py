@@ -97,22 +97,6 @@ def _deduplicate_workspace_bundle_routes(app: FastAPI, preferred_endpoint: Calla
     app.router.routes[:] = retained
 
 
-def _strip_embedded_examples(source: str) -> str:
-    """Keep example payloads out of the shipped core bundle; example-loader fetches them on demand."""
-    start_marker = "const exampleScenarios = {"
-    end_marker = "\n};\n\nconst REQUEST_TIMEOUT_MS"
-    start = source.find(start_marker)
-    end = source.find(end_marker, start)
-    if start < 0 or end < 0:
-        raise RuntimeError("Unable to locate the embedded workspace example block.")
-    return f"{source[:start]}const exampleScenarios = {{}};{source[end + len(chr(10) + '};'):]}"
-
-
-def _workspace_script(filename: str) -> str:
-    source = (ASSETS_DIR / filename).read_text(encoding="utf-8")
-    return _strip_embedded_examples(source) if filename == "app.js" else source
-
-
 _STORE_EXCEPTIONS = (ProjectNotFound, ProjectHistoryNotFound, ProjectVersionConflict, ProjectStoreUnavailable)
 
 
@@ -274,7 +258,7 @@ def register_project_routes(app: FastAPI) -> None:
             "ui-v4-results.js",
             "ui-v4-final-qa.js",
         ]
-        content = "\n\n".join(_workspace_script(filename) for filename in scripts)
+        content = "\n\n".join((ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts)
         return Response(
             content=f"{content}\n",
             media_type="application/javascript",
