@@ -37,19 +37,24 @@ def test_native_index_loads_v4_styles_at_first_paint_without_runtime_preload() -
     assert "ZHILINK_UI_V4_FOUNDATION_READY" in foundation
 
 
-def test_final_bundle_exposes_result_event_version_and_overlay_after_meeting_view() -> None:
+def test_final_bundle_exposes_core_runtime_and_overlay_after_meeting_view() -> None:
     with TestClient(app) as client:
         response = client.get("/assets/app.js")
+        old_result_bridge = client.get("/assets/result-events.js")
+        old_hook_bridge = client.get("/assets/workspace-hooks.js")
 
     assert response.status_code == 200
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-hooks-v6"
+    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-core-runtime-v7"
     assert response.text.rfind('key: "meeting-sources"') > response.text.rfind("ZHILINK_MEETING_USER_VIEW_READY")
+    assert "ZHILINK_WORKSPACE_HOOKS_READY" in response.text
     assert "ZHILINK_RESULT_EVENTS_READY" in response.text
     assert "ZHILINK_UI_V4_RUNTIME_READY" in response.text
     assert "ZHILINK_UI_V4_SHELL_READY" in response.text
     assert "ZHILINK_DATA_PROVENANCE_READY" in response.text
     assert "ZHILINK_DATA_PROVENANCE_V2_READY" not in response.text
     assert "EARLY_STYLE_ASSETS" not in response.text
+    assert old_result_bridge.status_code == 404
+    assert old_hook_bridge.status_code == 404
 
 
 def test_foundation_and_overlay_layers_do_not_own_business_state() -> None:
