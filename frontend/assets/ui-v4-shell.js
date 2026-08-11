@@ -42,6 +42,7 @@
 
   let latestProjects = { items: [], total: 0 };
   let lastProjectSignature = "";
+  let pendingProjectId = "";
   let bound = false;
 
   const byId = id => document.getElementById(id);
@@ -438,14 +439,19 @@
   }
   function openProjectFromSidebar(projectId) {
     setSidebarOpen(false);
-    if (!triggerExisting("openProjectManager")) return;
-    let attempts = 0;
-    const timer = window.setInterval(() => {
-      attempts += 1;
-      const button = document.querySelector(`[data-load-project="${CSS.escape(projectId)}"]`);
-      if (button) { window.clearInterval(timer); button.click(); }
-      else if (attempts > 12) window.clearInterval(timer);
-    }, 180);
+    pendingProjectId = String(projectId || "");
+    if (!pendingProjectId || !triggerExisting("openProjectManager")) {
+      pendingProjectId = "";
+      return;
+    }
+    window.ZHILINK_UI_V4_RUNTIME?.schedule?.("project-open");
+  }
+  function resolvePendingProjectOpen() {
+    if (!pendingProjectId) return;
+    const button = document.querySelector(`[data-load-project="${CSS.escape(pendingProjectId)}"]`);
+    if (!button) return;
+    pendingProjectId = "";
+    button.click();
   }
 
   function bindControls() {
@@ -525,6 +531,7 @@
     syncKnowledgeNavigation();
     renderPending();
     renderUsage();
+    resolvePendingProjectOpen();
     const mobile = byId("uiV4MobileMenu");
     if (mobile) {
       const open = document.body.classList.contains("ui-v4-sidebar-open");
