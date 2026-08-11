@@ -44,8 +44,9 @@ def test_final_bundle_exposes_core_runtime_and_overlay_after_meeting_view() -> N
         old_hook_bridge = client.get("/assets/workspace-hooks.js")
 
     assert response.status_code == 200
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-core-runtime-v7"
+    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-core-slim-v8"
     assert response.text.rfind('key: "meeting-sources"') > response.text.rfind("ZHILINK_MEETING_USER_VIEW_READY")
+    assert "ZHILINK_EXAMPLE_LOADER_READY" in response.text
     assert "ZHILINK_WORKSPACE_HOOKS_READY" in response.text
     assert "ZHILINK_RESULT_EVENTS_READY" in response.text
     assert "ZHILINK_UI_V4_RUNTIME_READY" in response.text
