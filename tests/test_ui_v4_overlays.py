@@ -7,7 +7,7 @@ ASSETS = ROOT / "frontend" / "assets"
 def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     script = (ASSETS / "ui-v4-overlays.js").read_text(encoding="utf-8")
 
-    for key in ("api", "account", "project", "knowledge", "identity", "meeting-sources"):
+    for key in ("api", "account", "project", "knowledge", "identity", "meeting-sources", "structured", "review", "service"):
         assert f'key: "{key}"' in script
 
     assert 'document.getElementById("meetingSourceDialog")' in script
@@ -15,7 +15,7 @@ def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     assert '[data-open-meeting-sources]' in script
     assert 'button[data-close-meeting-sources]' in script
     assert 'document.getElementById("uiV4ApiClose")' in script
-    assert '[data-ui-v4-account=' in script
+    assert '[data-ui-v4-account]' in script
     assert 'dialog.setAttribute("aria-modal", "true")' in script
     assert 'dialog.setAttribute("tabindex", "-1")' in script
     assert 'shell.inert = true' in script
@@ -26,6 +26,8 @@ def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     assert 'first.focus({ preventScroll: true })' in script
     assert 'target.focus({ preventScroll: true })' in script
     assert 'opener instanceof HTMLElement && visible(opener)' in script
+    assert 'window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(sync, { immediate: false })' in script
+    assert "MutationObserver" not in script
     assert 'window.ZHILINK_UI_V4_OVERLAYS_READY = true' in script
 
 
@@ -33,15 +35,7 @@ def test_overlay_controller_does_not_own_business_or_persistence_logic() -> None
     script = (ASSETS / "ui-v4-overlays.js").read_text(encoding="utf-8")
 
     for forbidden in (
-        "fetch(",
-        "state.results",
-        "setResult",
-        "saveConfig",
-        "sessionStorage",
-        "localStorage",
-        "/api/",
-        "liveApiClose",
-        "liveAccount",
+        "fetch(", "state.results", "setResult", "saveConfig", "sessionStorage", "localStorage", "/api/", "liveApiClose", "liveAccount",
     ):
         assert forbidden not in script
 
