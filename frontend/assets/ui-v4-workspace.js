@@ -1,6 +1,6 @@
 /* UI V4 workspace: focused input/result workbench for business modules. */
 (() => {
-  const VERSION = "20260810.3";
+  const VERSION = "20260811.1";
   const MODULES = {
     profile: { input: "企业资料", emptyTitle: "企业档案将在这里生成", emptyCopy: "填写企业资料后生成档案；结果可继续用于其他业务模块。" },
     meeting: { input: "会议记录", emptyTitle: "会议纪要将在这里生成", emptyCopy: "粘贴会议记录或录音转写文本，然后点击“生成会议纪要”。" },
@@ -10,8 +10,6 @@
     landing: { input: "实施条件", emptyTitle: "实施计划将在这里生成", emptyCopy: "补充试点场景、角色、数据范围与复核机制后生成执行计划。" },
     report: { input: "归档与导出", emptyTitle: "运营报告将在这里生成", emptyCopy: "先完成至少一个业务模块，再整合或导出当前已有材料。" },
   };
-  let observer = null;
-  let queued = false;
 
   function ensureStyles() {
     if (document.querySelector("link[data-ui-v4-workspace]")) return;
@@ -48,36 +46,11 @@
     window.ZHILINK_UI_V4_WORKSPACE_READY = true;
   }
 
-  function queueApply() {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      apply();
-    });
-  }
-
-  function installObserver() {
-    if (observer || !document.body) return;
-    observer = new MutationObserver(mutations => {
-      const relevant = mutations.some(mutation => {
-        if (mutation.type === "attributes") return mutation.target?.classList?.contains("result-panel");
-        return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
-      });
-      if (relevant) queueApply();
-    });
-    observer.observe(document.querySelector(".main") || document.body, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-  }
-
   function start() {
     apply();
-    installObserver();
-    window.addEventListener("zhilink:workspace-state-change", queueApply);
+    const runtime = window.ZHILINK_UI_V4_RUNTIME;
+    if (runtime?.subscribe) runtime.subscribe(apply, { immediate: false });
+    else window.addEventListener("zhilink:workspace-state-change", apply);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
