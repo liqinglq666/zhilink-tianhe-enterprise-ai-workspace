@@ -9,7 +9,7 @@
   const RESULTS_STORAGE = contracts.storage.results;
   const META_STORAGE = contracts.storage.meta;
   const ACCOUNT_READY_EVENT = contracts.events.accountReady;
-  const PROJECT_REFRESH_MS = 30000;
+  const PROJECT_CHANGED_EVENT = contracts.events.projectChanged;
   const FORMAL_ORIGINS = new Set(contracts.formalOrigins);
   const RESULT_KEYS = contracts.resultKeys;
   const RESULT_TITLES = contracts.resultTitles;
@@ -42,7 +42,6 @@
 
   let latestProjects = { items: [], total: 0 };
   let lastProjectSignature = "";
-  let projectTimer = null;
   let bound = false;
 
   const byId = id => document.getElementById(id);
@@ -502,6 +501,7 @@
         window.ZHILINK_UI_V4_RUNTIME?.schedule?.("project-storage");
       }
     });
+    window.addEventListener(PROJECT_CHANGED_EVENT, fetchProjects);
     [window, document].forEach(target => target.addEventListener(ACCOUNT_READY_EVENT, () => {
       fetchProjects();
       window.ZHILINK_UI_V4_RUNTIME?.schedule?.("account-ready");
@@ -540,8 +540,6 @@
     bindControls();
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(apply, { immediate: false });
     fetchProjects();
-    projectTimer = window.setInterval(fetchProjects, PROJECT_REFRESH_MS);
-    window.addEventListener("beforeunload", () => projectTimer && window.clearInterval(projectTimer), { once: true });
   }
 
   window.ZHILINK_UI_V4_SHELL = {
