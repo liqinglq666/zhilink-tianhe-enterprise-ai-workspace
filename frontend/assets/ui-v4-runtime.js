@@ -1,5 +1,31 @@
 /* UI V4 runtime: one core contract, hook/event bridge and presentation scheduler. */
 (() => {
+  if (!window.ZHILINK_UI_V4_HELPERS_READY) {
+    function readJson(raw, fallback) {
+      try { return raw ? JSON.parse(raw) : fallback; }
+      catch (_) { return fallback; }
+    }
+    function setText(element, value) {
+      if (element && element.textContent !== String(value)) element.textContent = String(value);
+    }
+    function escapeHtml(value) {
+      return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+    function ensureStylesheet(key, href) {
+      const attribute = `data-ui-v4-${key}`;
+      const existing = document.querySelector(`link[${attribute}]`);
+      if (existing) return existing;
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      link.setAttribute(attribute, "true");
+      document.head.appendChild(link);
+      return link;
+    }
+    window.ZHILINK_UI_V4_HELPERS = Object.freeze({ readJson, setText, escapeHtml, ensureStylesheet });
+    window.ZHILINK_UI_V4_HELPERS_READY = true;
+  }
+
   if (
     window.ZHILINK_UI_V4_RUNTIME_READY
     && window.ZHILINK_WORKSPACE_HOOKS_READY
