@@ -1,11 +1,12 @@
 /* Preserve generated-result trust metadata through the central request hook. */
 (() => {
-  const META_STORAGE = "zhilian_meta";
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
+  if (!contracts || !hooks) throw new Error("Workspace runtime must load before project result metadata.");
+
+  const META_STORAGE = contracts.storage.meta;
   const PROJECT_PATH = /^\/api\/projects(?:\/|\?|$)/;
   const WRITABLE_META_FIELDS = ["origin", "example_key", "result_schema_version"];
-  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
-
-  if (!hooks) throw new Error("Workspace hooks must load before project result metadata.");
 
   function readJson(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
