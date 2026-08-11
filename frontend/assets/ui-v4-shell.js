@@ -1,6 +1,6 @@
 /* UI V4 shell: owns workspace chrome, navigation, project and account context. */
 (() => {
-  const VERSION = "20260811.2";
+  const VERSION = "20260811.3";
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const ICONS = window.ZHILINK_UI_V4_ICONS;
   if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before shell.");
@@ -9,16 +9,7 @@
   const WORKSPACE_KEY_STORAGE = contracts.storage.workspaceKey;
   const ACCOUNT_READY_EVENT = contracts.events.accountReady;
   const PROJECT_CHANGED_EVENT = contracts.events.projectChanged;
-  const MODULES = {
-    home: { label: "工作首页", group: "工作台", icon: "home" },
-    meeting: { label: "会议纪要", group: "业务处理", icon: "meeting" },
-    contract: { label: "合同审阅", group: "业务处理", icon: "contract" },
-    policy: { label: "政策助手", group: "业务处理", icon: "policy" },
-    match: { label: "供需协作", group: "业务处理", icon: "match" },
-    profile: { label: "企业档案", group: "资料与执行", icon: "profile" },
-    landing: { label: "实施计划", group: "资料与执行", icon: "plan" },
-    report: { label: "报告归档", group: "归档", icon: "report" },
-  };
+  const MODULES = contracts.modules;
 
   let latestProjects = { items: [], total: 0 };
   let lastProjectSignature = "";
