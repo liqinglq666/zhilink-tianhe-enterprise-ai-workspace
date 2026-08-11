@@ -2,10 +2,12 @@
 (() => {
   const STORAGE_KEY = "zhilian_official_policy_sources_v3";
   const SEARCH_TIMEOUT_MS = 20000;
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const hooks = window.ZHILINK_WORKSPACE_HOOKS;
   let cached = read(sessionStorage.getItem(STORAGE_KEY), null);
   let activeSearch = null;
 
+  if (!contracts) throw new Error("Workspace contracts must load before policy sources.");
   if (!hooks) throw new Error("Workspace hooks must load before policy sources.");
 
   function read(raw, fallback) {
@@ -247,13 +249,13 @@
 
   function start() {
     injectUi();
-    window.addEventListener("zhilink:result-updated", event => {
+    window.addEventListener(contracts.events.resultUpdated, event => {
       if (event.detail?.key === "policy") queueMicrotask(decorate);
     });
-    window.addEventListener("zhilink:structured-updated", event => {
+    window.addEventListener(contracts.events.structuredUpdated, event => {
       if (event.detail?.module === "policy") queueMicrotask(decorate);
     });
-    window.addEventListener("zhilink:review-updated", event => {
+    window.addEventListener(contracts.events.reviewUpdated, event => {
       if (event.detail?.module === "policy") queueMicrotask(decorate);
     });
     document.addEventListener("click", event => {
