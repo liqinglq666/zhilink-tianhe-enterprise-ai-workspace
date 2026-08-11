@@ -1,6 +1,8 @@
 /* UI V4 overlays: one accessibility and interaction contract for dialogs and drawers. */
 (() => {
   const VERSION = "20260811.1";
+  const HELPERS = window.ZHILINK_UI_V4_HELPERS;
+  if (!HELPERS) throw new Error("Workspace runtime helpers must load before overlays.");
   const FOCUSABLE = [
     "a[href]",
     "button:not([disabled])",
@@ -96,14 +98,6 @@
   let returnFocus = null;
   let pendingOpener = null;
 
-  function ensureStyles() {
-    if (document.querySelector("link[data-ui-v4-overlays]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `/assets/ui-v4-overlays.css?v=${VERSION}`;
-    link.dataset.uiV4Overlays = "true";
-    document.head.appendChild(link);
-  }
   function visible(element) {
     if (!(element instanceof HTMLElement)) return false;
     if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
@@ -210,7 +204,7 @@
     trapFocus(event);
   }
   function start() {
-    ensureStyles();
+    HELPERS.ensureStylesheet("overlays", `/assets/ui-v4-overlays.css?v=${VERSION}`);
     OVERLAYS.forEach(decorate);
     document.addEventListener("click", event => {
       const opener = event.target.closest?.(OPENER_SELECTOR);
