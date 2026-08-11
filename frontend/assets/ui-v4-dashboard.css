@@ -4,6 +4,49 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-dashboard #home {
   margin: 0 auto;
 }
 
+/* Home-only primitives live here so Shell owns chrome, not dashboard content. */
+.ui-v4-dashboard #home .ui-v4-home-grid {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+.ui-v4-dashboard #home .ui-v4-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.ui-v4-dashboard #home .ui-v4-panel-head h3 { margin: 0; font-size: 15px; }
+.ui-v4-dashboard #home .ui-v4-panel-head span { color: #64748b; font-size: 12px; }
+.ui-v4-dashboard #home .ui-v4-pending-list { display: grid; gap: 7px; }
+.ui-v4-dashboard #home .ui-v4-pending-item {
+  display: grid;
+  align-items: start;
+}
+.ui-v4-dashboard #home .ui-v4-pending-icon {
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+.ui-v4-dashboard #home .ui-v4-pending-item strong,
+.ui-v4-dashboard #home .ui-v4-pending-item small { display: block; }
+.ui-v4-dashboard #home .ui-v4-panel-empty,
+.ui-v4-dashboard #home .ui-v4-usage-note {
+  margin: 0;
+  color: #718096;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.ui-v4-dashboard #home .ui-v4-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.ui-v4-dashboard #home .ui-v4-metric strong { display: block; }
+.ui-v4-dashboard #home .ui-v4-metric span { color: #718096; }
+
 .ui-v4-dashboard #home .overview-panel {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(340px, .75fr);
@@ -300,5 +343,6 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-dashboard #home {
   .ui-v4-dashboard #home .ui-v4-work-hero button { width: 100%; }
   .ui-v4-dashboard #home .module-grid { grid-template-columns: 1fr; }
   .ui-v4-dashboard #home .ui-v4-secondary-task::after { top: 12px; right: 12px; }
+  .ui-v4-dashboard #home .ui-v4-home-grid { gap: 12px; }
   .ui-v4-dashboard #home .ui-v4-safety-strip .principle-grid { grid-template-columns: 1fr; }
 }
