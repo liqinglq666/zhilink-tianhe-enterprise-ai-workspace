@@ -3,10 +3,12 @@
   const INTERNAL_REF_RE = /\[(?:MT-\d{2}|MP-\d{2}|MT-C\d{2})\]/g;
   const HIDDEN_SECTIONS = new Set(["自动一致性校验", "输入证据与待确认索引", "证据索引", "AI 建议补充动作"]);
   const EVIDENCE_HEADERS = ["证据编号", "原文证据", "依据编号", "证据引用", "来源编号"];
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const hooks = window.ZHILINK_WORKSPACE_HOOKS;
   let scheduled = false;
   let decorating = false;
 
+  if (!contracts) throw new Error("Workspace contracts must load before meeting user view.");
   if (!hooks) throw new Error("Workspace hooks must load before meeting user view.");
 
   function rawMeeting() {
@@ -275,17 +277,17 @@
     });
   }
 
-  window.addEventListener("zhilink:result-updated", event => {
+  window.addEventListener(contracts.events.resultUpdated, event => {
     const key = event.detail?.key;
     if (key === "meeting") scheduleDecorate();
     if (key === "report" && event.detail?.content) {
       queueMicrotask(() => replaceResultBody(document.getElementById("reportResult"), sanitizeReportMarkdown(event.detail.content)));
     }
   });
-  window.addEventListener("zhilink:structured-updated", event => {
+  window.addEventListener(contracts.events.structuredUpdated, event => {
     if (event.detail?.module === "meeting") scheduleDecorate();
   });
-  window.addEventListener("zhilink:review-updated", event => {
+  window.addEventListener(contracts.events.reviewUpdated, event => {
     if (event.detail?.module === "meeting") scheduleDecorate();
   });
 
