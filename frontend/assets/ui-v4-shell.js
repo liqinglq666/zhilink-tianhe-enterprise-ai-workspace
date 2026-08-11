@@ -1,12 +1,18 @@
 /* UI V4 shell: owns workspace chrome, navigation and lightweight dashboard context. */
 (() => {
   const VERSION = "20260811.1";
-  const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
-  const WORKSPACE_KEY_STORAGE = "zhilian_workspace_key_v1";
-  const ACCOUNT_READY_EVENT = "zhilink:account-ready";
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  if (!contracts) throw new Error("Workspace contracts must load before shell.");
+
+  const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
+  const WORKSPACE_KEY_STORAGE = contracts.storage.workspaceKey;
+  const RESULTS_STORAGE = contracts.storage.results;
+  const META_STORAGE = contracts.storage.meta;
+  const ACCOUNT_READY_EVENT = contracts.events.accountReady;
   const PROJECT_REFRESH_MS = 30000;
-  const FORMAL_ORIGINS = new Set(["user", "project", "imported"]);
-  const RESULT_KEYS = ["profile", "meeting", "contract", "policy", "match", "landing"];
+  const FORMAL_ORIGINS = new Set(contracts.formalOrigins);
+  const RESULT_KEYS = contracts.resultKeys;
+  const RESULT_TITLES = contracts.resultTitles;
   const MODULES = {
     home: { label: "工作首页", group: "工作台", icon: "home" },
     meeting: { label: "会议纪要", group: "业务处理", result: "会议纪要 · AI 生成结果", icon: "meeting" },
@@ -78,8 +84,8 @@
   function currentProject() { return readJson(localStorage.getItem(CURRENT_PROJECT_STORAGE), null); }
   function resultState() {
     return {
-      results: typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem("zhilian_results"), {}),
-      meta: typeof state !== "undefined" ? state.meta || {} : readJson(sessionStorage.getItem("zhilian_meta"), {}),
+      results: typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem(RESULTS_STORAGE), {}),
+      meta: typeof state !== "undefined" ? state.meta || {} : readJson(sessionStorage.getItem(META_STORAGE), {}),
     };
   }
   function isFormalResult(key) {
@@ -301,7 +307,6 @@
     const items = [];
     const seen = new Set();
     const pattern = /(待确认|需确认|人工确认|尚未明确|未明确|待补充|待核实|需核实)/;
-    const titles = typeof resultTitles !== "undefined" ? resultTitles : {};
     const { results } = resultState();
     RESULT_KEYS.forEach(key => {
       if (!isFormalResult(key)) return;
@@ -309,7 +314,7 @@
         const text = raw.replace(/^[#>*\-\d.、\s]+/, "").replace(/\[[A-Z0-9-]+\]/g, "").replace(/\s+/g, " ").trim();
         if (!text || !pattern.test(text) || seen.has(text)) return;
         seen.add(text);
-        items.push({ title: text.slice(0, 70), source: titles[key] || key });
+        items.push({ title: text.slice(0, 70), source: RESULT_TITLES[key] || key });
       });
     });
     RESULT_KEYS.forEach(key => {
@@ -317,7 +322,7 @@
       byId(`${key}Result`)?.querySelectorAll(".review-workflow-bar strong").forEach(node => {
         const text = node.textContent.trim();
         if (!/(待审核|退回|失效|尚未建立)/.test(text)) return;
-        const title = `${titles[key] || "材料"}：${text}`;
+        const title = `${RESULT_TITLES[key] || "材料"}：${text}`;
         if (!seen.has(title)) { seen.add(title); items.push({ title, source: "人工复核" }); }
       });
     });
@@ -357,7 +362,6 @@
     if (metrics.innerHTML !== html) metrics.innerHTML = html;
     setText(note, project ? `当前项目：${project.name} · v${project.lock_version}${project.status === "archived" ? " · 已归档" : ""}` : "当前未打开持久化项目。示例和旧会话材料不会进入正式统计。");
   }
-
   function syncProjectContext() {
     const project = currentProject();
     const source = byId("openProjectManager");
