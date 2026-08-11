@@ -3,13 +3,15 @@
   const VERSION = "20260811.3";
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const ICONS = window.ZHILINK_UI_V4_ICONS;
-  if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before shell.");
+  const HELPERS = window.ZHILINK_UI_V4_HELPERS;
+  if (!contracts || !ICONS || !HELPERS) throw new Error("Workspace runtime, icons and helpers must load before shell.");
 
   const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
   const WORKSPACE_KEY_STORAGE = contracts.storage.workspaceKey;
   const ACCOUNT_READY_EVENT = contracts.events.accountReady;
   const PROJECT_CHANGED_EVENT = contracts.events.projectChanged;
   const MODULES = contracts.modules;
+  const { readJson, setText, escapeHtml: safe } = HELPERS;
 
   let latestProjects = { items: [], total: 0 };
   let lastProjectSignature = "";
@@ -17,19 +19,8 @@
   let bound = false;
 
   const byId = id => document.getElementById(id);
-  const readJson = (raw, fallback) => { try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; } };
-  const setText = (element, value) => { if (element && element.textContent !== String(value)) element.textContent = String(value); };
-  const safe = value => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
   const notify = message => typeof toast === "function" ? toast(message) : console.info(message);
 
-  function ensureStyles() {
-    if (document.querySelector("link[data-ui-v4-shell]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `/assets/ui-v4-shell.css?v=${VERSION}`;
-    link.dataset.uiV4Shell = "true";
-    document.head.appendChild(link);
-  }
   function ensureWorkspaceKey() {
     let key = localStorage.getItem(WORKSPACE_KEY_STORAGE) || "";
     if (key.length >= 32) return key;
@@ -328,7 +319,7 @@
   }
 
   function apply() {
-    ensureStyles();
+    HELPERS.ensureStylesheet("shell", `/assets/ui-v4-shell.css?v=${VERSION}`);
     if (!document.body) return;
     document.body.classList.add("ui-v4-shell");
     document.documentElement.dataset.zhilinkUi = "v4";
