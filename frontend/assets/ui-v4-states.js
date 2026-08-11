@@ -1,6 +1,8 @@
 /* UI V4 states: consistent empty, loading, error and feedback presentation without owning business state. */
 (() => {
   const VERSION = "20260811.1";
+  const { ensureStylesheet } = window.ZHILINK_UI_V4_HELPERS || {};
+  if (!ensureStylesheet) throw new Error("UI V4 helpers must load before states.");
   const STATE_SELECTOR = [
     ".result-panel",
     ".project-empty",
@@ -12,15 +14,6 @@
     "#connectionResult",
     "#toast",
   ].join(",");
-
-  function ensureStyles() {
-    if (document.querySelector("link[data-ui-v4-states]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `/assets/ui-v4-states.css?v=${VERSION}`;
-    link.dataset.uiV4States = "true";
-    document.head.appendChild(link);
-  }
 
   function normalizedText(element) {
     return String(element?.textContent || "").replace(/\s+/g, " ").trim();
@@ -168,7 +161,7 @@
   }
 
   function start() {
-    ensureStyles();
+    ensureStylesheet("states", `/assets/ui-v4-states.css?v=${VERSION}`);
     document.body.classList.add("ui-v4-states");
     sync(document);
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(() => sync(document), { immediate: false });
