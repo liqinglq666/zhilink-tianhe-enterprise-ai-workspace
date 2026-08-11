@@ -68,7 +68,8 @@ def test_javascript_owners_match_css_owners() -> None:
     for required in (
         'meta.className = "ui-v4-module-meta"',
         'button.insertAdjacentHTML("beforeend", ICONS.arrow)',
-        'result.setAttribute("aria-label", config.resultLabel)',
+        'result.setAttribute("aria-label", shared.resultLabel)',
+        "ICONS[shared.icon]",
     ):
         assert required in workspace, required
 
@@ -80,9 +81,11 @@ def test_javascript_owners_match_css_owners() -> None:
         'holder.classList.add("ui-v4-module-icon")',
         'button.insertAdjacentHTML("beforeend", ICONS.arrow)',
         "ZHILINK_UI_V4_SHELL?.projectCount?.()",
+        "const MODULE_ORDER = contracts.moduleOrder",
     ):
         assert required in dashboard, required
 
+    assert "const modules = Object.freeze({" in runtime
     assert "const icons = Object.freeze({" in runtime
     assert "window.ZHILINK_UI_V4_ICONS = icons" in runtime
     assert "window.ZHILINK_UI_V4_ICONS_READY = true" in runtime
