@@ -17,13 +17,14 @@ def test_production_bundle_is_consolidated_v4_and_preserves_business_layers() ->
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION == "2026-08-11-ui-v4-core-slim-v8"
+    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION == "2026-08-11-ui-v4-runtime-contracts-v9"
 
     required = [
-        "ZHILINK_EXAMPLE_LOADER_READY",
+        "ZHILINK_WORKSPACE_CONTRACTS_READY",
         "ZHILINK_WORKSPACE_HOOKS_READY",
         "ZHILINK_RESULT_EVENTS_READY",
         "ZHILINK_UI_V4_RUNTIME_READY",
+        "ZHILINK_EXAMPLE_LOADER_READY",
         "ZHILINK_DATA_PROVENANCE_READY",
         "ZHILINK_UI_V4_SHELL_READY",
         "ZHILINK_API_DRAWER_V4_READY",
@@ -109,6 +110,10 @@ def test_v4_shell_owns_navigation_project_context_and_dashboard_support() -> Non
     navigation_css = (ASSETS / "ui-v4-navigation.css").read_text(encoding="utf-8")
 
     assert "ZHILINK_UI_V4_SHELL_READY" in script
+    assert "window.ZHILINK_WORKSPACE_CONTRACTS" in script
+    assert "contracts.storage.currentProject" in script
+    assert "contracts.resultKeys" in script
+    assert "contracts.resultTitles" in script
     assert 'document.body.classList.add("ui-v4-shell")' in script
     assert "uiV4TopNav" in script
     assert "uiV4ProjectContext" in script
