@@ -57,16 +57,21 @@ def test_policy_schema_is_owned_by_unified_provenance_guard() -> None:
     assert "installPolicyResultVersionGuard" not in policy
     assert "migrateStalePolicyResult" not in policy
     assert "POLICY_RESULT_SCHEMA_VERSION" not in policy
-    assert "officialPolicyAwareStream" in policy
+    assert 'hooks.register("generation:request"' in policy
+    assert 'url: "/api/policy/official/stream"' in policy
+    assert "apiStream =" not in policy
 
 
-def test_production_bundle_orders_bridge_before_event_consumers() -> None:
+def test_production_bundle_orders_bridges_before_event_consumers() -> None:
     routes = ROUTES.read_text(encoding="utf-8")
+    assert '"workspace-hooks.js"' in routes
     assert '"result-events.js"' in routes
     assert '"data-provenance-guard.js"' in routes
     assert '"data-provenance-guard-v2.js"' not in routes
 
+    hooks = routes.index('"workspace-hooks.js"')
     bridge = routes.index('"result-events.js"')
+    assert hooks < bridge
     for filename in (
         "review-workflow.js",
         "structured-results.js",
@@ -81,6 +86,7 @@ def test_production_bundle_orders_bridge_before_event_consumers() -> None:
         removed = client.get("/assets/data-provenance-guard-v2.js")
 
     assert bundle.status_code == 200
-    assert bundle.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-result-events-v5"
+    assert bundle.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-hooks-v6"
+    assert "ZHILINK_WORKSPACE_HOOKS_READY" in bundle.text
     assert "ZHILINK_RESULT_EVENTS_READY" in bundle.text
     assert removed.status_code == 404
