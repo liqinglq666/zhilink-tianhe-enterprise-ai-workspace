@@ -34,10 +34,23 @@
     structuredUpdated: "zhilink:structured-updated",
     reviewUpdated: "zhilink:review-updated",
   });
+  const modules = Object.freeze({
+    home: Object.freeze({ label: "工作首页", group: "工作台", icon: "home", resultLabel: "" }),
+    meeting: Object.freeze({ label: "会议纪要", group: "业务处理", icon: "meeting", resultLabel: "会议纪要 · AI 生成结果" }),
+    contract: Object.freeze({ label: "合同审阅", group: "业务处理", icon: "contract", resultLabel: "合同风险 · AI 审阅结果" }),
+    policy: Object.freeze({ label: "政策助手", group: "业务处理", icon: "policy", resultLabel: "政策方向 · AI 建议结果" }),
+    match: Object.freeze({ label: "供需协作", group: "业务处理", icon: "match", resultLabel: "供需协作 · AI 方案结果" }),
+    profile: Object.freeze({ label: "企业档案", group: "资料与执行", icon: "profile", resultLabel: "企业档案 · 生成结果" }),
+    landing: Object.freeze({ label: "实施计划", group: "资料与执行", icon: "plan", resultLabel: "实施计划 · AI 生成结果" }),
+    report: Object.freeze({ label: "报告归档", group: "归档", icon: "report", resultLabel: "运营报告 · 汇总与导出" }),
+  });
+  const moduleOrder = Object.freeze(["meeting", "contract", "policy", "match", "profile", "landing"]);
   const contracts = Object.freeze({
     resultKeys: Object.freeze(coreResultKeys),
     schemaResultKeys: Object.freeze([...coreResultKeys, "report"]),
     resultTitles: Object.freeze(coreResultTitles),
+    modules,
+    moduleOrder,
     storage,
     events,
     formalOrigins: Object.freeze(["user", "project", "imported"]),
