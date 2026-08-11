@@ -1,4 +1,4 @@
-/* UI V4 shell: structural workspace chrome with no V1/V2/V3 compatibility dependency. */
+/* UI V4 shell: structural workspace chrome, navigation and project context. */
 body.ui-v4-shell {
   margin: 0;
   min-height: 100%;
@@ -76,6 +76,7 @@ body.ui-v4-shell {
   font-weight: 720;
   letter-spacing: .05em;
 }
+.ui-v4-shell .nav > .nav-group-label:first-child { margin-top: 0; }
 .ui-v4-shell .nav button {
   position: relative;
   width: 100%;
@@ -114,7 +115,50 @@ body.ui-v4-shell {
 }
 .ui-v4-shell .nav button.active .ui-v4-nav-icon { color: #bfdbfe; background: rgba(59,130,246,.12); }
 .ui-v4-shell .ui-v4-nav-icon svg { width: 17px; height: 17px; }
+.ui-v4-shell .ui-v4-nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ui-v4-shell .tool-status-card { display: none !important; }
+
+.ui-v4-shell .ui-v4-resource-navigation { margin-top: 9px; padding-top: 1px; }
+.ui-v4-shell .ui-v4-resource-button {
+  width: 100%;
+  min-height: 50px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  color: #b5c5d8;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+}
+.ui-v4-shell .ui-v4-resource-button:hover { color: #fff; background: rgba(148,163,184,.09); }
+.ui-v4-shell .ui-v4-resource-button.is-locked { color: #7e91aa; }
+.ui-v4-shell .ui-v4-resource-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(148,163,184,.09);
+}
+.ui-v4-shell .ui-v4-resource-icon svg { width: 17px; height: 17px; }
+.ui-v4-shell .ui-v4-resource-copy { min-width: 0; display: grid; gap: 1px; }
+.ui-v4-shell .ui-v4-resource-copy strong { color: inherit; font-size: 12px; font-weight: 650; }
+.ui-v4-shell .ui-v4-resource-copy small {
+  overflow: hidden;
+  color: #7187a3;
+  font-size: 10px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .ui-v4-shell .ui-v4-sidebar-recent {
   margin-top: 14px;
@@ -204,9 +248,79 @@ body.ui-v4-shell {
   backdrop-filter: blur(14px);
 }
 .ui-v4-shell .topbar > div:first-of-type { min-width: 0; flex: 1 1 auto; }
+.ui-v4-shell .topbar .track {
+  margin-bottom: 2px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+.ui-v4-shell .topbar h2 {
+  overflow: hidden;
+  color: #172033;
+  font-size: clamp(18px,1.5vw,21px);
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-v4-shell .topbar p { max-width: 760px; margin-top: 2px; color: #64748b; font-size: 11px; line-height: 1.4; }
 .ui-v4-shell .top-actions { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
 .ui-v4-shell .top-actions > :not(#uiV4TopNav) { display: none !important; }
 .ui-v4-shell .ui-v4-top-nav { display: flex; align-items: center; gap: 7px; }
+
+.ui-v4-shell .ui-v4-project-context {
+  min-width: 220px;
+  max-width: 330px;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 30px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  color: #334155;
+  text-align: left;
+  border: 1px solid #dbe3ec;
+  border-radius: 9px;
+  background: #fff;
+}
+.ui-v4-shell .ui-v4-project-context:hover { color: #1e3a5f; border-color: #c5d4e4; background: #fbfdff; }
+.ui-v4-shell .ui-v4-project-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  border-radius: 7px;
+  background: #f1f5f9;
+}
+.ui-v4-shell .ui-v4-project-context.has-project .ui-v4-project-icon { color: var(--ui4-primary); background: #eff6ff; }
+.ui-v4-shell .ui-v4-project-icon svg { width: 17px; height: 17px; }
+.ui-v4-shell .ui-v4-project-copy { min-width: 0; display: grid; gap: 0; }
+.ui-v4-shell .ui-v4-project-copy small { color: #94a3b8; font-size: 9px; font-weight: 650; line-height: 1.2; }
+.ui-v4-shell .ui-v4-project-copy strong {
+  overflow: hidden;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 680;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-v4-shell .ui-v4-project-meta {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 650;
+  border-radius: 999px;
+  background: #f1f5f9;
+  white-space: nowrap;
+}
+.ui-v4-shell .ui-v4-project-context.is-dirty .ui-v4-project-meta { color: #9a5b05; background: #fff7ed; }
+.ui-v4-shell .ui-v4-project-context.is-archived .ui-v4-project-meta { color: #64748b; background: #f1f5f9; }
 
 .ui-v4-shell .ui-v4-account-wrap { position: relative; }
 .ui-v4-shell .ui-v4-account-toggle {
@@ -353,6 +467,24 @@ body.ui-v4-shell {
 .ui-v4-shell .ui-v4-metric strong { display: block; font-size: 22px; }
 .ui-v4-shell .ui-v4-metric span { color: #718096; font-size: 12px; }
 
+/* Workspace panes inherit their desktop sticky offset from the shell chrome. */
+@media (min-width: 1181px) {
+  .ui-v4-shell.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane,
+  .ui-v4-shell.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane { top: 88px; }
+  .ui-v4-shell.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane { max-height: calc(100vh - 102px); }
+  .ui-v4-shell.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane:not(.empty) {
+    min-height: calc(100vh - 102px);
+    max-height: calc(100vh - 102px);
+  }
+}
+
+@media (min-width: 1021px) and (max-width: 1240px) {
+  .ui-v4-shell .shell { grid-template-columns: 236px minmax(0, 1fr); }
+  .ui-v4-shell .sidebar { width: 236px; }
+  .ui-v4-shell .ui-v4-project-context { min-width: 190px; max-width: 250px; }
+  .ui-v4-shell .topbar p { display: none; }
+}
+
 @media (max-width: 1020px) {
   .ui-v4-shell .shell { display: block; }
   .ui-v4-shell .sidebar {
@@ -392,11 +524,28 @@ body.ui-v4-shell {
   .ui-v4-shell .main { padding: 0 18px 38px; }
   .ui-v4-shell .topbar { margin: 0 -18px 16px; padding: 10px 18px 10px 58px; }
   .ui-v4-shell .ui-v4-home-grid { grid-template-columns: 1fr; }
+  .ui-v4-shell .ui-v4-project-context { min-width: 170px; max-width: 220px; }
+  .ui-v4-shell #uiV4AccountLabel { display: none; }
+  .ui-v4-shell .ui-v4-account-toggle { padding-right: 6px; }
+  .ui-v4-shell .ui-v4-account-toggle > svg { display: none; }
 }
 
 @media (max-width: 720px) {
   .ui-v4-shell .main { padding: 0 12px 30px; }
   .ui-v4-shell .topbar { min-height: 64px; margin: 0 -12px 14px; padding: 9px 12px 9px 52px; }
+  .ui-v4-shell .topbar .track { display: none; }
+  .ui-v4-shell .topbar h2 { max-width: 42vw; font-size: 16px; }
+  .ui-v4-shell .ui-v4-project-context {
+    min-width: 0;
+    width: 40px;
+    height: 40px;
+    grid-template-columns: 1fr;
+    padding: 4px;
+    place-items: center;
+  }
+  .ui-v4-shell .ui-v4-project-copy,
+  .ui-v4-shell .ui-v4-project-meta { display: none; }
+  .ui-v4-shell .ui-v4-project-icon { width: 30px; height: 30px; }
   .ui-v4-shell .ui-v4-account-toggle {
     width: 40px;
     height: 40px;
@@ -413,6 +562,10 @@ body.ui-v4-shell {
     width: min(260px, calc(100vw - 20px));
   }
   .ui-v4-shell .ui-v4-home-grid { gap: 12px; }
+}
+
+@media (max-width: 420px) {
+  .ui-v4-shell .topbar h2 { max-width: 36vw; }
 }
 
 @media (prefers-reduced-motion: reduce) {
