@@ -1,9 +1,12 @@
-/* Official-policy candidate retrieval, source viewer, and grounded route switch. */
+/* Official-policy candidate retrieval and grounded generation hook. */
 (() => {
   const STORAGE_KEY = "zhilian_official_policy_sources_v3";
   const SEARCH_TIMEOUT_MS = 20000;
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
   let cached = read(sessionStorage.getItem(STORAGE_KEY), null);
   let activeSearch = null;
+
+  if (!hooks) throw new Error("Workspace hooks must load before policy sources.");
 
   function read(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
@@ -170,10 +173,10 @@
     if (!panel || typeof state === "undefined" || !state.results?.policy) return;
     panel.querySelector(".policy-source-bar")?.remove();
     const retrieval = cached?.retrieval;
-    const bar = document.createElement("div");
-    bar.className = `policy-source-bar policy-source-${safe(retrieval?.status || "unknown")}`;
     const count = retrieval?.sources?.length || 0;
     const countText = count ? `${count} 个通过初筛的候选来源` : "0 个可核验的直接相关候选来源";
+    const bar = document.createElement("div");
+    bar.className = `policy-source-bar policy-source-${safe(retrieval?.status || "unknown")}`;
     bar.innerHTML = `
       <div><strong>${safe(retrieval ? retrievalStatusLabel(retrieval.status) : "正在准备官方候选来源")}</strong>
       <small>${retrieval ? `${countText} · ${safe(retrieval.retrieved_at || "")} · 结论须人工核验` : "生成政策报告前会自动检索"}</small></div>
@@ -236,22 +239,14 @@
     modal?.setAttribute("aria-hidden", "true");
   }
 
-  function installRouteSwitch() {
-    if (window.__ZHILINK_POLICY_SOURCE_ROUTE_INSTALLED || typeof apiStream !== "function") return;
-    window.__ZHILINK_POLICY_SOURCE_ROUTE_INSTALLED = true;
-    const previousApiStream = apiStream;
-    apiStream = async function officialPolicyAwareStream(url, payload, key) {
-      if (url === "/api/policy/stream" && key === "policy") {
-        await searchSources(false).catch(error => console.warn("official policy candidate pre-search unavailable", error));
-        return previousApiStream("/api/policy/official/stream", payload, key);
-      }
-      return previousApiStream(url, payload, key);
-    };
-  }
+  hooks.register("generation:request", async request => {
+    if (request.url !== "/api/policy/stream" || request.key !== "policy") return request;
+    await searchSources(false).catch(error => console.warn("official policy candidate pre-search unavailable", error));
+    return { ...request, url: "/api/policy/official/stream" };
+  });
 
   function start() {
     injectUi();
-    installRouteSwitch();
     window.addEventListener("zhilink:result-updated", event => {
       if (event.detail?.key === "policy") queueMicrotask(decorate);
     });
