@@ -5,24 +5,25 @@ from fastapi.testclient import TestClient
 from backend.main import app
 
 
-def test_v4_states_loads_business_form_layer_from_production_bundle() -> None:
+def test_v4_forms_are_loaded_directly_after_state_layer() -> None:
     with TestClient(app) as client:
         bundle = client.get("/assets/app.js")
-        states = client.get("/assets/ui-v4-states.js?v=20260810.1")
+        states = client.get("/assets/ui-v4-states.js?v=20260811.1")
+        forms = client.get("/assets/ui-v4-forms.js?v=20260811.1")
 
     assert bundle.status_code == 200
     assert states.status_code == 200
-    assert "ZHILINK_UI_V4_STATES_READY" in bundle.text
-    assert 'function ensureForms()' in states.text
-    assert '/assets/ui-v4-forms.js?v=${VERSION}' in states.text
-    assert 'script.dataset.uiV4Forms = "true"' in states.text
-    assert 'ensureForms();' in states.text
+    assert forms.status_code == 200
+    assert bundle.text.index("ZHILINK_UI_V4_STATES_READY") < bundle.text.index("ZHILINK_UI_V4_FORMS_READY")
+    assert "ensureForms" not in states.text
+    assert "document.createElement(\"script\")" not in states.text
+    assert "ZHILINK_UI_V4_FORMS_READY" in forms.text
 
 
 def test_v4_form_assets_expose_consistent_business_input_hierarchy() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-forms.js?v=20260810.1")
-        stylesheet = client.get("/assets/ui-v4-forms.css?v=20260810.1")
+        script = client.get("/assets/ui-v4-forms.js?v=20260811.1")
+        stylesheet = client.get("/assets/ui-v4-forms.css?v=20260811.1")
 
     assert script.status_code == 200
     assert stylesheet.status_code == 200
@@ -51,7 +52,7 @@ def test_v4_form_assets_expose_consistent_business_input_hierarchy() -> None:
 
 def test_v4_forms_match_existing_business_validation_without_adding_new_required_rules() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-forms.js?v=20260810.1")
+        script = client.get("/assets/ui-v4-forms.js?v=20260811.1")
 
     text = script.text
     assert 'value("meetingInput").length < 8' in text
@@ -61,9 +62,6 @@ def test_v4_forms_match_existing_business_validation_without_adding_new_required
     assert 'section === "match" && !config.fields.some(id => Boolean(value(id)))' in text
     assert 'section === "landing"' in text
     assert 'badge: "按需填写"' in text
-
-    # Only meeting and contract are individually marked required. Other modules use existing
-    # alternative/group requirements instead of inventing new mandatory fields.
     assert 'meetingInput: "必填"' in text
     assert 'contractInput: "必填"' in text
     assert 'policyDemand: "必填"' not in text
@@ -73,15 +71,7 @@ def test_v4_forms_match_existing_business_validation_without_adding_new_required
 
 def test_v4_forms_do_not_own_business_or_persistence_state() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-forms.js?v=20260810.1")
+        script = client.get("/assets/ui-v4-forms.js?v=20260811.1")
 
-    for forbidden in (
-        "fetch(",
-        "localStorage",
-        "sessionStorage",
-        "state.results",
-        "setResult(",
-        "saveConfig(",
-        "apiStream(",
-    ):
+    for forbidden in ("fetch(", "localStorage", "sessionStorage", "state.results", "setResult(", "saveConfig(", "apiStream("):
         assert forbidden not in script.text
