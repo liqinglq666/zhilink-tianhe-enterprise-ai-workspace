@@ -1,7 +1,12 @@
 /* UI V4 dashboard: task-first home workspace, backed only by UI V4 shell primitives. */
 (() => {
   const VERSION = "20260811.1";
-  const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  if (!contracts) throw new Error("Workspace contracts must load before dashboard.");
+
+  const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
+  const RESULTS_STORAGE = contracts.storage.results;
+  const META_STORAGE = contracts.storage.meta;
   const MODULE_ORDER = ["meeting", "contract", "policy", "match", "profile", "landing"];
 
   function readJson(raw, fallback) { try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; } }
@@ -20,8 +25,8 @@
     return [project.id || "", project.name || "", project.status || "", project.lock_version || "", project.updated_at || ""].join("|");
   }
   function latestWorkSection() {
-    const meta = typeof state !== "undefined" ? state.meta || {} : readJson(sessionStorage.getItem("zhilian_meta"), {});
-    const results = typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem("zhilian_results"), {});
+    const meta = typeof state !== "undefined" ? state.meta || {} : readJson(sessionStorage.getItem(META_STORAGE), {});
+    const results = typeof state !== "undefined" ? state.results || {} : readJson(sessionStorage.getItem(RESULTS_STORAGE), {});
     const candidates = MODULE_ORDER.filter(key => String(results[key] || "").trim()).map(key => ({ key, time: Date.parse(meta[key]?.time || "") || 0 }));
     candidates.sort((a, b) => b.time - a.time);
     return candidates[0]?.key || "meeting";
