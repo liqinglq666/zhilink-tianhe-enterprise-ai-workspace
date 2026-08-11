@@ -7,15 +7,19 @@ from backend.main import app
 
 def test_v4_state_assets_are_served_and_action_oriented() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-states.js?v=20260810.1")
-        stylesheet = client.get("/assets/ui-v4-states.css?v=20260810.1")
+        script = client.get("/assets/ui-v4-states.js?v=20260811.1")
+        runtime = client.get("/assets/ui-v4-runtime.js?v=20260811.1")
+        stylesheet = client.get("/assets/ui-v4-states.css?v=20260811.1")
 
     assert script.status_code == 200
+    assert runtime.status_code == 200
     assert stylesheet.status_code == 200
 
     assert "ZHILINK_UI_V4_STATES_READY" in script.text
     assert 'document.body.classList.add("ui-v4-states")' in script.text
-    assert "MutationObserver" in script.text
+    assert "MutationObserver" not in script.text
+    assert 'window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(() => sync(document), { immediate: false })' in script.text
+    assert "new MutationObserver" in runtime.text
     assert 'element.setAttribute("aria-live", "assertive")' in script.text
     assert 'element.setAttribute("aria-live", "polite")' in script.text
     assert 'element.setAttribute("aria-busy", "true")' in script.text
@@ -37,30 +41,23 @@ def test_v4_state_assets_are_served_and_action_oriented() -> None:
 
 def test_v4_states_only_decorate_existing_ui_state() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-states.js?v=20260810.1")
+        script = client.get("/assets/ui-v4-states.js?v=20260811.1")
 
     for forbidden in (
-        "fetch(",
-        "XMLHttpRequest",
-        "sessionStorage",
-        "localStorage",
-        "state.results",
-        "setResult",
-        "saveConfig",
-        "projectRequest",
+        "fetch(", "XMLHttpRequest", "sessionStorage", "localStorage", "state.results", "setResult", "saveConfig", "projectRequest",
     ):
         assert forbidden not in script.text
 
-    # State decoration must not synthesize business success or performance metrics.
     for forbidden in ("98%", "提升", "节省时间", "审核准确率", "业务成功"):
         assert forbidden not in script.text
 
 
-def test_v4_state_observer_does_not_watch_its_own_aria_busy_updates() -> None:
+def test_shared_runtime_observer_does_not_watch_aria_busy_updates() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-states.js?v=20260810.1")
+        runtime = client.get("/assets/ui-v4-runtime.js?v=20260811.1")
+        states = client.get("/assets/ui-v4-states.js?v=20260811.1")
 
-    assert 'attributeFilter: ["class", "disabled"]' in script.text
-    assert 'attributeFilter: ["class", "disabled", "aria-busy"]' not in script.text
-    assert 'button.ui-v4-loading-control:not(.loading)' in script.text
-    assert 'button.dataset.uiV4BusyOwned = "true"' in script.text
+    assert 'attributeFilter: ["class", "hidden", "aria-hidden", "aria-expanded", "disabled"]' in runtime.text
+    assert '"aria-busy"' not in runtime.text
+    assert 'button.ui-v4-loading-control:not(.loading)' in states.text
+    assert 'button.dataset.uiV4BusyOwned = "true"' in states.text
