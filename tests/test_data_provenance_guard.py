@@ -15,10 +15,12 @@ def test_production_bundle_loads_unified_provenance_after_core_runtime() -> None
         response = client.get("/assets/app.js")
 
     assert response.status_code == 200
+    assert "ZHILINK_WORKSPACE_CONTRACTS_READY" in response.text
     assert "ZHILINK_WORKSPACE_HOOKS_READY" in response.text
     assert "ZHILINK_RESULT_EVENTS_READY" in response.text
     assert "ZHILINK_DATA_PROVENANCE_READY" in response.text
     assert "ZHILINK_UI_V4_RUNTIME_READY" in response.text
+    assert response.text.index("ZHILINK_WORKSPACE_CONTRACTS_READY") < response.text.index("ZHILINK_DATA_PROVENANCE_READY")
     assert response.text.index("ZHILINK_WORKSPACE_HOOKS_READY") < response.text.index("ZHILINK_DATA_PROVENANCE_READY")
     assert response.text.index("ZHILINK_RESULT_EVENTS_READY") < response.text.index("ZHILINK_DATA_PROVENANCE_READY")
     assert response.text.index("ZHILINK_UI_V4_RUNTIME_READY") < response.text.index("ZHILINK_DATA_PROVENANCE_READY")
@@ -37,7 +39,7 @@ def test_data_provenance_is_one_self_contained_asset() -> None:
     assert 'BASE_RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2"' in core.text
     assert 'contract: "20260807-contract-grounded-v3"' in core.text
     assert 'policy: "20260807-policy-grounded-v3"' in core.text
-    assert 'QUARANTINE_STORAGE = "zhilian_legacy_result_quarantine_v1"' in core.text
+    assert "QUARANTINE_STORAGE = contracts.storage.legacyQuarantine" in core.text
     assert 'STYLE_URL = "/assets/data-provenance-guard.css?v=20260806.1"' in core.text
     assert "function ensureStyles()" in core.text
     assert "ZHILINK_DATA_PROVENANCE_READY" in core.text
@@ -49,7 +51,7 @@ def test_data_provenance_is_one_self_contained_asset() -> None:
 def test_example_and_legacy_results_are_not_formal_workspace_data() -> None:
     script = (ASSETS / "data-provenance-guard.js").read_text(encoding="utf-8")
 
-    assert 'FORMAL_ORIGINS = new Set(["user", "project", "imported"])' in script
+    assert "FORMAL_ORIGINS = new Set(contracts.formalOrigins)" in script
     assert 'return "example"' in script
     assert 'return localStorage.getItem(CURRENT_PROJECT_STORAGE) ? "project" : "legacy"' in script
     assert "isFormalResult" in script
@@ -64,10 +66,10 @@ def test_example_and_legacy_results_are_not_formal_workspace_data() -> None:
 def test_provenance_uses_result_events_without_function_or_dom_observers() -> None:
     script = (ASSETS / "data-provenance-guard.js").read_text(encoding="utf-8")
 
-    assert 'window.addEventListener("zhilink:result-updated"' in script
-    assert 'window.addEventListener("zhilink:progress-updated", renderFormalProgress)' in script
+    assert "window.addEventListener(EVENTS.resultUpdated" in script
+    assert "window.addEventListener(EVENTS.progressUpdated, renderFormalProgress)" in script
     assert "stampCommittedResult" in script
-    assert "zhilink:result-schema-stamped" in script
+    assert "EVENTS.resultSchemaStamped" in script
     assert "MutationObserver" not in script
     assert "setInterval(" not in script
     assert "window.setResult =" not in script
@@ -104,11 +106,11 @@ def test_v4_shell_metrics_and_pending_items_use_formal_results_only() -> None:
     script = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
     runtime = (ASSETS / "ui-v4-runtime.js").read_text(encoding="utf-8")
 
-    assert 'FORMAL_ORIGINS = new Set(["user", "project", "imported"])' in script
+    assert "FORMAL_ORIGINS = new Set(contracts.formalOrigins)" in script
     assert "function isFormalResult(key)" in script
     assert "window.ZHILINK_DATA_PROVENANCE?.isFormalResult" in script
     assert "if (!isFormalResult(key)) return;" in script
     assert 'window.ZHILINK_DATA_PROVENANCE?.formalCount' in script
     assert 'window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(apply, { immediate: false })' in script
-    assert '"zhilink:data-provenance-ready"' in runtime
+    assert 'dataProvenanceReady: "zhilink:data-provenance-ready"' in runtime
     assert "示例和旧会话材料不会进入正式统计" in script
