@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
 
 
-def test_production_bundle_loads_unified_provenance_after_result_event_bridge() -> None:
+def test_production_bundle_loads_unified_provenance_after_core_runtime() -> None:
     with TestClient(app) as client:
         response = client.get("/assets/app.js")
 
@@ -21,7 +21,7 @@ def test_production_bundle_loads_unified_provenance_after_result_event_bridge() 
     assert "ZHILINK_UI_V4_RUNTIME_READY" in response.text
     assert response.text.index("ZHILINK_WORKSPACE_HOOKS_READY") < response.text.index("ZHILINK_DATA_PROVENANCE_READY")
     assert response.text.index("ZHILINK_RESULT_EVENTS_READY") < response.text.index("ZHILINK_DATA_PROVENANCE_READY")
-    assert response.text.index("ZHILINK_DATA_PROVENANCE_READY") < response.text.index("ZHILINK_UI_V4_RUNTIME_READY")
+    assert response.text.index("ZHILINK_UI_V4_RUNTIME_READY") < response.text.index("ZHILINK_DATA_PROVENANCE_READY")
     assert "ZHILINK_DATA_PROVENANCE_V2_READY" not in response.text
 
 
