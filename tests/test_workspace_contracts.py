@@ -41,6 +41,39 @@ def test_runtime_is_the_single_shared_contract_registry() -> None:
         assert marker in runtime
 
 
+def test_runtime_owns_the_shared_v4_module_catalogue() -> None:
+    runtime = RUNTIME.read_text(encoding="utf-8")
+
+    assert "const modules = Object.freeze({" in runtime
+    assert 'home: Object.freeze({ label: "工作首页", group: "工作台", icon: "home", resultLabel: "" })' in runtime
+    assert 'meeting: Object.freeze({ label: "会议纪要", group: "业务处理", icon: "meeting", resultLabel: "会议纪要 · AI 生成结果" })' in runtime
+    assert 'landing: Object.freeze({ label: "实施计划", group: "资料与执行", icon: "plan", resultLabel: "实施计划 · AI 生成结果" })' in runtime
+    assert 'report: Object.freeze({ label: "报告归档", group: "归档", icon: "report", resultLabel: "运营报告 · 汇总与导出" })' in runtime
+    assert 'const moduleOrder = Object.freeze(["meeting", "contract", "policy", "match", "profile", "landing"])' in runtime
+    assert "    modules," in runtime
+    assert "    moduleOrder," in runtime
+
+
+def test_ui_owners_consume_shared_module_catalogue_without_redeclaring_it() -> None:
+    shell = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
+    dashboard = (ASSETS / "ui-v4-dashboard.js").read_text(encoding="utf-8")
+    workspace = (ASSETS / "ui-v4-workspace.js").read_text(encoding="utf-8")
+
+    assert "const MODULES = contracts.modules" in shell
+    assert "const MODULES = contracts.modules" in dashboard
+    assert "const MODULE_ORDER = contracts.moduleOrder" in dashboard
+    assert "const SHARED_MODULES = contracts.modules" in workspace
+
+    assert "const MODULES = {" not in shell
+    assert 'home: { label: "工作首页"' not in shell
+    assert 'const MODULE_ORDER = ["meeting"' not in dashboard
+    assert 'key === "landing" ? "plan" : key' not in dashboard
+    assert "resultLabel:" not in workspace
+    assert 'icon: "meeting"' not in workspace
+    assert 'result.setAttribute("aria-label", shared.resultLabel)' in workspace
+    assert "ICONS[shared.icon]" in workspace
+
+
 def test_contract_consumers_do_not_redeclare_shared_storage_or_event_literals() -> None:
     consumers = (
         "example-loader.js",
