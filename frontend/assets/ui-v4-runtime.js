@@ -1,6 +1,46 @@
-/* UI V4 runtime: one core hook/event bridge and one presentation scheduler. */
+/* UI V4 runtime: one core contract, hook/event bridge and presentation scheduler. */
 (() => {
-  if (window.ZHILINK_UI_V4_RUNTIME_READY && window.ZHILINK_WORKSPACE_HOOKS_READY && window.ZHILINK_RESULT_EVENTS_READY) return;
+  if (
+    window.ZHILINK_UI_V4_RUNTIME_READY
+    && window.ZHILINK_WORKSPACE_HOOKS_READY
+    && window.ZHILINK_RESULT_EVENTS_READY
+    && window.ZHILINK_WORKSPACE_CONTRACTS_READY
+  ) return;
+
+  const coreResultKeys = typeof resultKeys !== "undefined" ? Array.from(resultKeys) : [];
+  const coreResultTitles = typeof resultTitles !== "undefined" ? { ...resultTitles } : {};
+  const storage = Object.freeze({
+    workspaceKey: "zhilian_workspace_key_v1",
+    currentProject: "zhilian_current_project_v1",
+    restoreSection: "zhilian_restore_section_v1",
+    identity: "zhilian_identity",
+    profile: "zhilian_profile",
+    formInputs: "zhilian_form_inputs",
+    results: "zhilian_results",
+    meta: "zhilian_meta",
+    structuredResults: "zhilian_structured_results_v1",
+    exampleContexts: "zhilian_example_contexts_v1",
+    legacyQuarantine: "zhilian_legacy_result_quarantine_v1",
+  });
+  const events = Object.freeze({
+    accountReady: "zhilink:account-ready",
+    workspaceStateChange: "zhilink:workspace-state-change",
+    dataProvenanceReady: "zhilink:data-provenance-ready",
+    resultSchemaStamped: "zhilink:result-schema-stamped",
+    modelModeChange: "zhilink:model-mode-change",
+    resultUpdated: "zhilink:result-updated",
+    progressUpdated: "zhilink:progress-updated",
+  });
+  const contracts = Object.freeze({
+    resultKeys: Object.freeze(coreResultKeys),
+    schemaResultKeys: Object.freeze([...coreResultKeys, "report"]),
+    resultTitles: Object.freeze(coreResultTitles),
+    storage,
+    events,
+    formalOrigins: Object.freeze(["user", "project", "imported"]),
+  });
+  window.ZHILINK_WORKSPACE_CONTRACTS = contracts;
+  window.ZHILINK_WORKSPACE_CONTRACTS_READY = true;
 
   const hookHandlers = new Map();
   let generationTransport = null;
@@ -85,8 +125,8 @@
   };
   window.ZHILINK_WORKSPACE_HOOKS_READY = true;
 
-  const RESULT_EVENT = "zhilink:result-updated";
-  const PROGRESS_EVENT = "zhilink:progress-updated";
+  const RESULT_EVENT = events.resultUpdated;
+  const PROGRESS_EVENT = events.progressUpdated;
   let commitDepth = 0;
 
   function emitWindowEvent(name, detail) {
@@ -119,10 +159,9 @@
     window.updateProgress = function eventAwareUpdateProgress() {
       const value = originalUpdateProgress.apply(this, arguments);
       const results = typeof state !== "undefined" ? state.results || {} : {};
-      const keys = typeof resultKeys !== "undefined" ? resultKeys : [];
       emitWindowEvent(PROGRESS_EVENT, {
-        done: keys.filter(key => Boolean(results[key])).length,
-        total: keys.length,
+        done: contracts.resultKeys.filter(key => Boolean(results[key])).length,
+        total: contracts.resultKeys.length,
       });
       return value;
     };
@@ -138,11 +177,11 @@
 
   const subscribers = new Set();
   const EVENT_NAMES = [
-    "zhilink:account-ready",
-    "zhilink:workspace-state-change",
-    "zhilink:data-provenance-ready",
-    "zhilink:result-schema-stamped",
-    "zhilink:model-mode-change",
+    events.accountReady,
+    events.workspaceStateChange,
+    events.dataProvenanceReady,
+    events.resultSchemaStamped,
+    events.modelModeChange,
   ];
   let observer = null;
   let queued = false;
