@@ -17,10 +17,11 @@ def test_production_bundle_is_consolidated_v4_and_preserves_business_layers() ->
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION == "2026-08-11-ui-v4-runtime-v4"
+    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION == "2026-08-11-ui-v4-result-events-v5"
 
     required = [
-        "ZHILINK_DATA_PROVENANCE_V2_READY",
+        "ZHILINK_RESULT_EVENTS_READY",
+        "ZHILINK_DATA_PROVENANCE_READY",
         "ZHILINK_UI_V4_RUNTIME_READY",
         "ZHILINK_UI_V4_SHELL_READY",
         "ZHILINK_API_DRAWER_V4_READY",
@@ -39,6 +40,8 @@ def test_production_bundle_is_consolidated_v4_and_preserves_business_layers() ->
         assert marker in response.text
 
     ordered = [
+        "ZHILINK_RESULT_EVENTS_READY",
+        "ZHILINK_DATA_PROVENANCE_READY",
         "ZHILINK_UI_V4_RUNTIME_READY",
         "ZHILINK_UI_V4_SHELL_READY",
         "ZHILINK_API_DRAWER_V4_READY",
@@ -63,6 +66,7 @@ def test_production_bundle_is_consolidated_v4_and_preserves_business_layers() ->
         "ZHILINK_UI_V2_READY",
         "ZHILINK_UI_V4_NAVIGATION_READY",
         "ZHILINK_SIMPLE_UI_READY",
+        "ZHILINK_DATA_PROVENANCE_V2_READY",
     ):
         assert removed_marker not in response.text
 
@@ -80,6 +84,7 @@ def test_replaced_ui_layers_and_fake_preview_assets_are_deleted() -> None:
         "ui-v4-navigation.js",
         "product-simplification.js",
         "product-simplification.css",
+        "data-provenance-guard-v2.js",
         "ui-preview.html",
         "ui-preview.css",
         "ui-preview.js",
