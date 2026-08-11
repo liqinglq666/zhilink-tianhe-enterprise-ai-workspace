@@ -1,5 +1,141 @@
-/* UI V4 runtime: one DOM observer and one animation-frame scheduler for presentation layers. */
+/* UI V4 runtime: one core hook/event bridge and one presentation scheduler. */
 (() => {
+  if (window.ZHILINK_UI_V4_RUNTIME_READY && window.ZHILINK_WORKSPACE_HOOKS_READY && window.ZHILINK_RESULT_EVENTS_READY) return;
+
+  const hookHandlers = new Map();
+  let generationTransport = null;
+
+  function registerHook(kind, handler) {
+    if (typeof handler !== "function") throw new TypeError(`Hook ${kind} must be a function.`);
+    if (!hookHandlers.has(kind)) hookHandlers.set(kind, new Set());
+    const bucket = hookHandlers.get(kind);
+    bucket.add(handler);
+    return () => bucket.delete(handler);
+  }
+
+  function runHookSync(kind, value) {
+    let current = value;
+    for (const handler of hookHandlers.get(kind) || []) {
+      const next = handler(current);
+      if (next && typeof next.then === "function") throw new TypeError(`Hook ${kind} must be synchronous.`);
+      if (next !== undefined) current = next;
+    }
+    return current;
+  }
+
+  async function runHookAsync(kind, value) {
+    let current = value;
+    for (const handler of hookHandlers.get(kind) || []) {
+      const next = await handler(current);
+      if (next !== undefined) current = next;
+    }
+    return current;
+  }
+
+  function setGenerationTransport(handler) {
+    if (typeof handler !== "function") throw new TypeError("Generation transport must be a function.");
+    if (generationTransport && generationTransport !== handler) throw new Error("Generation transport is already registered.");
+    generationTransport = handler;
+  }
+
+  const originalApiStream = typeof apiStream === "function" ? apiStream : null;
+  const originalCollectResultsForReport = typeof collectResultsForReport === "function" ? collectResultsForReport : null;
+  const originalCollectSingleModuleResult = typeof collectSingleModuleResult === "function" ? collectSingleModuleResult : null;
+  const originalFetch = window.fetch.bind(window);
+
+  if (originalApiStream) {
+    apiStream = async function hookedApiStream(url, payload, key) {
+      const request = await runHookAsync("generation:request", { url, payload, key });
+      const transport = generationTransport || (context => originalApiStream(context.url, context.payload, context.key));
+      return transport(request);
+    };
+  }
+
+  if (originalCollectResultsForReport) {
+    collectResultsForReport = function hookedCollectResultsForReport(includeAiSummary = false) {
+      const results = originalCollectResultsForReport.apply(this, arguments);
+      const context = runHookSync("results:collect", {
+        scope: "report",
+        includeAiSummary: Boolean(includeAiSummary),
+        results: { ...(results || {}) },
+      });
+      return context?.results || results;
+    };
+  }
+
+  if (originalCollectSingleModuleResult) {
+    collectSingleModuleResult = function hookedCollectSingleModuleResult(key) {
+      const result = originalCollectSingleModuleResult.apply(this, arguments);
+      const context = runHookSync("results:collect", { scope: "single", key, result });
+      return context?.result || result;
+    };
+  }
+
+  window.fetch = async function hookedWorkspaceFetch(input, init = {}) {
+    const request = await runHookAsync("fetch:request", { input, init });
+    return originalFetch(request?.input ?? input, request?.init ?? init);
+  };
+
+  window.ZHILINK_WORKSPACE_HOOKS = {
+    register: registerHook,
+    runSync: runHookSync,
+    runAsync: runHookAsync,
+    setGenerationTransport,
+    hasGenerationTransport: () => Boolean(generationTransport),
+  };
+  window.ZHILINK_WORKSPACE_HOOKS_READY = true;
+
+  const RESULT_EVENT = "zhilink:result-updated";
+  const PROGRESS_EVENT = "zhilink:progress-updated";
+  let commitDepth = 0;
+
+  function emitWindowEvent(name, detail) {
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+  }
+
+  const originalShowResult = window.showResult;
+  const originalSetResult = window.setResult;
+  const originalUpdateProgress = window.updateProgress;
+
+  if (typeof originalShowResult === "function" && typeof originalSetResult === "function" && typeof originalUpdateProgress === "function") {
+    window.showResult = function eventAwareShowResult(key, result) {
+      const value = originalShowResult.apply(this, arguments);
+      emitWindowEvent(RESULT_EVENT, {
+        key,
+        result: result || {},
+        content: String(result?.content || (typeof state !== "undefined" ? state.results?.[key] || "" : "")),
+        meta: typeof state !== "undefined" ? state.meta?.[key] || {} : {},
+        source: commitDepth > 0 ? "commit" : "render",
+      });
+      return value;
+    };
+
+    window.setResult = function eventAwareSetResult(key, result) {
+      commitDepth += 1;
+      try { return originalSetResult.apply(this, arguments); }
+      finally { commitDepth -= 1; }
+    };
+
+    window.updateProgress = function eventAwareUpdateProgress() {
+      const value = originalUpdateProgress.apply(this, arguments);
+      const results = typeof state !== "undefined" ? state.results || {} : {};
+      const keys = typeof resultKeys !== "undefined" ? resultKeys : [];
+      emitWindowEvent(PROGRESS_EVENT, {
+        done: keys.filter(key => Boolean(results[key])).length,
+        total: keys.length,
+      });
+      return value;
+    };
+  } else {
+    console.error("结果事件桥接器初始化失败：核心结果函数不可用。");
+  }
+
+  window.ZHILINK_RESULT_EVENTS = {
+    resultEvent: RESULT_EVENT,
+    progressEvent: PROGRESS_EVENT,
+  };
+  window.ZHILINK_RESULT_EVENTS_READY = true;
+
   const subscribers = new Set();
   const EVENT_NAMES = [
     "zhilink:account-ready",
@@ -41,7 +177,7 @@
   }
 
   function emit(name, detail = {}) {
-    window.dispatchEvent(new CustomEvent(name, { detail }));
+    emitWindowEvent(name, detail);
     schedule(name);
   }
 
