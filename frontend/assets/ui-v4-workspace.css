@@ -8,6 +8,7 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-workspace .page.ui-v4-workspace-page.act
   align-items: start;
   margin: 0 auto;
 }
+.ui-v4-workspace .ui-v4-business-page.active-page { min-width: 0; }
 
 .ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane,
 .ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane {
@@ -60,14 +61,22 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-workspace .page.ui-v4-workspace-page.act
   font-size: 12px;
   line-height: 1.55;
 }
-.ui-v4-workspace .ui-v4-input-pane .ui-v4-module-meta { gap: 5px; margin: -2px 0 14px; }
+.ui-v4-workspace .ui-v4-input-pane .ui-v4-module-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: -2px 0 14px;
+}
 .ui-v4-workspace .ui-v4-input-pane .ui-v4-module-meta span {
   min-height: 24px;
+  display: inline-flex;
+  align-items: center;
   padding: 3px 8px;
   color: var(--ui4-text-muted);
   font-size: 11px;
   font-weight: 650;
-  border-color: var(--ui4-line);
+  border: 1px solid var(--ui4-line);
+  border-radius: 999px;
   background: #fafbfc;
 }
 .ui-v4-workspace .ui-v4-input-pane .quick-fill-bar {
@@ -111,6 +120,7 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-workspace .page.ui-v4-workspace-page.act
   backdrop-filter: blur(8px);
 }
 .ui-v4-workspace .ui-v4-input-pane .sticky-actions > .primary { flex: 1 1 180px; }
+.ui-v4-workspace .ui-v4-input-pane .sticky-actions .primary svg { width: 15px; height: 15px; margin-left: 5px; }
 
 .ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane {
   position: sticky;
