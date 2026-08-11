@@ -49,6 +49,7 @@ def test_contract_consumers_do_not_redeclare_shared_storage_or_event_literals() 
         "data-provenance-guard.js",
         "ui-v4-shell.js",
         "ui-v4-dashboard.js",
+        "ui-v4-workspace.js",
         "policy-sources.js",
         "meeting-user-view.js",
         "review-workflow.js",
@@ -90,12 +91,12 @@ def test_project_storage_uses_result_event_instead_of_monkey_patching_set_result
     assert "setResult = function setResultAndMarkProject" not in source
 
 
-def test_shell_and_provenance_share_core_result_catalogue() -> None:
-    shell = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
+def test_dashboard_and_provenance_share_core_result_catalogue() -> None:
+    dashboard = (ASSETS / "ui-v4-dashboard.js").read_text(encoding="utf-8")
     provenance = (ASSETS / "data-provenance-guard.js").read_text(encoding="utf-8")
 
-    assert "const RESULT_KEYS = contracts.resultKeys" in shell
-    assert "const RESULT_TITLES = contracts.resultTitles" in shell
+    assert "const RESULT_KEYS = contracts.resultKeys" in dashboard
+    assert "const RESULT_TITLES = contracts.resultTitles" in dashboard
     assert "const BUSINESS_KEYS = contracts.resultKeys" in provenance
     assert "const SCHEMA_KEYS = contracts.schemaResultKeys" in provenance
     assert "const RESULT_TITLES = contracts.resultTitles" in provenance
