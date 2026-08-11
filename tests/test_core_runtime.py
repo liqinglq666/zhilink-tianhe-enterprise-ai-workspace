@@ -12,16 +12,24 @@ ROUTES = ROOT / "backend" / "project_routes.py"
 RUNTIME = ASSETS / "ui-v4-runtime.js"
 
 
-def test_core_runtime_owns_result_events_workspace_hooks_and_ui_scheduler() -> None:
+def test_core_runtime_owns_contracts_result_events_hooks_and_ui_scheduler() -> None:
     runtime = RUNTIME.read_text(encoding="utf-8")
 
     for marker in (
+        "ZHILINK_WORKSPACE_CONTRACTS_READY",
         "ZHILINK_WORKSPACE_HOOKS_READY",
         "ZHILINK_RESULT_EVENTS_READY",
         "ZHILINK_UI_V4_RUNTIME_READY",
     ):
         assert marker in runtime
 
+    assert "window.ZHILINK_WORKSPACE_CONTRACTS = contracts" in runtime
+    assert 'workspaceKey: "zhilian_workspace_key_v1"' in runtime
+    assert 'currentProject: "zhilian_current_project_v1"' in runtime
+    assert 'results: "zhilian_results"' in runtime
+    assert 'meta: "zhilian_meta"' in runtime
+    assert 'resultUpdated: "zhilink:result-updated"' in runtime
+    assert 'progressUpdated: "zhilink:progress-updated"' in runtime
     assert "apiStream = async function hookedApiStream" in runtime
     assert "collectResultsForReport = function hookedCollectResultsForReport" in runtime
     assert "collectSingleModuleResult = function hookedCollectSingleModuleResult" in runtime
@@ -29,8 +37,8 @@ def test_core_runtime_owns_result_events_workspace_hooks_and_ui_scheduler() -> N
     assert "window.showResult = function eventAwareShowResult" in runtime
     assert "window.setResult = function eventAwareSetResult" in runtime
     assert "window.updateProgress = function eventAwareUpdateProgress" in runtime
-    assert 'const RESULT_EVENT = "zhilink:result-updated"' in runtime
-    assert 'const PROGRESS_EVENT = "zhilink:progress-updated"' in runtime
+    assert "const RESULT_EVENT = events.resultUpdated" in runtime
+    assert "const PROGRESS_EVENT = events.progressUpdated" in runtime
     assert 'source: commitDepth > 0 ? "commit" : "render"' in runtime
     assert "setGenerationTransport" in runtime
     assert 'runHookAsync("generation:request"' in runtime
@@ -47,7 +55,7 @@ def test_business_extensions_register_hooks_and_events_without_wrapping_globals(
         "generation-controls.js": ("hooks.setGenerationTransport(runGeneration)",),
         "policy-sources.js": ('hooks.register("generation:request"', "zhilink:result-updated"),
         "project-result-meta.js": ('hooks.register("fetch:request"',),
-        "data-provenance-guard.js": ('hooks.register("results:collect", collectFormalResults)', "zhilink:result-updated"),
+        "data-provenance-guard.js": ('hooks.register("results:collect", collectFormalResults)', "EVENTS.resultUpdated"),
         "meeting-user-view.js": ('hooks.register("results:collect", sanitizeCollectedResults)', "zhilink:result-updated"),
         "review-workflow.js": ("zhilink:result-updated",),
         "structured-results.js": ("zhilink:result-updated",),
@@ -70,7 +78,7 @@ def test_business_extensions_register_hooks_and_events_without_wrapping_globals(
             assert marker not in source, f"{marker} leaked into {filename}"
 
 
-def test_bundle_loads_lazy_examples_then_one_runtime_before_consumers() -> None:
+def test_bundle_loads_runtime_contracts_before_examples_and_consumers() -> None:
     routes = ROUTES.read_text(encoding="utf-8")
     assert '"result-events.js"' not in routes
     assert '"workspace-hooks.js"' not in routes
@@ -78,9 +86,9 @@ def test_bundle_loads_lazy_examples_then_one_runtime_before_consumers() -> None:
     assert '"ui-v4-runtime.js"' in routes
 
     app_position = routes.index('"app.js"')
-    examples_position = routes.index('"example-loader.js"')
     runtime_position = routes.index('"ui-v4-runtime.js"')
-    assert app_position < examples_position < runtime_position
+    examples_position = routes.index('"example-loader.js"')
+    assert app_position < runtime_position < examples_position
     for filename in (
         "generation-controls.js",
         "project-result-meta.js",
@@ -98,8 +106,8 @@ def test_bundle_loads_lazy_examples_then_one_runtime_before_consumers() -> None:
         old_hook_bridge = client.get("/assets/workspace-hooks.js")
 
     assert bundle.status_code == 200
-    assert bundle.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-core-slim-v8"
-    assert bundle.text.index("ZHILINK_EXAMPLE_LOADER_READY") < bundle.text.index("ZHILINK_UI_V4_RUNTIME_READY")
+    assert bundle.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-runtime-contracts-v9"
+    assert bundle.text.index("ZHILINK_WORKSPACE_CONTRACTS_READY") < bundle.text.index("ZHILINK_EXAMPLE_LOADER_READY")
     assert bundle.text.index("ZHILINK_WORKSPACE_HOOKS_READY") < bundle.text.index("ZHILINK_GENERATION_CONTROLS_READY")
     assert bundle.text.index("ZHILINK_RESULT_EVENTS_READY") < bundle.text.index("ZHILINK_DATA_PROVENANCE_READY")
     assert old_result_bridge.status_code == 404
