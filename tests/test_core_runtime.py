@@ -28,8 +28,11 @@ def test_core_runtime_owns_contracts_result_events_hooks_and_ui_scheduler() -> N
     assert 'currentProject: "zhilian_current_project_v1"' in runtime
     assert 'results: "zhilian_results"' in runtime
     assert 'meta: "zhilian_meta"' in runtime
+    assert 'projectChanged: "zhilink:project-changed"' in runtime
     assert 'resultUpdated: "zhilink:result-updated"' in runtime
     assert 'progressUpdated: "zhilink:progress-updated"' in runtime
+    assert 'structuredUpdated: "zhilink:structured-updated"' in runtime
+    assert 'reviewUpdated: "zhilink:review-updated"' in runtime
     assert "apiStream = async function hookedApiStream" in runtime
     assert "collectResultsForReport = function hookedCollectResultsForReport" in runtime
     assert "collectSingleModuleResult = function hookedCollectSingleModuleResult" in runtime
@@ -44,6 +47,9 @@ def test_core_runtime_owns_contracts_result_events_hooks_and_ui_scheduler() -> N
     assert 'runHookAsync("generation:request"' in runtime
     assert 'runHookSync("results:collect"' in runtime
     assert 'runHookAsync("fetch:request"' in runtime
+    assert "isProjectWrite" in runtime
+    assert "response.ok && isProjectWrite(finalInput, finalInit)" in runtime
+    assert "emitWindowEvent(events.projectChanged" in runtime
     assert 'throw new Error("Generation transport is already registered.")' in runtime
     assert 'throw new TypeError(`Hook ${kind} must be synchronous.`)' in runtime
     assert "MutationObserver" in runtime
@@ -53,12 +59,12 @@ def test_core_runtime_owns_contracts_result_events_hooks_and_ui_scheduler() -> N
 def test_business_extensions_register_hooks_and_events_without_wrapping_globals() -> None:
     consumers = {
         "generation-controls.js": ("hooks.setGenerationTransport(runGeneration)",),
-        "policy-sources.js": ('hooks.register("generation:request"', "zhilink:result-updated"),
+        "policy-sources.js": ('hooks.register("generation:request"', "contracts.events.resultUpdated"),
         "project-result-meta.js": ('hooks.register("fetch:request"',),
         "data-provenance-guard.js": ('hooks.register("results:collect", collectFormalResults)', "EVENTS.resultUpdated"),
-        "meeting-user-view.js": ('hooks.register("results:collect", sanitizeCollectedResults)', "zhilink:result-updated"),
-        "review-workflow.js": ("zhilink:result-updated",),
-        "structured-results.js": ("zhilink:result-updated",),
+        "meeting-user-view.js": ('hooks.register("results:collect", sanitizeCollectedResults)', "contracts.events.resultUpdated"),
+        "review-workflow.js": ("contracts.events.resultUpdated",),
+        "structured-results.js": ("contracts.events.resultUpdated",),
     }
     forbidden = (
         "apiStream =",
@@ -106,7 +112,7 @@ def test_bundle_loads_runtime_contracts_before_examples_and_consumers() -> None:
         old_hook_bridge = client.get("/assets/workspace-hooks.js")
 
     assert bundle.status_code == 200
-    assert bundle.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-runtime-contracts-v9"
+    assert bundle.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-event-refresh-v10"
     assert bundle.text.index("ZHILINK_WORKSPACE_CONTRACTS_READY") < bundle.text.index("ZHILINK_EXAMPLE_LOADER_READY")
     assert bundle.text.index("ZHILINK_WORKSPACE_HOOKS_READY") < bundle.text.index("ZHILINK_GENERATION_CONTROLS_READY")
     assert bundle.text.index("ZHILINK_RESULT_EVENTS_READY") < bundle.text.index("ZHILINK_DATA_PROVENANCE_READY")
