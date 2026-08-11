@@ -1,11 +1,13 @@
-/* UI V4 navigation: V4-only project/resource/context refinements. */
+/* UI V4 navigation: project/resource/context refinements only. */
 body.ui-v4-shell.ui-v4-foundation.ui-v4-navigation {
   --ui4-sidebar-width: 252px;
 }
 
-.ui-v4-navigation .shell { grid-template-columns: var(--ui4-sidebar-width) minmax(0, 1fr); }
-.ui-v4-navigation .sidebar { width: var(--ui4-sidebar-width); }
-.ui-v4-navigation .ui-v4-nav-group-label { color: #7289a7; font-size: 10px; font-weight: 720; letter-spacing: .05em; }
+@media (min-width: 1021px) {
+  .ui-v4-navigation .shell { grid-template-columns: var(--ui4-sidebar-width) minmax(0, 1fr); }
+  .ui-v4-navigation .sidebar { width: var(--ui4-sidebar-width); }
+}
+
 .ui-v4-navigation .nav > .nav-group-label:first-child { margin-top: 0; }
 .ui-v4-navigation .ui-v4-nav-label {
   min-width: 0;
@@ -51,7 +53,6 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-navigation {
   white-space: nowrap;
 }
 
-.ui-v4-navigation .ui-v4-top-nav { gap: 7px; }
 .ui-v4-navigation .ui-v4-project-context {
   min-width: 220px;
   max-width: 330px;
@@ -104,7 +105,6 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-navigation {
 }
 .ui-v4-navigation .ui-v4-project-context.is-dirty .ui-v4-project-meta { color: #9a5b05; background: #fff7ed; }
 .ui-v4-navigation .ui-v4-project-context.is-archived .ui-v4-project-meta { color: #64748b; background: #f1f5f9; }
-.ui-v4-navigation .ui-v4-account-context { position: relative; }
 
 .ui-v4-navigation .topbar .track {
   margin-bottom: 2px;
@@ -124,30 +124,28 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-navigation {
 }
 .ui-v4-navigation .topbar p { max-width: 760px; margin-top: 2px; color: #64748b; font-size: 11px; line-height: 1.4; }
 
-.ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane,
-.ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane { top: 88px; }
-.ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane { max-height: calc(100vh - 102px); }
-.ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane:not(.empty) {
-  min-height: calc(100vh - 102px);
-  max-height: calc(100vh - 102px);
+/* Desktop-only sticky offset. Workspace owns the <=1180px single-column reset. */
+@media (min-width: 1181px) {
+  .ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane,
+  .ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane { top: 88px; }
+  .ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane { max-height: calc(100vh - 102px); }
+  .ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane:not(.empty) {
+    min-height: calc(100vh - 102px);
+    max-height: calc(100vh - 102px);
+  }
 }
 
-@media (max-width: 1240px) {
+@media (min-width: 1021px) and (max-width: 1240px) {
   body.ui-v4-navigation { --ui4-sidebar-width: 236px; }
   .ui-v4-navigation .ui-v4-project-context { min-width: 190px; max-width: 250px; }
   .ui-v4-navigation .topbar p { display: none; }
 }
 
 @media (max-width: 1020px) {
-  .ui-v4-navigation .shell { display: block; }
   .ui-v4-navigation .ui-v4-project-context { min-width: 170px; max-width: 220px; }
   .ui-v4-navigation #uiV4AccountLabel { display: none; }
   .ui-v4-navigation .ui-v4-account-toggle { padding-right: 6px; }
   .ui-v4-navigation .ui-v4-account-toggle > svg { display: none; }
-  .ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane,
-  .ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane { top: auto; }
-  .ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-input-pane,
-  .ui-v4-navigation.ui-v4-workspace .ui-v4-workspace-page > .ui-v4-result-pane:not(.empty) { max-height: none; }
 }
 
 @media (max-width: 720px) {
