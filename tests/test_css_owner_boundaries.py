@@ -46,9 +46,46 @@ def test_dashboard_owns_home_card_icons_and_action_arrows() -> None:
     assert ".ui-v4-dashboard #home .module-footer button svg { width: 15px; height: 15px; margin-left: 5px; }" in dashboard
 
 
-def test_shell_javascript_keeps_decoration_behavior_while_css_is_delegated() -> None:
-    shell_js = read("ui-v4-shell.js")
+def test_javascript_owners_match_css_owners() -> None:
+    shell = read("ui-v4-shell.js")
+    workspace = read("ui-v4-workspace.js")
+    dashboard = read("ui-v4-dashboard.js")
+    runtime = read("ui-v4-runtime.js")
 
-    assert 'meta.className = "ui-v4-module-meta"' in shell_js
-    assert 'holder.classList.add("ui-v4-module-icon")' in shell_js
-    assert 'button.insertAdjacentHTML("beforeend", ICONS.arrow)' in shell_js
+    for forbidden in (
+        "function decorateBusinessPages",
+        "function decorateHomeCards",
+        "function ensureHomePanels",
+        "function renderPending",
+        "function renderUsage",
+        'meta.className = "ui-v4-module-meta"',
+        'classList.add("ui-v4-module-icon")',
+        "contracts.resultKeys",
+        "contracts.resultTitles",
+    ):
+        assert forbidden not in shell, forbidden
+
+    for required in (
+        'meta.className = "ui-v4-module-meta"',
+        'button.insertAdjacentHTML("beforeend", ICONS.arrow)',
+        'result.setAttribute("aria-label", config.resultLabel)',
+    ):
+        assert required in workspace, required
+
+    for required in (
+        "function decorateHomeCards",
+        "function ensureHomePanels",
+        "function renderPending",
+        "function renderUsage",
+        'holder.classList.add("ui-v4-module-icon")',
+        'button.insertAdjacentHTML("beforeend", ICONS.arrow)',
+        "ZHILINK_UI_V4_SHELL?.projectCount?.()",
+    ):
+        assert required in dashboard, required
+
+    assert "const icons = Object.freeze({" in runtime
+    assert "window.ZHILINK_UI_V4_ICONS = icons" in runtime
+    assert "window.ZHILINK_UI_V4_ICONS_READY = true" in runtime
+    for source in (shell, workspace, dashboard):
+        assert '<svg viewBox="0 0 24 24"' not in source
+        assert "window.ZHILINK_UI_V4_ICONS" in source
