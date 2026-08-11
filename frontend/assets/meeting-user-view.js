@@ -3,8 +3,11 @@
   const INTERNAL_REF_RE = /\[(?:MT-\d{2}|MP-\d{2}|MT-C\d{2})\]/g;
   const HIDDEN_SECTIONS = new Set(["自动一致性校验", "输入证据与待确认索引", "证据索引", "AI 建议补充动作"]);
   const EVIDENCE_HEADERS = ["证据编号", "原文证据", "依据编号", "证据引用", "来源编号"];
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
   let scheduled = false;
   let decorating = false;
+
+  if (!hooks) throw new Error("Workspace hooks must load before meeting user view.");
 
   function rawMeeting() {
     return typeof state !== "undefined" ? String(state.results?.meeting || "") : "";
@@ -229,34 +232,22 @@
     });
   }
 
-  function installExportGuards() {
-    if (typeof collectSingleModuleResult === "function") {
-      const originalCollectSingle = collectSingleModuleResult;
-      collectSingleModuleResult = function userFacingSingleExport(key) {
-        const result = originalCollectSingle.apply(this, arguments);
-        if (key !== "meeting" && key !== "report") return result;
-        const content = key === "meeting" ? sanitizeMeetingMarkdown(result.content) : sanitizeReportMarkdown(result.content);
-        return { ...result, content, results: { ...result.results, [result.title]: content } };
+  function sanitizeCollectedResults(context) {
+    if (context.scope === "single" && ["meeting", "report"].includes(context.key)) {
+      const result = context.result;
+      const content = context.key === "meeting"
+        ? sanitizeMeetingMarkdown(result?.content)
+        : sanitizeReportMarkdown(result?.content);
+      return {
+        ...context,
+        result: { ...result, content, results: { ...(result?.results || {}), [result?.title]: content } },
       };
     }
-    if (typeof downloadReportFile === "function") {
-      const originalDownloadReport = downloadReportFile;
-      downloadReportFile = function userFacingReportExport() {
-        const currentCollector = collectResultsForReport;
-        collectResultsForReport = function sanitizedResultsForExport(includeAiSummary = false) {
-          const results = currentCollector(includeAiSummary);
-          const next = { ...results };
-          if (next["会议纪要"]) next["会议纪要"] = sanitizeMeetingMarkdown(next["会议纪要"]);
-          if (next["AI整合报告"]) next["AI整合报告"] = sanitizeReportMarkdown(next["AI整合报告"]);
-          return next;
-        };
-        try {
-          return originalDownloadReport.apply(this, arguments);
-        } finally {
-          collectResultsForReport = currentCollector;
-        }
-      };
-    }
+    if (context.scope !== "report" || !context.includeAiSummary) return context;
+    const results = { ...(context.results || {}) };
+    if (results["会议纪要"]) results["会议纪要"] = sanitizeMeetingMarkdown(results["会议纪要"]);
+    if (results["AI整合报告"]) results["AI整合报告"] = sanitizeReportMarkdown(results["AI整合报告"]);
+    return { ...context, results };
   }
 
   function installInteractions() {
@@ -298,8 +289,8 @@
     if (event.detail?.module === "meeting") scheduleDecorate();
   });
 
+  hooks.register("results:collect", sanitizeCollectedResults);
   ensureDrawer();
-  installExportGuards();
   installInteractions();
   scheduleDecorate();
 
