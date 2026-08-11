@@ -1,7 +1,6 @@
 /* UI V4 results: present generated business output as a readable enterprise document without changing content. */
 (() => {
-  const STYLE_VERSION = "20260810.1";
-  const FINAL_QA_VERSION = "20260810.3";
+  const VERSION = "20260811.1";
   const PANEL_SELECTOR = ".result-panel";
   const KIND_RULES = [
     ["pending", /(待确认|待补充|需确认|未确认|信息缺口|未知事项|待核实)/],
@@ -11,65 +10,36 @@
     ["evidence", /(生成依据|来源|证据|参考材料|政策依据|原文依据)/],
     ["summary", /(摘要|概览|总结|总体判断|一句话|核心信息)/],
   ];
-  const KIND_LABELS = {
-    summary: "摘要",
-    decision: "决策",
-    action: "执行",
-    risk: "风险",
-    pending: "待确认",
-    evidence: "依据",
-  };
-
-  let observer = null;
-  let queued = false;
+  const KIND_LABELS = { summary: "摘要", decision: "决策", action: "执行", risk: "风险", pending: "待确认", evidence: "依据" };
 
   function ensureStyles() {
     if (document.querySelector("link[data-ui-v4-results]")) return;
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = `/assets/ui-v4-results.css?v=${STYLE_VERSION}`;
+    link.href = `/assets/ui-v4-results.css?v=${VERSION}`;
     link.dataset.uiV4Results = "true";
     document.head.appendChild(link);
   }
-
-  function ensureFinalQa() {
-    if (window.ZHILINK_UI_V4_FINAL_QA_READY || document.querySelector("script[data-ui-v4-final-qa]")) return;
-    const script = document.createElement("script");
-    script.src = `/assets/ui-v4-final-qa.js?v=${FINAL_QA_VERSION}`;
-    script.dataset.uiV4FinalQa = "true";
-    script.async = false;
-    document.body.appendChild(script);
-  }
-
-  function cleanText(value) {
-    return String(value || "").replace(/\s+/g, " ").trim();
-  }
-
+  function cleanText(value) { return String(value || "").replace(/\s+/g, " ").trim(); }
   function moduleFromPanel(panel) {
     const id = String(panel?.id || "");
     return id.endsWith("Result") ? id.slice(0, -6) : "result";
   }
-
   function sectionKind(title) {
     const value = cleanText(title);
-    for (const [kind, pattern] of KIND_RULES) {
-      if (pattern.test(value)) return kind;
-    }
+    for (const [kind, pattern] of KIND_RULES) if (pattern.test(value)) return kind;
     return "default";
   }
-
   function decorateToolbar(panel) {
     const header = panel.querySelector(".result-header");
     if (!(header instanceof HTMLElement)) return;
     header.classList.add("ui-v4-document-header");
-
     const copy = header.querySelector(".copy-result");
     if (copy instanceof HTMLButtonElement) {
       if (cleanText(copy.textContent) === "复制结果") copy.textContent = "复制正文";
       copy.setAttribute("aria-label", "复制当前结果正文");
       copy.setAttribute("title", "复制当前结果正文");
     }
-
     const group = header.querySelector(".inline-download-group");
     if (group instanceof HTMLElement) {
       group.classList.add("ui-v4-export-group");
@@ -78,13 +48,12 @@
       if (label) label.textContent = "导出";
       group.querySelectorAll(".export-result").forEach(button => {
         const format = String(button.dataset.format || "").toLowerCase();
-        const formatName = format === "docx" ? "Word" : format === "md" ? "Markdown" : format.toUpperCase();
-        button.setAttribute("aria-label", `下载 ${formatName} 文件`);
-        button.setAttribute("title", `下载 ${formatName} 文件`);
+        const name = format === "docx" ? "Word" : format === "md" ? "Markdown" : format.toUpperCase();
+        button.setAttribute("aria-label", `下载 ${name} 文件`);
+        button.setAttribute("title", `下载 ${name} 文件`);
       });
     }
   }
-
   function decorateMeta(panel) {
     const meta = panel.querySelector(".result-meta");
     if (!(meta instanceof HTMLElement)) return;
@@ -92,40 +61,28 @@
     meta.setAttribute("aria-label", "生成信息");
     meta.querySelectorAll(".meta-pill").forEach(item => item.classList.add("ui-v4-document-meta-item"));
   }
-
   function ensureStatusRail(panel) {
     let rail = panel.querySelector(":scope > .ui-v4-document-status-rail");
-    const review = panel.querySelector(".review-workflow-bar");
-    const structured = panel.querySelector(".structured-result-bar");
-    const bars = [review, structured].filter(Boolean);
-
-    if (!bars.length) {
-      rail?.remove();
-      return;
-    }
-
+    const bars = [panel.querySelector(".review-workflow-bar"), panel.querySelector(".structured-result-bar")].filter(Boolean);
+    if (!bars.length) { rail?.remove(); return; }
     if (!(rail instanceof HTMLElement)) {
       rail = document.createElement("div");
       rail.className = "ui-v4-document-status-rail";
       rail.setAttribute("aria-label", "结果状态与复核");
       const meta = panel.querySelector(".result-meta");
-      if (meta) meta.insertAdjacentElement("afterend", rail);
-      else panel.prepend(rail);
+      if (meta) meta.insertAdjacentElement("afterend", rail); else panel.prepend(rail);
     }
-
     bars.forEach(bar => {
       bar.classList.add("ui-v4-document-status-item");
       if (bar.parentElement !== rail) rail.appendChild(bar);
     });
   }
-
   function decorateTable(table, sectionTitle) {
     if (!(table instanceof HTMLTableElement)) return;
     table.classList.add("ui-v4-document-table");
     if (!table.hasAttribute("aria-label")) table.setAttribute("aria-label", `${sectionTitle || "结果"}表格`);
     table.querySelectorAll("thead th").forEach(cell => cell.setAttribute("scope", "col"));
   }
-
   function decorateSection(section, index, module) {
     if (!(section instanceof HTMLElement)) return;
     const title = section.querySelector(".result-section-title h3");
@@ -133,7 +90,6 @@
     const kind = sectionKind(titleText);
     section.dataset.uiV4SectionKind = kind;
     section.classList.add("ui-v4-document-section");
-
     if (title instanceof HTMLElement) {
       if (!title.id) title.id = `ui-v4-${module}-section-${index + 1}`;
       section.setAttribute("role", "region");
@@ -148,14 +104,10 @@
         }
         badge.dataset.kind = kind;
         badge.textContent = KIND_LABELS[kind] || "";
-      } else {
-        badge?.remove();
-      }
+      } else badge?.remove();
     }
-
     section.querySelectorAll("table").forEach(table => decorateTable(table, titleText));
   }
-
   function decorateBody(panel) {
     const body = panel.querySelector(".result-body");
     if (!(body instanceof HTMLElement)) return;
@@ -163,26 +115,19 @@
     const module = moduleFromPanel(panel);
     body.querySelectorAll(":scope > .result-section-card").forEach((section, index) => decorateSection(section, index, module));
   }
-
   function decorateStreaming(panel) {
     const streaming = panel.querySelector(".streaming-content");
     if (!(streaming instanceof HTMLElement)) return;
     streaming.classList.add("ui-v4-document-streaming");
     streaming.setAttribute("aria-live", "polite");
   }
-
   function decoratePanel(panel) {
     if (!(panel instanceof HTMLElement)) return;
     panel.classList.add("ui-v4-document-result");
     panel.dataset.uiV4DocumentModule = moduleFromPanel(panel);
-    panel.dataset.uiV4DocumentState = panel.classList.contains("streaming")
-      ? "loading"
-      : panel.classList.contains("empty")
-        ? "empty"
-        : panel.querySelector(".meta-pill.danger") || /生成失败|调用异常/.test(cleanText(panel.textContent))
-          ? "error"
-          : "ready";
-
+    panel.dataset.uiV4DocumentState = panel.classList.contains("streaming") ? "loading"
+      : panel.classList.contains("empty") ? "empty"
+        : panel.querySelector(".meta-pill.danger") || /生成失败|调用异常/.test(cleanText(panel.textContent)) ? "error" : "ready";
     if (panel.classList.contains("empty")) return;
     decorateToolbar(panel);
     decorateMeta(panel);
@@ -190,42 +135,14 @@
     decorateBody(panel);
     decorateStreaming(panel);
   }
-
-  function sync(root = document) {
-    root.querySelectorAll?.(PANEL_SELECTOR).forEach(decoratePanel);
-  }
-
-  function queueSync() {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      sync(document);
-    });
-  }
-
-  function installObserver() {
-    if (observer || !document.body) return;
-    observer = new MutationObserver(mutations => {
-      const relevant = mutations.some(mutation => {
-        if (mutation.type !== "childList") return false;
-        const target = mutation.target;
-        return target instanceof Node && (target.parentElement?.closest?.(PANEL_SELECTOR) || target instanceof HTMLElement && target.matches?.(PANEL_SELECTOR));
-      });
-      if (relevant) queueSync();
-    });
-    observer.observe(document.body, { subtree: true, childList: true });
-  }
-
+  function sync() { document.querySelectorAll(PANEL_SELECTOR).forEach(decoratePanel); }
   function start() {
     ensureStyles();
     document.body.classList.add("ui-v4-results");
-    sync(document);
-    installObserver();
-    ensureFinalQa();
+    sync();
+    window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(sync, { immediate: false });
     window.ZHILINK_UI_V4_RESULTS_READY = true;
   }
-
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
 })();
