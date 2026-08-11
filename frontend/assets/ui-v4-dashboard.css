@@ -203,6 +203,7 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-dashboard #home {
   background: #eff6ff;
   box-shadow: none;
 }
+.ui-v4-dashboard #home .ui-v4-module-icon svg { width: 20px; height: 20px; }
 .ui-v4-dashboard #home .module-card h4 { margin: 12px 0 0; font-size: 15px; }
 .ui-v4-dashboard #home .module-card > p {
   flex: 1;
@@ -228,6 +229,7 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-dashboard #home {
   border-radius: 999px;
   background: #fff;
 }
+.ui-v4-dashboard #home .module-footer button svg { width: 15px; height: 15px; margin-left: 5px; }
 .ui-v4-dashboard #home .module-card:hover .module-footer button { color: #fff; border-color: var(--ui4-primary); background: var(--ui4-primary); }
 .ui-v4-dashboard #home .ui-v4-secondary-task { background: #fbfcfe; }
 .ui-v4-dashboard #home .ui-v4-secondary-task::after {
