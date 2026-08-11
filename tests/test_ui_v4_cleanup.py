@@ -37,16 +37,18 @@ def test_native_index_loads_v4_styles_at_first_paint_without_runtime_preload() -
     assert "ZHILINK_UI_V4_FOUNDATION_READY" in foundation
 
 
-def test_final_bundle_exposes_runtime_version_and_overlay_after_meeting_view() -> None:
+def test_final_bundle_exposes_result_event_version_and_overlay_after_meeting_view() -> None:
     with TestClient(app) as client:
         response = client.get("/assets/app.js")
 
     assert response.status_code == 200
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-runtime-v4"
+    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-result-events-v5"
     assert response.text.rfind('key: "meeting-sources"') > response.text.rfind("ZHILINK_MEETING_USER_VIEW_READY")
+    assert "ZHILINK_RESULT_EVENTS_READY" in response.text
     assert "ZHILINK_UI_V4_RUNTIME_READY" in response.text
     assert "ZHILINK_UI_V4_SHELL_READY" in response.text
-    assert "ZHILINK_DATA_PROVENANCE_V2_READY" in response.text
+    assert "ZHILINK_DATA_PROVENANCE_READY" in response.text
+    assert "ZHILINK_DATA_PROVENANCE_V2_READY" not in response.text
     assert "EARLY_STYLE_ASSETS" not in response.text
 
 
@@ -59,11 +61,13 @@ def test_foundation_and_overlay_layers_do_not_own_business_state() -> None:
         assert forbidden not in overlays
 
 
-def test_provenance_guard_is_self_contained_after_legacy_fixes_removal() -> None:
-    script = (ASSETS / "data-provenance-guard-v2.js").read_text(encoding="utf-8")
+def test_provenance_guard_is_self_contained_after_wrapper_removal() -> None:
+    script = (ASSETS / "data-provenance-guard.js").read_text(encoding="utf-8")
 
-    assert 'const CORE_STYLE = "/assets/data-provenance-guard.css?v=20260806.1"' in script
-    assert 'style.dataset.zhilinkDataProvenance = "true"' in script
+    assert 'STYLE_URL = "/assets/data-provenance-guard.css?v=20260806.1"' in script
+    assert 'link.dataset.zhilinkDataProvenance = "true"' in script
     assert "function ensureStyles()" in script
-    assert "loadCoreGuard();" in script
-    assert "ZHILINK_DATA_PROVENANCE_V2_READY" in script
+    assert "BASE_RESULT_SCHEMA_VERSION" in script
+    assert "ZHILINK_DATA_PROVENANCE_READY" in script
+    assert "CORE_SCRIPT" not in script
+    assert "loadCoreGuard" not in script
