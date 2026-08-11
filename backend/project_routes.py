@@ -140,10 +140,6 @@ def list_project_versions(
 ) -> ProjectVersionListResponse:
     try:
         items, total = get_account_store().list_history(
-            _scope(request, "history:read"), project_id, limit=limit, offset=offset, include_archived=False
-        )
-    except TypeError:
-        items, total = get_account_store().list_history(
             _scope(request, "history:read"), project_id, limit=limit, offset=offset
         )
     except _STORE_EXCEPTIONS as exc:
