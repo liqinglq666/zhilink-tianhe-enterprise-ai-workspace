@@ -102,8 +102,8 @@ def test_example_material_cannot_be_saved_as_formal_project() -> None:
     assert "stopImmediatePropagation" in script
 
 
-def test_v4_shell_metrics_and_pending_items_use_formal_results_only() -> None:
-    script = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
+def test_v4_dashboard_metrics_and_pending_items_use_formal_results_only() -> None:
+    script = (ASSETS / "ui-v4-dashboard.js").read_text(encoding="utf-8")
     runtime = (ASSETS / "ui-v4-runtime.js").read_text(encoding="utf-8")
 
     assert "FORMAL_ORIGINS = new Set(contracts.formalOrigins)" in script
