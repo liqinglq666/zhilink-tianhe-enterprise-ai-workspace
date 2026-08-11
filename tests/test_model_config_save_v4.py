@@ -5,17 +5,20 @@ from fastapi.testclient import TestClient
 from backend.main import app
 
 
-def test_overlay_layer_loads_explicit_model_config_controller() -> None:
+def test_bundle_loads_explicit_model_config_controller_after_native_drawer() -> None:
     with TestClient(app) as client:
-        overlays = client.get("/assets/ui-v4-overlays.js?v=20260810.3")
-        controller = client.get("/assets/model-config-save-v4.js?v=20260810.3")
-        stylesheet = client.get("/assets/model-config-save-v4.css?v=20260810.3")
+        bundle = client.get("/assets/app.js")
+        overlays = client.get("/assets/ui-v4-overlays.js?v=20260811.1")
+        controller = client.get("/assets/model-config-save-v4.js?v=20260811.1")
+        stylesheet = client.get("/assets/model-config-save-v4.css?v=20260811.1")
 
+    assert bundle.status_code == 200
     assert overlays.status_code == 200
     assert controller.status_code == 200
     assert stylesheet.status_code == 200
-    assert "model-config-save-v4.js" in overlays.text
-    assert "data-model-config-save-v4" in overlays.text
+    assert bundle.text.index("ZHILINK_API_DRAWER_V4_READY") < bundle.text.index("ZHILINK_MODEL_CONFIG_SAVE_V4_READY")
+    assert "model-config-save-v4.js" not in overlays.text
+    assert "data-model-config-save-v4" not in overlays.text
     assert "ZHILINK_MODEL_CONFIG_SAVE_V4_READY" in controller.text
     assert 'close: () => document.getElementById("uiV4ApiClose")' in overlays.text
     assert "liveApiClose" not in overlays.text
@@ -23,7 +26,7 @@ def test_overlay_layer_loads_explicit_model_config_controller() -> None:
 
 def test_model_config_uses_draft_test_and_explicit_commit() -> None:
     with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260810.3")
+        response = client.get("/assets/model-config-save-v4.js?v=20260811.1")
 
     script = response.text
     assert "function readDraft()" in script
@@ -40,7 +43,7 @@ def test_model_config_uses_draft_test_and_explicit_commit() -> None:
 
 def test_model_config_clear_key_is_draft_only_until_save() -> None:
     with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260810.3")
+        response = client.get("/assets/model-config-save-v4.js?v=20260811.1")
 
     script = response.text
     clear_block = script[script.index(f'if (target.closest(`#${{IDS.clear}}`))'):script.index(f'if (target.closest(`#${{IDS.test}}`))')]
@@ -51,7 +54,7 @@ def test_model_config_clear_key_is_draft_only_until_save() -> None:
 
 def test_model_config_supports_public_model_without_browser_key() -> None:
     with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260810.3")
+        response = client.get("/assets/model-config-save-v4.js?v=20260811.1")
 
     script = response.text
     assert "const publicModel =" in script
@@ -66,7 +69,7 @@ def test_model_config_supports_public_model_without_browser_key() -> None:
 
 def test_model_config_generation_requires_saved_custom_or_available_public_model() -> None:
     with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260810.3")
+        response = client.get("/assets/model-config-save-v4.js?v=20260811.1")
 
     script = response.text
     assert 'window.requireApiConfig = function requireAvailableModel()' in script
@@ -78,8 +81,8 @@ def test_model_config_generation_requires_saved_custom_or_available_public_model
 
 def test_model_config_save_state_has_mobile_safe_area_and_disabled_save_feedback() -> None:
     with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.css?v=20260810.3")
-        drawer = client.get("/assets/api-drawer-v4.css?v=20260810.3")
+        response = client.get("/assets/model-config-save-v4.css?v=20260811.1")
+        drawer = client.get("/assets/api-drawer-v4.css?v=20260811.1")
 
     stylesheet = response.text
     assert ".model-config-draft-status" in stylesheet
