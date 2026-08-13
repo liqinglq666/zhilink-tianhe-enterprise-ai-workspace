@@ -73,9 +73,10 @@ def test_javascript_owners_match_css_owners() -> None:
     ):
         assert required in workspace, required
 
+    assert "function ensureHomePanels" not in dashboard
+    assert "document.createElement" not in dashboard
     for required in (
         "function decorateHomeCards",
-        "function ensureHomePanels",
         "function renderPending",
         "function renderUsage",
         'holder.classList.add("ui-v4-module-icon")',
