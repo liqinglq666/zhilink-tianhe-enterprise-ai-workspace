@@ -137,7 +137,6 @@
     if (!hero || !content || !title || !description || !actions) return;
     const project = currentProject();
     const signature = projectSignature(project);
-    hero.classList.add("ui-v4-work-hero");
     if (hero.dataset.uiV4WorkSignature === signature) return;
     hero.dataset.uiV4WorkSignature = signature;
     setText(eyebrow, project ? "当前工作" : "工作首页");
@@ -158,52 +157,12 @@
       document.getElementById("uiV4CreateProject")?.addEventListener("click", openProjectManager);
     }
   }
-  function arrangeAttentionPanel() {
-    const overview = document.querySelector("#home .overview-panel");
-    const pending = document.getElementById("uiV4PendingPanel");
-    if (!overview || !pending) return;
-    pending.classList.add("ui-v4-attention-panel");
-    if (pending.parentElement !== overview) overview.appendChild(pending);
-    setText(pending.querySelector(".ui-v4-panel-head h3"), "需要你处理");
-  }
-  function decorateTaskSection() {
-    const toolbar = document.querySelector("#home > .section-toolbar");
-    if (toolbar) {
-      setText(toolbar.querySelector("h3"), "新建任务");
-      setText(toolbar.querySelector("p"), "选择会议、合同、政策或供需事项开始处理；企业档案与实施计划作为辅助能力。 ");
-    }
-    document.querySelectorAll("#home .module-card").forEach(card => {
-      const key = card.dataset.toolKey || "";
-      card.classList.toggle("ui-v4-secondary-task", ["profile", "landing"].includes(key));
-    });
-  }
-  function decorateLowerPanels() {
-    const grid = document.getElementById("uiV4HomeGrid");
-    const recent = document.querySelector("#home .recent-card");
-    const usage = document.getElementById("uiV4UsagePanel");
-    if (!grid || !recent || !usage) return;
-    grid.classList.add("ui-v4-secondary-grid");
-    recent.classList.add("ui-v4-recent-panel");
-    usage.classList.add("ui-v4-usage-panel");
-    setText(recent.querySelector(".section-toolbar h3"), "最近材料");
-    setText(usage.querySelector(".ui-v4-panel-head h3"), "工作状态");
-  }
-  function simplifyGovernance() {
-    const governance = document.querySelector("#home .governance-card");
-    if (!governance) return;
-    governance.classList.add("ui-v4-safety-strip");
-    governance.setAttribute("aria-label", "使用边界");
-  }
   function apply() {
     if (!document.body) return;
     document.body.classList.add("ui-v4-dashboard");
     document.documentElement.dataset.zhilinkDashboard = "v4";
     decorateHomeCards();
     decorateHero();
-    arrangeAttentionPanel();
-    decorateTaskSection();
-    decorateLowerPanels();
-    simplifyGovernance();
     renderPending();
     renderUsage();
     window.ZHILINK_UI_V4_DASHBOARD_READY = true;
