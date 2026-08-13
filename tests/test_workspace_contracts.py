@@ -41,36 +41,37 @@ def test_runtime_is_the_single_shared_contract_registry() -> None:
         assert marker in runtime
 
 
-def test_runtime_owns_generic_v4_helpers() -> None:
+def test_runtime_owns_only_behavior_generic_v4_helpers() -> None:
     runtime = RUNTIME.read_text(encoding="utf-8")
 
     for marker in (
         "function readJson(raw, fallback)",
         "function setText(element, value)",
         "function escapeHtml(value)",
-        "function ensureStylesheet(key, href)",
-        "window.ZHILINK_UI_V4_HELPERS = Object.freeze({ readJson, setText, escapeHtml, ensureStylesheet })",
+        "window.ZHILINK_UI_V4_HELPERS = Object.freeze({ readJson, setText, escapeHtml })",
         "window.ZHILINK_UI_V4_HELPERS_READY = true",
     ):
         assert marker in runtime
-
-    owners = {
-        "ui-v4-shell.js": 'HELPERS.ensureStylesheet("shell",',
-        "ui-v4-dashboard.js": 'HELPERS.ensureStylesheet("dashboard",',
-        "ui-v4-workspace.js": 'HELPERS.ensureStylesheet("workspace",',
-    }
-    for filename, stylesheet_call in owners.items():
-        source = (ASSETS / filename).read_text(encoding="utf-8")
-        assert "window.ZHILINK_UI_V4_HELPERS" in source
-        assert stylesheet_call in source
-        assert "function ensureStyles()" not in source
-        assert "function readJson(raw, fallback)" not in source
-        assert "function setText(element, value)" not in source
+    assert "ensureStylesheet" not in runtime
 
     for filename in ("ui-v4-shell.js", "ui-v4-dashboard.js"):
         source = (ASSETS / filename).read_text(encoding="utf-8")
+        assert "window.ZHILINK_UI_V4_HELPERS" in source
+        assert "function readJson(raw, fallback)" not in source
+        assert "function setText(element, value)" not in source
         assert "escapeHtml: safe" in source
         assert '.replaceAll("&", "&amp;")' not in source
+
+    for filename in (
+        "ui-v4-workspace.js",
+        "ui-v4-overlays.js",
+        "ui-v4-forms.js",
+        "ui-v4-results.js",
+        "ui-v4-states.js",
+        "ui-v4-final-qa.js",
+    ):
+        source = (ASSETS / filename).read_text(encoding="utf-8")
+        assert "window.ZHILINK_UI_V4_HELPERS" not in source, filename
 
 
 def test_runtime_owns_the_shared_v4_module_catalogue() -> None:
