@@ -226,6 +226,18 @@ def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> 
     for module_id in ("profile", "meeting", "contract", "policy", "match", "landing", "report"):
         assert f'id="{module_id}" class="page ui-v4-business-page"' in html
 
+    empty_states = {
+        "profileResult": ("企业档案将在这里生成", "填写企业资料后生成档案；结果可继续用于其他业务模块。"),
+        "meetingResult": ("会议纪要将在这里生成", "粘贴会议记录或录音转写文本，然后点击“生成会议纪要”。"),
+        "contractResult": ("合同风险提示将在这里生成", "粘贴需要审阅的关键条款，然后点击“生成风险提示”。"),
+        "policyResult": ("政策建议将在这里生成", "填写政策需求或企业档案，然后点击“生成政策建议”。"),
+        "matchResult": ("供需协作方案将在这里生成", "补充供给、需求、目标对象或业务场景中的至少一项。"),
+        "landingResult": ("实施计划将在这里生成", "补充试点场景、角色、数据范围与复核机制后生成执行计划。"),
+        "reportResult": ("运营报告将在这里生成", "先完成至少一个业务模块，再整合或导出当前已有材料。"),
+    }
+    for result_id, (title, copy) in empty_states.items():
+        assert f'id="{result_id}" class="result-panel empty" data-ui-v4-empty-title="{title}" data-ui-v4-empty-copy="{copy}"' in html
+
     for forbidden in (
         "ui-v4-workspace-page",
         "ui-v4-input-pane",
@@ -234,6 +246,11 @@ def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> 
         'document.body.classList.add("ui-v4-workspace")',
         "uiV4PaneLabel",
         "uiV4ResultState",
+        "emptyTitle",
+        "emptyCopy",
+        "uiV4EmptyTitle",
+        "uiV4EmptyCopy",
+        "WORKSPACE_MODULES",
     ):
         assert forbidden not in script
 
@@ -245,9 +262,9 @@ def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> 
     ):
         assert forbidden not in stylesheet
 
-    assert 'emptyTitle: "会议纪要将在这里生成"' in script
     assert "const SHARED_MODULES = contracts.modules" in script
-    assert "const WORKSPACE_MODULES = {" in script
+    assert "const WORKSPACE_INPUT_LABELS = {" in script
+    assert 'meeting: "会议记录"' in script
     assert "resultLabel:" not in script
     assert 'meta.className = "ui-v4-module-meta"' in script
     assert 'result.setAttribute("aria-label", shared.resultLabel)' in script
@@ -256,6 +273,7 @@ def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> 
     assert ".ui-v4-workspace .ui-v4-business-page > .content-card" in stylesheet
     assert ".ui-v4-workspace .ui-v4-business-page > .result-panel" in stylesheet
     assert ".ui-v4-workspace #meeting > .content-card textarea" in stylesheet
+    assert 'content: attr(data-ui-v4-empty-title) "\\A" attr(data-ui-v4-empty-copy);' in stylesheet
     assert "grid-template-columns: minmax(360px, .78fr) minmax(520px, 1.22fr)" in stylesheet
     assert "@media (max-width: 1180px)" in stylesheet
 
