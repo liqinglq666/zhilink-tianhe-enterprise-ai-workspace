@@ -1,10 +1,8 @@
 /* UI V4 workspace: focused input/result workbench for business modules. */
 (() => {
-  const VERSION = "20260811.3";
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const ICONS = window.ZHILINK_UI_V4_ICONS;
-  const HELPERS = window.ZHILINK_UI_V4_HELPERS;
-  if (!contracts || !ICONS || !HELPERS) throw new Error("Workspace runtime, icons and helpers must load before workspace.");
+  if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before workspace.");
 
   const SHARED_MODULES = contracts.modules;
   const WORKSPACE_MODULES = {
@@ -69,7 +67,6 @@
   }
 
   function apply() {
-    HELPERS.ensureStylesheet("workspace", `/assets/ui-v4-workspace.css?v=${VERSION}`);
     if (!document.body) return;
     document.body.classList.add("ui-v4-workspace");
     document.documentElement.dataset.zhilinkWorkspace = "v4";
