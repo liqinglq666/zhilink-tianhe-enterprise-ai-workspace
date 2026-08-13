@@ -1,8 +1,5 @@
 /* UI V4 forms: consistent business-input hierarchy, guidance and inline validation. */
 (() => {
-  const VERSION = "20260810.1";
-  const { ensureStylesheet } = window.ZHILINK_UI_V4_HELPERS || {};
-  if (!ensureStylesheet) throw new Error("UI V4 helpers must load before forms.");
   const PROFILE_FIELDS = ["profileName", "profileIndustry", "profileLocation", "profileScale", "profileStage", "profileRole", "profileDemands"];
 
   const MODULES = {
@@ -360,7 +357,6 @@
   }
 
   function start() {
-    ensureStylesheet("forms", `/assets/ui-v4-forms.css?v=${VERSION}`);
     Object.keys(MODULES).forEach(decorateModule);
     document.addEventListener("input", handleInput, true);
     document.addEventListener("change", handleInput, true);
