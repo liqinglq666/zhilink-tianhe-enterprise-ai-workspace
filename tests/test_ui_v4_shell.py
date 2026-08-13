@@ -226,11 +226,25 @@ def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> 
     for module_id in ("profile", "meeting", "contract", "policy", "match", "landing", "report"):
         assert f'id="{module_id}" class="page ui-v4-business-page"' in html
 
-    assert 'page.classList.add("ui-v4-workspace-page")' in script
-    assert 'page.classList.add("ui-v4-workspace-page", "ui-v4-business-page")' not in script
-    assert 'document.body.classList.add("ui-v4-workspace")' not in script
-    assert "uiV4PaneLabel" not in script
-    assert "uiV4ResultState" not in script
+    for forbidden in (
+        "ui-v4-workspace-page",
+        "ui-v4-input-pane",
+        "ui-v4-result-pane",
+        "uiV4Module",
+        'document.body.classList.add("ui-v4-workspace")',
+        "uiV4PaneLabel",
+        "uiV4ResultState",
+    ):
+        assert forbidden not in script
+
+    for forbidden in (
+        "ui-v4-workspace-page",
+        "ui-v4-input-pane",
+        "ui-v4-result-pane",
+        "data-ui-v4-module",
+    ):
+        assert forbidden not in stylesheet
+
     assert 'emptyTitle: "会议纪要将在这里生成"' in script
     assert "const SHARED_MODULES = contracts.modules" in script
     assert "const WORKSPACE_MODULES = {" in script
@@ -239,6 +253,9 @@ def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> 
     assert 'result.setAttribute("aria-label", shared.resultLabel)' in script
     assert "ICONS[shared.icon]" in script
     assert 'button.insertAdjacentHTML("beforeend", ICONS.arrow)' in script
+    assert ".ui-v4-workspace .ui-v4-business-page > .content-card" in stylesheet
+    assert ".ui-v4-workspace .ui-v4-business-page > .result-panel" in stylesheet
+    assert ".ui-v4-workspace #meeting > .content-card textarea" in stylesheet
     assert "grid-template-columns: minmax(360px, .78fr) minmax(520px, 1.22fr)" in stylesheet
     assert "@media (max-width: 1180px)" in stylesheet
 
