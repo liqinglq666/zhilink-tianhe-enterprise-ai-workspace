@@ -28,14 +28,12 @@
     const result = page?.querySelector(":scope > .result-panel");
     if (!shared || !page || !input || !result) return;
 
-    page.classList.add("ui-v4-workspace-page", "ui-v4-business-page");
+    page.classList.add("ui-v4-workspace-page");
     page.dataset.uiV4Module = id;
     input.classList.add("ui-v4-input-pane");
     result.classList.add("ui-v4-result-pane");
-    input.dataset.uiV4PaneLabel = config.input;
     result.dataset.uiV4EmptyTitle = config.emptyTitle;
     result.dataset.uiV4EmptyCopy = config.emptyCopy;
-    result.dataset.uiV4ResultState = result.classList.contains("empty") ? "empty" : "ready";
     input.setAttribute("aria-label", `${config.input}输入工作区`);
     result.setAttribute("aria-label", shared.resultLabel);
 
@@ -68,7 +66,6 @@
 
   function apply() {
     if (!document.body) return;
-    document.body.classList.add("ui-v4-workspace");
     document.documentElement.dataset.zhilinkWorkspace = "v4";
     Object.entries(WORKSPACE_MODULES).forEach(([id, config]) => decoratePage(id, config));
     window.ZHILINK_UI_V4_WORKSPACE_READY = true;
