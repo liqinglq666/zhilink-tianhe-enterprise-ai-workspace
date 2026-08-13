@@ -28,15 +28,23 @@ def test_workspace_owns_business_meta_and_primary_action_icons() -> None:
 
     for required in (
         ".ui-v4-workspace .ui-v4-business-page.active-page { min-width: 0; }",
-        ".ui-v4-workspace .ui-v4-input-pane .ui-v4-module-meta {",
+        ".ui-v4-workspace .ui-v4-business-page > .content-card .ui-v4-module-meta {",
         "display: flex;",
         "flex-wrap: wrap;",
-        ".ui-v4-workspace .ui-v4-input-pane .ui-v4-module-meta span {",
+        ".ui-v4-workspace .ui-v4-business-page > .content-card .ui-v4-module-meta span {",
         "display: inline-flex;",
-        ".ui-v4-workspace .ui-v4-input-pane .section-head > span svg { width: 21px; height: 21px; }",
-        ".ui-v4-workspace .ui-v4-input-pane .sticky-actions .primary svg { width: 15px; height: 15px; margin-left: 5px; }",
+        ".ui-v4-workspace .ui-v4-business-page > .content-card .section-head > span svg { width: 21px; height: 21px; }",
+        ".ui-v4-workspace .ui-v4-business-page > .content-card .sticky-actions .primary svg { width: 15px; height: 15px; margin-left: 5px; }",
     ):
         assert required in workspace, required
+
+    for forbidden in (
+        "ui-v4-workspace-page",
+        "ui-v4-input-pane",
+        "ui-v4-result-pane",
+        "data-ui-v4-module",
+    ):
+        assert forbidden not in workspace, forbidden
 
 
 def test_dashboard_owns_home_card_icons_and_action_arrows() -> None:
@@ -72,6 +80,14 @@ def test_javascript_owners_match_css_owners() -> None:
         "ICONS[shared.icon]",
     ):
         assert required in workspace, required
+
+    for forbidden in (
+        "ui-v4-workspace-page",
+        "ui-v4-input-pane",
+        "ui-v4-result-pane",
+        "uiV4Module",
+    ):
+        assert forbidden not in workspace, forbidden
 
     assert "function ensureHomePanels" not in dashboard
     assert "document.createElement" not in dashboard
