@@ -183,15 +183,21 @@ def test_dashboard_keeps_task_first_information_architecture() -> None:
     assert "需要你处理" in html
     assert "最近材料" in html
     assert "工作状态" in html
+    assert "企业档案与实施计划作为辅助能力" in html
+    assert 'class="ui-v4-home-panel ui-v4-attention-panel"' in html
+    assert 'class="module-card ui-v4-secondary-task" data-goto="profile"' in html
+    assert 'class="module-card ui-v4-secondary-task" data-goto="landing"' in html
+    assert 'id="uiV4HomeGrid" class="ui-v4-home-grid ui-v4-secondary-grid"' in html
+    assert 'class="recent-card ui-v4-recent-panel"' in html
+    assert 'id="uiV4UsagePanel" class="ui-v4-home-panel ui-v4-usage-panel"' in html
+    assert 'class="governance-card ui-v4-safety-strip" aria-label="使用边界"' in html
     assert 'data-tool-key="meeting"' in html
     assert 'data-tool-key="contract"' in html
     assert 'data-tool-key="policy"' in html
     assert 'data-tool-key="match"' in html
     assert 'data-tool-key="report"' not in html
-    assert "企业档案与实施计划作为辅助能力" in script
     assert "function decorateHomeCards" in script
-    assert "function ensureHomePanels" not in script
-    assert "document.createElement" not in script
+    assert "function decorateHero" in script
     assert "function renderPending" in script
     assert "function renderUsage" in script
     assert "const MODULES = contracts.modules" in script
@@ -199,6 +205,16 @@ def test_dashboard_keeps_task_first_information_architecture() -> None:
     assert 'const MODULE_ORDER = ["meeting"' not in script
     assert 'key === "landing" ? "plan" : key' not in script
     assert "ZHILINK_UI_V4_SHELL?.projectCount?.()" in script
+    for forbidden in (
+        "function ensureHomePanels",
+        "function arrangeAttentionPanel",
+        "function decorateTaskSection",
+        "function decorateLowerPanels",
+        "function simplifyGovernance",
+        'hero.classList.add("ui-v4-work-hero")',
+        "document.createElement",
+    ):
+        assert forbidden not in script
 
 
 def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> None:
