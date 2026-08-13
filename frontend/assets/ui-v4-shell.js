@@ -60,109 +60,20 @@
     return true;
   }
 
-  function ensureTopNavigation() {
-    const topbar = document.querySelector(".topbar");
-    const topActions = document.querySelector(".top-actions");
-    if (!topbar || !topActions) return;
-    if (!byId("uiV4MobileMenu")) {
-      const mobile = document.createElement("button");
-      mobile.id = "uiV4MobileMenu";
-      mobile.className = "ui-v4-mobile-menu";
-      mobile.type = "button";
-      mobile.setAttribute("aria-label", "打开导航");
-      mobile.setAttribute("aria-controls", "navList");
-      mobile.setAttribute("aria-expanded", "false");
-      mobile.innerHTML = ICONS.menu;
-      topbar.insertBefore(mobile, topbar.firstChild);
-    }
-    if (!byId("uiV4TopNav")) {
-      const nav = document.createElement("nav");
-      nav.id = "uiV4TopNav";
-      nav.className = "ui-v4-top-nav";
-      nav.setAttribute("aria-label", "项目与账户");
-      nav.innerHTML = `
-        <button id="uiV4ProjectContext" class="ui-v4-project-context" type="button">
-          <span class="ui-v4-project-icon">${ICONS.project}</span>
-          <span class="ui-v4-project-copy"><small>当前项目</small><strong id="uiV4ProjectName">未选择项目</strong></span>
-          <span id="uiV4ProjectMeta" class="ui-v4-project-meta">创建 / 打开</span>
-        </button>
-        <div class="ui-v4-account-wrap">
-          <button id="uiV4AccountToggle" class="ui-v4-account-toggle" type="button" aria-expanded="false" aria-controls="uiV4AccountMenu">
-            <span class="ui-v4-account-avatar">${ICONS.account}</span><span id="uiV4AccountLabel">企业账户</span>${ICONS.down}
-          </button>
-          <div id="uiV4AccountMenu" class="ui-v4-account-menu" hidden>
-            <button type="button" data-ui-v4-account="account">账户与组织</button>
-            <button type="button" data-ui-v4-account="identity">使用身份</button>
-            <button type="button" data-ui-v4-account="api">模型配置</button>
-            <button type="button" data-ui-v4-account="service">服务跟进</button>
-            <hr />
-            <button type="button" class="ui-v4-danger" data-ui-v4-account="clear">清空本次会话</button>
-          </div>
-        </div>`;
-      topActions.appendChild(nav);
-    }
-  }
-
-  function normalizeSidebar() {
+  function syncSidebarPresentation() {
     const nav = byId("navList");
     if (!nav) return;
-    const groupLabels = { "资料与计划": "资料与执行", "输出归档": "归档", "运营总览": "工作台" };
-    Array.from(nav.querySelectorAll(":scope > .nav-group-label")).forEach(group => {
-      setText(group, groupLabels[group.textContent.trim()] || group.textContent.trim());
-      group.classList.add("ui-v4-nav-group-label");
-    });
-    const home = nav.querySelector('button[data-section="home"]');
-    if (home && !byId("uiV4WorkspaceGroup")) {
-      const group = document.createElement("div");
-      group.id = "uiV4WorkspaceGroup";
-      group.className = "nav-group-label ui-v4-nav-group-label";
-      group.textContent = "工作台";
-      nav.insertBefore(group, home);
-    }
     nav.querySelectorAll("button[data-section]").forEach(button => {
       const config = MODULES[button.dataset.section];
-      if (!config) return;
-      let label = button.querySelector(":scope > .ui-v4-nav-label");
-      if (!label) {
-        const textNode = Array.from(button.childNodes).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
-        label = document.createElement("span");
-        label.className = "ui-v4-nav-label";
-        if (textNode) textNode.replaceWith(label); else button.appendChild(label);
-      }
+      const label = button.querySelector(":scope > .ui-v4-nav-label");
+      if (!config || !label) return;
       setText(label, config.label);
-      const holder = button.querySelector(":scope > span:not(.ui-v4-nav-label)");
+      const holder = button.querySelector(":scope > .ui-v4-nav-icon");
       if (holder && holder.dataset.uiV4Icon !== "true") {
-        holder.className = "ui-v4-nav-icon";
         holder.innerHTML = ICONS[config.icon] || ICONS.home;
         holder.dataset.uiV4Icon = "true";
       }
     });
-  }
-
-  function ensureSidebarSupport() {
-    const sidebar = document.querySelector(".sidebar");
-    if (!sidebar) return;
-    let recent = byId("uiV4SidebarRecent");
-    if (!recent) {
-      recent = document.createElement("section");
-      recent.id = "uiV4SidebarRecent";
-      recent.className = "ui-v4-sidebar-recent";
-      recent.innerHTML = `<div class="ui-v4-sidebar-recent-head"><strong>最近项目</strong><span id="uiV4SidebarProjectCount">0</span></div><div id="uiV4SidebarProjectList"><p class="ui-v4-sidebar-empty">正在读取项目…</p></div><button class="ui-v4-sidebar-all" type="button" id="uiV4SidebarAllProjects">查看全部项目 →</button>`;
-      sidebar.appendChild(recent);
-    }
-    if (!byId("uiV4ResourceNavigation")) {
-      const resource = document.createElement("section");
-      resource.id = "uiV4ResourceNavigation";
-      resource.className = "ui-v4-resource-navigation";
-      resource.innerHTML = `<div class="nav-group-label ui-v4-nav-group-label">组织资源</div><button id="uiV4KnowledgeNav" class="ui-v4-resource-button" type="button"><span class="ui-v4-resource-icon">${ICONS.knowledge}</span><span class="ui-v4-resource-copy"><strong>组织知识库</strong><small>组织材料与内部知识</small></span></button>`;
-      sidebar.insertBefore(resource, recent);
-    }
-    if (!byId("uiV4MobileBackdrop")) {
-      const backdrop = document.createElement("div");
-      backdrop.id = "uiV4MobileBackdrop";
-      backdrop.className = "ui-v4-mobile-backdrop";
-      document.body.appendChild(backdrop);
-    }
   }
 
   function syncProjectContext() {
@@ -321,9 +232,7 @@
     if (!document.body) return;
     document.body.classList.add("ui-v4-shell");
     document.documentElement.dataset.zhilinkUi = "v4";
-    ensureTopNavigation();
-    normalizeSidebar();
-    ensureSidebarSupport();
+    syncSidebarPresentation();
     setText(byId("uiV4AccountLabel"), accountLabel());
     syncProjectContext();
     syncPageContext();
