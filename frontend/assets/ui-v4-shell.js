@@ -1,6 +1,5 @@
 /* UI V4 shell: owns workspace chrome, navigation, project and account context. */
 (() => {
-  const VERSION = "20260811.3";
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const ICONS = window.ZHILINK_UI_V4_ICONS;
   const HELPERS = window.ZHILINK_UI_V4_HELPERS;
@@ -319,7 +318,6 @@
   }
 
   function apply() {
-    HELPERS.ensureStylesheet("shell", `/assets/ui-v4-shell.css?v=${VERSION}`);
     if (!document.body) return;
     document.body.classList.add("ui-v4-shell");
     document.documentElement.dataset.zhilinkUi = "v4";
