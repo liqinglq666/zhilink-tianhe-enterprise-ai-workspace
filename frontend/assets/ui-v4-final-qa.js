@@ -1,8 +1,5 @@
 /* UI V4 final QA: responsive and accessibility guardrails without owning business state. */
 (() => {
-  const VERSION = "20260811.1";
-  const { ensureStylesheet } = window.ZHILINK_UI_V4_HELPERS || {};
-  if (!ensureStylesheet) throw new Error("UI V4 helpers must load before final QA.");
   const PAGE_NAV_SELECTOR = "#navList button[data-section], [data-goto]";
   const SCROLLABLE_SELECTOR = ".result-section-content, .structured-table-wrap";
   let keyboardNavigationPending = false;
@@ -117,7 +114,6 @@
     }
   }
   function start() {
-    ensureStylesheet("final-qa", `/assets/ui-v4-final-qa.css?v=${VERSION}`);
     sync();
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(sync, { immediate: false });
     document.addEventListener("keydown", handleKeydown, true);
