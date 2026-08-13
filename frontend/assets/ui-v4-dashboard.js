@@ -49,34 +49,6 @@
     (toolbar || grid)?.scrollIntoView({ behavior: "smooth", block: "start" });
     window.setTimeout(() => grid?.querySelector(".module-card .module-footer button")?.focus(), 300);
   }
-  function ensureHomePanels() {
-    const home = document.getElementById("home");
-    const recent = home?.querySelector(".recent-card");
-    const governance = home?.querySelector(".governance-card");
-    if (!home || !recent || !governance) return;
-    let grid = document.getElementById("uiV4HomeGrid");
-    if (!grid) {
-      grid = document.createElement("div");
-      grid.id = "uiV4HomeGrid";
-      grid.className = "ui-v4-home-grid";
-      governance.parentNode.insertBefore(grid, governance);
-      grid.appendChild(recent);
-    }
-    if (!document.getElementById("uiV4PendingPanel")) {
-      const pending = document.createElement("section");
-      pending.id = "uiV4PendingPanel";
-      pending.className = "ui-v4-home-panel";
-      pending.innerHTML = `<div class="ui-v4-panel-head"><h3>需要你处理</h3><span id="uiV4PendingCount">0 项</span></div><div id="uiV4PendingList" class="ui-v4-pending-list"></div>`;
-      grid.appendChild(pending);
-    }
-    if (!document.getElementById("uiV4UsagePanel")) {
-      const usage = document.createElement("section");
-      usage.id = "uiV4UsagePanel";
-      usage.className = "ui-v4-home-panel ui-v4-usage-panel";
-      usage.innerHTML = `<div class="ui-v4-panel-head"><h3>工作状态</h3><span>正式材料</span></div><div id="uiV4Metrics" class="ui-v4-metrics"></div><p id="uiV4UsageNote" class="ui-v4-usage-note"></p>`;
-      grid.appendChild(usage);
-    }
-  }
   function decorateHomeCards() {
     document.querySelectorAll("#home .module-card[data-tool-key]").forEach(card => {
       const key = card.dataset.toolKey || "";
@@ -226,7 +198,6 @@
     if (!document.body) return;
     document.body.classList.add("ui-v4-dashboard");
     document.documentElement.dataset.zhilinkDashboard = "v4";
-    ensureHomePanels();
     decorateHomeCards();
     decorateHero();
     arrangeAttentionPanel();
