@@ -1,6 +1,5 @@
 /* UI V4 dashboard: task-first home workspace and home-only presentation. */
 (() => {
-  const VERSION = "20260811.3";
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const ICONS = window.ZHILINK_UI_V4_ICONS;
   const HELPERS = window.ZHILINK_UI_V4_HELPERS;
@@ -224,7 +223,6 @@
     governance.setAttribute("aria-label", "使用边界");
   }
   function apply() {
-    HELPERS.ensureStylesheet("dashboard", `/assets/ui-v4-dashboard.css?v=${VERSION}`);
     if (!document.body) return;
     document.body.classList.add("ui-v4-dashboard");
     document.documentElement.dataset.zhilinkDashboard = "v4";
