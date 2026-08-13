@@ -28,7 +28,8 @@ def test_navigation_assets_are_removed_and_shell_owns_navigation() -> None:
     assert "ui-v4-navigation.css" not in html
     assert "ui-v4-navigation" not in html
     assert "uiV4ProjectContext" in shell_script.text
-    assert "uiV4ResourceNavigation" in shell_script.text
+    assert "uiV4KnowledgeNav" in shell_script.text
+    assert "uiV4ResourceNavigation" not in shell_script.text
     assert "ui-v4-navigation.css" not in shell_script.text
     assert ".ui-v4-shell .ui-v4-project-context" in shell_stylesheet.text
     assert ".ui-v4-shell .ui-v4-resource-navigation" in shell_stylesheet.text
