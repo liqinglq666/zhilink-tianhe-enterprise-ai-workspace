@@ -90,12 +90,16 @@ def test_replaced_ui_layers_and_fake_preview_assets_are_deleted() -> None:
 def test_native_index_owns_workspace_chrome_before_javascript_runs() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     for required in (
+        'id="uiV4WorkspaceGroup"',
+        'id="uiV4MobileMenu"',
         'id="uiV4TopNav"',
         'id="uiV4ProjectContext"',
         'id="uiV4AccountToggle"',
         'id="uiV4SidebarRecent"',
         'id="uiV4ResourceNavigation"',
+        'id="uiV4MobileBackdrop"',
         'id="uiV4PendingPanel"',
+        'id="uiV4HomeGrid"',
         'id="uiV4UsagePanel"',
         'id="apiPanel" class="api-panel api-drawer-v4"',
     ):
@@ -122,7 +126,7 @@ def test_v4_shell_owns_only_navigation_project_and_account_context() -> None:
     assert "contracts.resultKeys" not in script
     assert "contracts.resultTitles" not in script
     assert 'document.body.classList.add("ui-v4-shell")' in script
-    assert "uiV4TopNav" in script
+    assert "function syncSidebarPresentation" in script
     assert "uiV4ProjectContext" in script
     assert "uiV4ResourceNavigation" in script
     assert 'triggerExisting("openProjectManager")' in script
@@ -130,6 +134,9 @@ def test_v4_shell_owns_only_navigation_project_and_account_context() -> None:
     assert "projectCount: () => Number(latestProjects.total || 0)" in script
     assert "projects-refreshed" in script
     for forbidden in (
+        "ensureTopNavigation",
+        "ensureSidebarSupport",
+        "document.createElement",
         "decorateBusinessPages",
         "decorateHomeCards",
         "ensureHomePanels",
@@ -182,7 +189,8 @@ def test_dashboard_keeps_task_first_information_architecture() -> None:
     assert 'data-tool-key="report"' not in html
     assert "企业档案与实施计划作为辅助能力" in script
     assert "function decorateHomeCards" in script
-    assert "function ensureHomePanels" in script
+    assert "function ensureHomePanels" not in script
+    assert "document.createElement" not in script
     assert "function renderPending" in script
     assert "function renderUsage" in script
     assert "const MODULES = contracts.modules" in script
