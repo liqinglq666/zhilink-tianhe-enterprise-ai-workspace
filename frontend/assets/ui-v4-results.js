@@ -1,8 +1,5 @@
 /* UI V4 results: present generated business output as a readable enterprise document without changing content. */
 (() => {
-  const VERSION = "20260811.1";
-  const { ensureStylesheet } = window.ZHILINK_UI_V4_HELPERS || {};
-  if (!ensureStylesheet) throw new Error("UI V4 helpers must load before results.");
   const PANEL_SELECTOR = ".result-panel";
   const KIND_RULES = [
     ["pending", /(待确认|待补充|需确认|未确认|信息缺口|未知事项|待核实)/],
@@ -131,7 +128,6 @@
   }
   function sync() { document.querySelectorAll(PANEL_SELECTOR).forEach(decoratePanel); }
   function start() {
-    ensureStylesheet("results", `/assets/ui-v4-results.css?v=${VERSION}`);
     document.body.classList.add("ui-v4-results");
     sync();
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(sync, { immediate: false });
