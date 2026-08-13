@@ -128,7 +128,8 @@ def test_v4_shell_owns_only_navigation_project_and_account_context() -> None:
     assert 'document.body.classList.add("ui-v4-shell")' in script
     assert "function syncSidebarPresentation" in script
     assert "uiV4ProjectContext" in script
-    assert "uiV4ResourceNavigation" in script
+    assert "uiV4KnowledgeNav" in script
+    assert "uiV4ResourceNavigation" not in script
     assert 'triggerExisting("openProjectManager")' in script
     assert 'triggerExisting("openServiceWorkflow")' in script
     assert "projectCount: () => Number(latestProjects.total || 0)" in script
