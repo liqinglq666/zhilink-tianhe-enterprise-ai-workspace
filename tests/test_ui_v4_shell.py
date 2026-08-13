@@ -218,10 +218,19 @@ def test_dashboard_keeps_task_first_information_architecture() -> None:
 
 
 def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> None:
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     script = (ASSETS / "ui-v4-workspace.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "ui-v4-workspace.css").read_text(encoding="utf-8")
-    assert 'page.classList.add("ui-v4-workspace-page", "ui-v4-business-page")' in script
-    assert 'result.dataset.uiV4ResultState = result.classList.contains("empty") ? "empty" : "ready"' in script
+
+    assert "ui-v4-workspace" in html
+    for module_id in ("profile", "meeting", "contract", "policy", "match", "landing", "report"):
+        assert f'id="{module_id}" class="page ui-v4-business-page"' in html
+
+    assert 'page.classList.add("ui-v4-workspace-page")' in script
+    assert 'page.classList.add("ui-v4-workspace-page", "ui-v4-business-page")' not in script
+    assert 'document.body.classList.add("ui-v4-workspace")' not in script
+    assert "uiV4PaneLabel" not in script
+    assert "uiV4ResultState" not in script
     assert 'emptyTitle: "会议纪要将在这里生成"' in script
     assert "const SHARED_MODULES = contracts.modules" in script
     assert "const WORKSPACE_MODULES = {" in script
