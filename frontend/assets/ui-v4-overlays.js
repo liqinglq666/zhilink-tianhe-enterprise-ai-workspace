@@ -1,8 +1,5 @@
 /* UI V4 overlays: one accessibility and interaction contract for dialogs and drawers. */
 (() => {
-  const VERSION = "20260811.1";
-  const HELPERS = window.ZHILINK_UI_V4_HELPERS;
-  if (!HELPERS) throw new Error("Workspace runtime helpers must load before overlays.");
   const FOCUSABLE = [
     "a[href]",
     "button:not([disabled])",
@@ -204,7 +201,6 @@
     trapFocus(event);
   }
   function start() {
-    HELPERS.ensureStylesheet("overlays", `/assets/ui-v4-overlays.css?v=${VERSION}`);
     OVERLAYS.forEach(decorate);
     document.addEventListener("click", event => {
       const opener = event.target.closest?.(OPENER_SELECTOR);
