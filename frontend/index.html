@@ -177,7 +177,7 @@
       </section>
 
       <section id="profile" class="page ui-v4-business-page">
-        <div class="content-card">
+        <div class="content-card" aria-label="企业资料输入工作区">
           <div class="section-head"><span>企</span><div><h3>企业档案</h3><p>基础资料模块。填写后可提升政策准备、供需协作和实施计划的贴合度。</p></div></div>
           <div class="notice info">企业档案不是必填前置条件；未填写时，其他业务模块仍可根据当前输入独立生成结果。</div>
           <div class="quick-fill-bar"><span>快速填入天河场景：</span><button type="button" class="quick-fill-btn" data-example="profile-mall">天河路商圈运营团队</button><button type="button" class="quick-fill-btn" data-example="profile-cbd">天河CBD专业服务企业</button></div>
@@ -192,42 +192,42 @@
           <label>当前需求<textarea id="profileDemands" rows="5" placeholder="描述企业当前在会议、合同、政策、供需协作、AI应用落地中的需求"></textarea></label>
           <div class="button-row sticky-actions"><button id="runProfile" class="primary">生成企业档案</button><button data-goto="report" class="secondary">进入报告归档</button></div>
         </div>
-        <div id="profileResult" class="result-panel empty" data-ui-v4-empty-title="企业档案将在这里生成" data-ui-v4-empty-copy="填写企业资料后生成档案；结果可继续用于其他业务模块。">企业档案结果会显示在这里。</div>
+        <div id="profileResult" class="result-panel empty" aria-label="企业档案 · 生成结果" data-ui-v4-empty-title="企业档案将在这里生成" data-ui-v4-empty-copy="填写企业资料后生成档案；结果可继续用于其他业务模块。">企业档案结果会显示在这里。</div>
       </section>
 
       <section id="meeting" class="page ui-v4-business-page">
-        <div class="content-card">
+        <div class="content-card" aria-label="会议记录输入工作区">
           <div class="section-head"><span>纪</span><div><h3>会议纪要</h3><p>将会议记录整理为结构化纪要、关键决策、待办事项和风险提醒。</p></div></div>
           <div class="quick-fill-bar"><span>快速填入天河场景：</span><button type="button" class="quick-fill-btn" data-example="meeting-mall">商圈活动筹备会</button><button type="button" class="quick-fill-btn" data-example="meeting-cbd">CBD企业服务例会</button></div>
           <label>会议记录 / 录音转写文本<textarea id="meetingInput" rows="10" placeholder="粘贴会议记录，建议包含参会事项、决策、负责人、时间节点等"></textarea></label>
           <div class="button-row sticky-actions"><button id="runMeeting" class="primary">生成会议纪要</button><button data-goto="report" class="secondary">进入报告归档</button></div>
         </div>
-        <div id="meetingResult" class="result-panel empty" data-ui-v4-empty-title="会议纪要将在这里生成" data-ui-v4-empty-copy="粘贴会议记录或录音转写文本，然后点击“生成会议纪要”。">会议纪要结果会显示在这里。</div>
+        <div id="meetingResult" class="result-panel empty" aria-label="会议纪要 · AI 生成结果" data-ui-v4-empty-title="会议纪要将在这里生成" data-ui-v4-empty-copy="粘贴会议记录或录音转写文本，然后点击“生成会议纪要”。">会议纪要结果会显示在这里。</div>
       </section>
 
       <section id="contract" class="page ui-v4-business-page">
-        <div class="content-card">
+        <div class="content-card" aria-label="合同条款输入工作区">
           <div class="section-head"><span>审</span><div><h3>合同审阅</h3><p>识别合同条款中的商务风险。本模块不替代专业法律意见。</p></div></div>
           <div class="notice warning">建议脱敏后粘贴合同关键条款。系统重点识别付款、交付、违约、知识产权、数据安全和合作边界风险。</div>
           <div class="quick-fill-bar"><span>快速填入天河场景：</span><button type="button" class="quick-fill-btn" data-example="contract-merchant">商户联动协议</button><button type="button" class="quick-fill-btn" data-example="contract-ai">AI服务采购条款</button></div>
           <label>合同 / 协议关键条款<textarea id="contractInput" rows="10" placeholder="粘贴租赁合同、采购合同、服务合同、品牌联动协议等关键条款"></textarea></label>
           <div class="button-row sticky-actions"><button id="runContract" class="primary">生成风险提示</button><button data-goto="report" class="secondary">进入报告归档</button></div>
         </div>
-        <div id="contractResult" class="result-panel empty" data-ui-v4-empty-title="合同风险提示将在这里生成" data-ui-v4-empty-copy="粘贴需要审阅的关键条款，然后点击“生成风险提示”。">合同审阅结果会显示在这里。</div>
+        <div id="contractResult" class="result-panel empty" aria-label="合同风险 · AI 审阅结果" data-ui-v4-empty-title="合同风险提示将在这里生成" data-ui-v4-empty-copy="粘贴需要审阅的关键条款，然后点击“生成风险提示”。">合同审阅结果会显示在这里。</div>
       </section>
 
       <section id="policy" class="page ui-v4-business-page">
-        <div class="content-card">
+        <div class="content-card" aria-label="政策需求输入工作区">
           <div class="section-head"><span>策</span><div><h3>政策准备</h3><p>根据企业情况或政策需求生成政策方向、材料清单和注意事项。</p></div></div>
           <div class="quick-fill-bar"><span>快速填入天河场景：</span><button type="button" class="quick-fill-btn" data-example="policy-ai">AI应用场景与大模型政策</button><button type="button" class="quick-fill-btn" data-example="policy-commerce">商圈促消费与数字化经营</button></div>
           <label>政策需求<textarea id="policyDemand" rows="8" placeholder="例如：希望了解商圈数字化经营、AI营销应用、消费活动、企业服务相关政策方向"></textarea></label>
           <div class="button-row sticky-actions"><button id="runPolicy" class="primary">生成政策建议</button><button data-goto="profile" class="secondary">维护企业档案</button><button data-goto="report" class="secondary">进入报告归档</button></div>
         </div>
-        <div id="policyResult" class="result-panel empty" data-ui-v4-empty-title="政策建议将在这里生成" data-ui-v4-empty-copy="填写政策需求或企业档案，然后点击“生成政策建议”。">政策准备结果会显示在这里。</div>
+        <div id="policyResult" class="result-panel empty" aria-label="政策方向 · AI 建议结果" data-ui-v4-empty-title="政策建议将在这里生成" data-ui-v4-empty-copy="填写政策需求或企业档案，然后点击“生成政策建议”。">政策准备结果会显示在这里。</div>
       </section>
 
       <section id="match" class="page ui-v4-business-page">
-        <div class="content-card">
+        <div class="content-card" aria-label="供需信息输入工作区">
           <div class="section-head"><span>协</span><div><h3>供需协作</h3><p>将供给、需求和合作对象整理为合作建议、对接话术和方案框架。</p></div></div>
           <div class="quick-fill-bar"><span>快速填入天河场景：</span><button type="button" class="quick-fill-btn" data-example="match-mall-ai">商圈找AI服务商</button><button type="button" class="quick-fill-btn" data-example="match-cbd-service">CBD企业找专业服务</button></div>
           <div class="form-grid two">
@@ -238,11 +238,11 @@
           </div>
           <div class="button-row sticky-actions"><button id="runMatch" class="primary">生成供需协作方案</button><button data-goto="report" class="secondary">进入报告归档</button></div>
         </div>
-        <div id="matchResult" class="result-panel empty" data-ui-v4-empty-title="供需协作方案将在这里生成" data-ui-v4-empty-copy="补充供给、需求、目标对象或业务场景中的至少一项。">供需协作结果会显示在这里。</div>
+        <div id="matchResult" class="result-panel empty" aria-label="供需协作 · AI 方案结果" data-ui-v4-empty-title="供需协作方案将在这里生成" data-ui-v4-empty-copy="补充供给、需求、目标对象或业务场景中的至少一项。">供需协作结果会显示在这里。</div>
       </section>
 
       <section id="landing" class="page ui-v4-business-page">
-        <div class="content-card">
+        <div class="content-card" aria-label="实施条件输入工作区">
           <div class="section-head"><span>计</span><div><h3>实施计划</h3><p>将业务事项整理为试点执行计划、数据边界、复核机制和评估指标。</p></div></div>
           <div class="quick-fill-bar"><span>快速填入天河场景：</span><button type="button" class="quick-fill-btn" data-example="landing-mall">商圈AI运营试点</button><button type="button" class="quick-fill-btn" data-example="landing-service-window">企业服务窗口试点</button></div>
           <div class="form-grid two">
@@ -255,11 +255,11 @@
           </div>
           <div class="button-row sticky-actions"><button id="runLanding" class="primary">生成实施计划</button><button data-goto="report" class="secondary">进入报告归档</button></div>
         </div>
-        <div id="landingResult" class="result-panel empty" data-ui-v4-empty-title="实施计划将在这里生成" data-ui-v4-empty-copy="补充试点场景、角色、数据范围与复核机制后生成执行计划。">实施计划结果会显示在这里。</div>
+        <div id="landingResult" class="result-panel empty" aria-label="实施计划 · AI 生成结果" data-ui-v4-empty-title="实施计划将在这里生成" data-ui-v4-empty-copy="补充试点场景、角色、数据范围与复核机制后生成执行计划。">实施计划结果会显示在这里。</div>
       </section>
 
       <section id="report" class="page ui-v4-business-page">
-        <div class="content-card">
+        <div class="content-card" aria-label="归档与导出输入工作区">
           <div class="section-head"><span>报</span><div><h3>报告归档</h3><p>按需汇总已生成材料，导出用于内部流转、服务台账或客户沟通的报告。</p></div></div>
           <div class="report-grid">
             <div class="report-card"><b>已生成模块</b><strong id="reportDoneCount">0/6</strong><p>无需全部完成，系统会汇总当前已有结果。</p></div>
@@ -268,7 +268,7 @@
           </div>
           <div class="button-row sticky-actions"><button id="runReport" class="primary">AI 整合运营报告</button><button id="downloadMarkdown" class="secondary">下载 Markdown</button><button id="downloadTxt" class="secondary">下载 TXT</button><button id="downloadDocx" class="secondary">下载 Word DOCX</button></div>
         </div>
-        <div id="reportResult" class="result-panel empty" data-ui-v4-empty-title="运营报告将在这里生成" data-ui-v4-empty-copy="先完成至少一个业务模块，再整合或导出当前已有材料。">运营报告会显示在这里。</div>
+        <div id="reportResult" class="result-panel empty" aria-label="运营报告 · 汇总与导出" data-ui-v4-empty-title="运营报告将在这里生成" data-ui-v4-empty-copy="先完成至少一个业务模块，再整合或导出当前已有材料。">运营报告会显示在这里。</div>
       </section>
     </main>
   </div>
