@@ -16,8 +16,7 @@
     const id = page.id;
     const shared = SHARED_MODULES[id];
     const input = page.querySelector(":scope > .content-card");
-    const result = page.querySelector(":scope > .result-panel");
-    if (!shared || !input || !result) return;
+    if (!shared || !input) return;
 
     const head = input.querySelector(".section-head");
     const iconHolder = head?.querySelector(":scope > span");
