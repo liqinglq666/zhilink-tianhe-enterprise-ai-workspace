@@ -76,8 +76,8 @@ def test_javascript_owners_match_css_owners() -> None:
     for required in (
         'meta.className = "ui-v4-module-meta"',
         'button.insertAdjacentHTML("beforeend", ICONS.arrow)',
-        'result.setAttribute("aria-label", shared.resultLabel)',
         "ICONS[shared.icon]",
+        'document.querySelectorAll(".ui-v4-business-page[id]").forEach(decoratePage)',
     ):
         assert required in workspace, required
 
@@ -86,6 +86,10 @@ def test_javascript_owners_match_css_owners() -> None:
         "ui-v4-input-pane",
         "ui-v4-result-pane",
         "uiV4Module",
+        "WORKSPACE_INPUT_LABELS",
+        'input.setAttribute("aria-label"',
+        'result.setAttribute("aria-label"',
+        ':scope > .result-panel',
     ):
         assert forbidden not in workspace, forbidden
 
