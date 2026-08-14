@@ -5,15 +5,6 @@
   if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before workspace.");
 
   const SHARED_MODULES = contracts.modules;
-  const WORKSPACE_INPUT_LABELS = {
-    profile: "企业资料",
-    meeting: "会议记录",
-    contract: "合同条款",
-    policy: "政策需求",
-    match: "供需信息",
-    landing: "实施条件",
-    report: "归档与导出",
-  };
 
   function moduleMeta(id) {
     if (id === "report") return ["汇总已有结果", "支持多格式导出", "不导出 API Key"];
@@ -21,15 +12,12 @@
     return ["AI 辅助生成", "人工复核后使用", "结果可归档"];
   }
 
-  function decoratePage(id, inputLabel) {
+  function decoratePage(page) {
+    const id = page.id;
     const shared = SHARED_MODULES[id];
-    const page = document.getElementById(id);
-    const input = page?.querySelector(":scope > .content-card");
-    const result = page?.querySelector(":scope > .result-panel");
-    if (!shared || !page || !input || !result) return;
-
-    input.setAttribute("aria-label", `${inputLabel}输入工作区`);
-    result.setAttribute("aria-label", shared.resultLabel);
+    const input = page.querySelector(":scope > .content-card");
+    const result = page.querySelector(":scope > .result-panel");
+    if (!shared || !input || !result) return;
 
     const head = input.querySelector(".section-head");
     const iconHolder = head?.querySelector(":scope > span");
@@ -61,7 +49,7 @@
   function apply() {
     if (!document.body) return;
     document.documentElement.dataset.zhilinkWorkspace = "v4";
-    Object.entries(WORKSPACE_INPUT_LABELS).forEach(([id, inputLabel]) => decoratePage(id, inputLabel));
+    document.querySelectorAll(".ui-v4-business-page[id]").forEach(decoratePage);
     window.ZHILINK_UI_V4_WORKSPACE_READY = true;
   }
 
