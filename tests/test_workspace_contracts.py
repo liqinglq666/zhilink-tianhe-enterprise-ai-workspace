@@ -103,7 +103,10 @@ def test_ui_owners_consume_shared_module_catalogue_without_redeclaring_it() -> N
     assert 'key === "landing" ? "plan" : key' not in dashboard
     assert "resultLabel:" not in workspace
     assert 'icon: "meeting"' not in workspace
-    assert 'result.setAttribute("aria-label", shared.resultLabel)' in workspace
+    assert 'result.setAttribute("aria-label", shared.resultLabel)' not in workspace
+    assert 'input.setAttribute("aria-label"' not in workspace
+    assert ':scope > .result-panel' not in workspace
+    assert 'document.querySelectorAll(".ui-v4-business-page[id]").forEach(decoratePage);' in workspace
     assert "ICONS[shared.icon]" in workspace
 
 
