@@ -223,20 +223,22 @@ def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> 
     stylesheet = (ASSETS / "ui-v4-workspace.css").read_text(encoding="utf-8")
 
     assert "ui-v4-workspace" in html
-    for module_id in ("profile", "meeting", "contract", "policy", "match", "landing", "report"):
-        assert f'id="{module_id}" class="page ui-v4-business-page"' in html
-
-    empty_states = {
-        "profileResult": ("企业档案将在这里生成", "填写企业资料后生成档案；结果可继续用于其他业务模块。"),
-        "meetingResult": ("会议纪要将在这里生成", "粘贴会议记录或录音转写文本，然后点击“生成会议纪要”。"),
-        "contractResult": ("合同风险提示将在这里生成", "粘贴需要审阅的关键条款，然后点击“生成风险提示”。"),
-        "policyResult": ("政策建议将在这里生成", "填写政策需求或企业档案，然后点击“生成政策建议”。"),
-        "matchResult": ("供需协作方案将在这里生成", "补充供给、需求、目标对象或业务场景中的至少一项。"),
-        "landingResult": ("实施计划将在这里生成", "补充试点场景、角色、数据范围与复核机制后生成执行计划。"),
-        "reportResult": ("运营报告将在这里生成", "先完成至少一个业务模块，再整合或导出当前已有材料。"),
+    workspace_semantics = {
+        "profile": ("企业资料输入工作区", "profileResult", "企业档案 · 生成结果", "企业档案将在这里生成", "填写企业资料后生成档案；结果可继续用于其他业务模块。"),
+        "meeting": ("会议记录输入工作区", "meetingResult", "会议纪要 · AI 生成结果", "会议纪要将在这里生成", "粘贴会议记录或录音转写文本，然后点击“生成会议纪要”。"),
+        "contract": ("合同条款输入工作区", "contractResult", "合同风险 · AI 审阅结果", "合同风险提示将在这里生成", "粘贴需要审阅的关键条款，然后点击“生成风险提示”。"),
+        "policy": ("政策需求输入工作区", "policyResult", "政策方向 · AI 建议结果", "政策建议将在这里生成", "填写政策需求或企业档案，然后点击“生成政策建议”。"),
+        "match": ("供需信息输入工作区", "matchResult", "供需协作 · AI 方案结果", "供需协作方案将在这里生成", "补充供给、需求、目标对象或业务场景中的至少一项。"),
+        "landing": ("实施条件输入工作区", "landingResult", "实施计划 · AI 生成结果", "实施计划将在这里生成", "补充试点场景、角色、数据范围与复核机制后生成执行计划。"),
+        "report": ("归档与导出输入工作区", "reportResult", "运营报告 · 汇总与导出", "运营报告将在这里生成", "先完成至少一个业务模块，再整合或导出当前已有材料。"),
     }
-    for result_id, (title, copy) in empty_states.items():
-        assert f'id="{result_id}" class="result-panel empty" data-ui-v4-empty-title="{title}" data-ui-v4-empty-copy="{copy}"' in html
+    for module_id, (input_aria, result_id, result_aria, title, copy) in workspace_semantics.items():
+        assert f'id="{module_id}" class="page ui-v4-business-page"' in html
+        assert f'class="content-card" aria-label="{input_aria}"' in html
+        assert (
+            f'id="{result_id}" class="result-panel empty" aria-label="{result_aria}" '
+            f'data-ui-v4-empty-title="{title}" data-ui-v4-empty-copy="{copy}"'
+        ) in html
 
     for forbidden in (
         "ui-v4-workspace-page",
@@ -251,6 +253,10 @@ def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> 
         "uiV4EmptyTitle",
         "uiV4EmptyCopy",
         "WORKSPACE_MODULES",
+        "WORKSPACE_INPUT_LABELS",
+        'input.setAttribute("aria-label"',
+        'result.setAttribute("aria-label"',
+        ':scope > .result-panel',
     ):
         assert forbidden not in script
 
@@ -263,11 +269,10 @@ def test_workspace_keeps_split_workbench_semantics_and_business_decoration() -> 
         assert forbidden not in stylesheet
 
     assert "const SHARED_MODULES = contracts.modules" in script
-    assert "const WORKSPACE_INPUT_LABELS = {" in script
-    assert 'meeting: "会议记录"' in script
+    assert "function decoratePage(page)" in script
+    assert 'document.querySelectorAll(".ui-v4-business-page[id]").forEach(decoratePage);' in script
     assert "resultLabel:" not in script
     assert 'meta.className = "ui-v4-module-meta"' in script
-    assert 'result.setAttribute("aria-label", shared.resultLabel)' in script
     assert "ICONS[shared.icon]" in script
     assert 'button.insertAdjacentHTML("beforeend", ICONS.arrow)' in script
     assert ".ui-v4-workspace .ui-v4-business-page > .content-card" in stylesheet
