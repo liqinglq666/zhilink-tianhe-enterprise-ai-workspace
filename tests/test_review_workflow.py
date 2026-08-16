@@ -17,8 +17,8 @@ from backend.review_store import reset_review_store_for_tests
 KEY = "workspace-" + ("r" * 40)
 
 
-def make_app(tmp_path):
-    os.environ["DATABASE_URL"] = f"sqlite:///{tmp_path / 'reviews.db'}"
+def make_app(tmp_path):  # noqa: ARG001
+    # The autouse fixture already provides a migrated, isolated database.
     reset_review_store_for_tests()
     reset_account_store_for_tests()
     reset_project_store_for_tests()
