@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.project_routes import UI_BUNDLE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
@@ -62,6 +63,6 @@ def test_production_bundle_has_one_fetch_owner() -> None:
         response = client.get("/assets/app.js")
 
     assert response.status_code == 200
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-fetch-hooks-v11"
+    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
     assert response.text.count("window.fetch =") == 1
     assert 'hooks.register("fetch:request", async request =>' in response.text
