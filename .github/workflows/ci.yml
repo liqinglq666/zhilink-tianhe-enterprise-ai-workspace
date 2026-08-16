@@ -111,7 +111,7 @@ jobs:
           python scripts/check_schema.py
 
   container:
-    name: Container build
+    name: Container build and runtime smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [test, postgres-migration]
@@ -122,3 +122,37 @@ jobs:
 
       - name: Build production image
         run: docker build --tag zhilink-tianhe:ci .
+
+      - name: Start production container and verify runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name zhilink-tianhe-ci \
+            --publish 127.0.0.1:8000:8000 \
+            --env DATABASE_URL=sqlite:////tmp/zhilink-ci.db \
+            zhilink-tianhe:ci
+
+          cleanup() {
+            docker logs zhilink-tianhe-ci || true
+            docker rm --force zhilink-tianhe-ci >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent --show-error http://127.0.0.1:8000/health >/tmp/health.json; then
+              ready=1
+              break
+            fi
+            if ! docker inspect zhilink-tianhe-ci >/dev/null 2>&1; then
+              echo "Container exited before becoming ready."
+              exit 1
+            fi
+            sleep 1
+          done
+
+          test "$ready" -eq 1
+          grep -q '"ok":true' /tmp/health.json
+          curl --fail --silent --show-error http://127.0.0.1:8000/ >/tmp/index.html
+          grep -q '智链天河' /tmp/index.html
+          docker exec zhilink-tianhe-ci python scripts/check_schema.py
