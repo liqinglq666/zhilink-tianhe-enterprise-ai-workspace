@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""OpenAI-compatible client with stable, user-safe error classification."""
+"""OpenAI-compatible model client with bounded output and safe gateway validation."""
 
 from __future__ import annotations
 
@@ -21,41 +21,35 @@ from .errors import ModelGatewayError, configuration_error, unavailable_error
 
 def _env_flag(name: str, default: bool = False) -> bool:
     raw = os.getenv(name, "").strip().lower()
-    if not raw:
-        return default
-    return raw in {"1", "true", "yes", "on"}
+    return default if not raw else raw in {"1", "true", "yes", "on"}
 
 
-def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name, "").strip()
-    if not raw:
-        return default
+def _env_int(name: str, default: int, minimum: int | None = None, maximum: int | None = None) -> int:
     try:
-        return int(raw)
+        value = int(os.getenv(name, str(default)).strip())
     except ValueError:
-        return default
+        value = default
+    if minimum is not None:
+        value = max(minimum, value)
+    if maximum is not None:
+        value = min(maximum, value)
+    return value
 
 
 def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name, "").strip()
-    if not raw:
-        return default
     try:
-        value = float(raw)
+        value = float(os.getenv(name, str(default)).strip())
     except ValueError:
-        return default
+        value = default
     return max(0.0, min(value, 1.0))
 
 
 def public_model_enabled() -> bool:
-    """Return whether this deployment explicitly exposes a server-side public model."""
-
     return _env_flag("PUBLIC_MODEL_ENABLED", False)
 
 
 def _public_model_key() -> str:
-    # Deliberately do not fall back to OPENAI_API_KEY. A legacy/local key must never
-    # become a public browser credential without an explicit competition setting.
+    # Never fall back to OPENAI_API_KEY: private/local keys must not become public credentials.
     return os.getenv("PUBLIC_MODEL_API_KEY", "").strip()
 
 
@@ -68,19 +62,10 @@ def _public_model_name() -> str:
 
 
 def public_model_available() -> bool:
-    """Return whether the explicitly enabled public model is fully configured."""
-
-    return bool(
-        public_model_enabled()
-        and _public_model_key()
-        and _public_model_base_url()
-        and _public_model_name()
-    )
+    return bool(public_model_enabled() and _public_model_key() and _public_model_base_url() and _public_model_name())
 
 
 def public_model_status() -> Dict[str, object]:
-    """Return a browser-safe public model status without secrets or gateway URLs."""
-
     available = public_model_available()
     return {
         "available": available,
@@ -92,13 +77,7 @@ def public_model_status() -> Dict[str, object]:
 
 @dataclass
 class LLMConfig:
-    """Resolved model configuration.
-
-    A request with its own API key uses the user-supplied compatible endpoint. A request
-    without an API key may use the explicitly enabled server-side public model. When the
-    public key is used, the base URL and model always come from trusted environment
-    variables so a client cannot redirect the server secret to another gateway.
-    """
+    """Resolved model configuration without exposing server secrets to the browser."""
 
     api_key: str = field(default="", repr=False)
     base_url: str = DEFAULT_BASE_URL
@@ -109,10 +88,8 @@ class LLMConfig:
 
     def __post_init__(self) -> None:
         supplied_key = self.api_key.strip()
-        allow_user_override = _env_flag("ALLOW_USER_API_OVERRIDE", True)
-
         if supplied_key:
-            if not allow_user_override:
+            if not _env_flag("ALLOW_USER_API_OVERRIDE", True):
                 raise configuration_error("当前部署未开放自定义模型接口，请使用公共模型。")
             self.api_key = supplied_key
             self.base_url = self.base_url.strip()
@@ -133,16 +110,9 @@ class LLMConfig:
         self.base_url = self.base_url.strip()
         self.model = self.model.strip()
         self.temperature = max(0.0, min(float(self.temperature), 1.0))
-        self.source = "unconfigured"
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
-        """Build a configuration for local/backend use.
-
-        Legacy OPENAI_* variables remain supported here, but they are treated as a
-        user/private configuration and are never used for anonymous public requests.
-        """
-
         legacy_key = os.getenv("OPENAI_API_KEY", "").strip()
         if legacy_key:
             return cls(
@@ -160,18 +130,11 @@ _PUBLIC_USAGE_COUNT = 0
 
 def _seconds_until_utc_midnight() -> int:
     now = datetime.now(timezone.utc)
-    elapsed = now.hour * 3600 + now.minute * 60 + now.second
-    return max(60, 86400 - elapsed)
+    return max(60, 86400 - (now.hour * 3600 + now.minute * 60 + now.second))
 
 
 def _consume_public_model_quota() -> None:
-    """Apply a process-local safety fuse to public-key model attempts.
-
-    Provider-side spending limits remain authoritative. This counter resets after a process
-    restart and is not shared by multiple instances, so it supplements rather than replaces
-    provider budgets and the existing per-client rate/concurrency limits.
-    """
-
+    """Process-local fuse; provider-side budgets remain authoritative."""
     limit = _env_int("PUBLIC_MODEL_DAILY_REQUEST_LIMIT", 200)
     if limit <= 0:
         return
@@ -180,8 +143,7 @@ def _consume_public_model_quota() -> None:
     today = datetime.now(timezone.utc).date().isoformat()
     with _PUBLIC_USAGE_LOCK:
         if _PUBLIC_USAGE_DAY != today:
-            _PUBLIC_USAGE_DAY = today
-            _PUBLIC_USAGE_COUNT = 0
+            _PUBLIC_USAGE_DAY, _PUBLIC_USAGE_COUNT = today, 0
         if _PUBLIC_USAGE_COUNT >= limit:
             raise ModelGatewayError(
                 code="PUBLIC_MODEL_QUOTA_EXHAUSTED",
@@ -193,47 +155,20 @@ def _consume_public_model_quota() -> None:
         _PUBLIC_USAGE_COUNT += 1
 
 
+def _allowed_hosts() -> set[str]:
+    return {item.strip().lower() for item in os.getenv("LLM_ALLOWED_HOSTS", "").split(",") if item.strip()}
+
+
 def _is_blocked_ip(value: str) -> bool:
     ip = ipaddress.ip_address(value)
-    return any(
-        (
-            ip.is_private,
-            ip.is_loopback,
-            ip.is_link_local,
-            ip.is_multicast,
-            ip.is_reserved,
-            ip.is_unspecified,
-        )
-    )
+    return any((ip.is_private, ip.is_loopback, ip.is_link_local, ip.is_multicast, ip.is_reserved, ip.is_unspecified))
 
 
-def _allowed_hosts() -> set[str]:
-    raw = os.getenv("LLM_ALLOWED_HOSTS", "")
-    return {item.strip().lower() for item in raw.split(",") if item.strip()}
-
-
-def _validate_base_url(base_url: str) -> str:
-    value = base_url.strip().rstrip("/")
-    parsed = urlparse(value)
-
-    if parsed.scheme not in {"https", "http"}:
-        raise configuration_error("Base URL 只允许 http/https。")
-    if parsed.scheme == "http" and not _env_flag("ALLOW_INSECURE_LLM_HTTP", False):
-        raise configuration_error("Base URL 必须使用 HTTPS。")
-    if not parsed.hostname or parsed.username or parsed.password:
-        raise configuration_error("Base URL 格式不合法。")
-    if parsed.query or parsed.fragment:
-        raise configuration_error("Base URL 不能带 query 或 fragment。")
-
-    host = parsed.hostname.lower()
-    allowlist = _allowed_hosts()
-    if allowlist and host not in allowlist:
-        raise configuration_error("该模型网关不在服务端允许列表中。")
-
+def _resolve_public_addresses(host: str, port: int) -> set[str]:
     try:
         addresses = {
             item[4][0]
-            for item in socket.getaddrinfo(host, parsed.port or 443, type=socket.SOCK_STREAM)
+            for item in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
         }
     except socket.gaierror as exc:
         raise ModelGatewayError(
@@ -242,105 +177,79 @@ def _validate_base_url(base_url: str) -> str:
             status_code=502,
             retryable=True,
         ) from exc
-
     if not addresses or any(_is_blocked_ip(address) for address in addresses):
         raise configuration_error("Base URL 不能指向本机、内网或保留地址。")
+    return addresses
 
+
+def _validate_base_url(base_url: str) -> str:
+    value = base_url.strip().rstrip("/")
+    parsed = urlparse(value)
+    if parsed.scheme not in {"https", "http"}:
+        raise configuration_error("Base URL 只允许 http/https。")
+    if parsed.scheme == "http" and not _env_flag("ALLOW_INSECURE_LLM_HTTP", False):
+        raise configuration_error("Base URL 必须使用 HTTPS。")
+    if not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise configuration_error("Base URL 格式不合法。")
+
+    host = parsed.hostname.lower()
+    allowlist = _allowed_hosts()
+    if _env_flag("LLM_REQUIRE_HOST_ALLOWLIST", False) and not allowlist:
+        raise configuration_error("当前部署要求配置 LLM_ALLOWED_HOSTS 后才能调用模型网关。")
+    if allowlist and host not in allowlist:
+        raise configuration_error("该模型网关不在服务端允许列表中。")
+
+    _resolve_public_addresses(host, parsed.port or 443)
     return value
 
 
 def _retry_after_seconds(response: requests.Response, default: int = 30) -> int:
     raw = response.headers.get("Retry-After", "").strip()
-    if raw.isdigit():
-        return max(1, min(int(raw), 3600))
-    return default
+    return max(1, min(int(raw), 3600)) if raw.isdigit() else default
 
 
 def _request_error(exc: requests.RequestException) -> ModelGatewayError:
     if isinstance(exc, requests.Timeout):
-        return ModelGatewayError(
-            code="MODEL_TIMEOUT",
-            user_message="模型响应超时，请缩短输入内容或稍后重试。",
-            status_code=504,
-            retryable=True,
-        )
+        return ModelGatewayError("MODEL_TIMEOUT", "模型响应超时，请缩短输入内容或稍后重试。", 504, True)
     if isinstance(exc, requests.ConnectionError):
-        return ModelGatewayError(
-            code="MODEL_CONNECTION_FAILED",
-            user_message="无法连接模型服务，请检查 Base URL 或稍后重试。",
-            status_code=502,
-            retryable=True,
-        )
-    return ModelGatewayError(
-        code="MODEL_REQUEST_FAILED",
-        user_message="模型请求发送失败，请检查网络和模型配置。",
-        status_code=502,
-        retryable=True,
-    )
+        return ModelGatewayError("MODEL_CONNECTION_FAILED", "无法连接模型服务，请检查 Base URL 或稍后重试。", 502, True)
+    return ModelGatewayError("MODEL_REQUEST_FAILED", "模型请求发送失败，请检查网络和模型配置。", 502, True)
 
 
 def _http_error(response: requests.Response) -> ModelGatewayError:
     status = response.status_code
     if status == 401:
-        return ModelGatewayError(
-            code="MODEL_AUTH_FAILED",
-            user_message="模型接口鉴权失败，请检查 API Key。",
-            status_code=401,
-            retryable=False,
-        )
+        return ModelGatewayError("MODEL_AUTH_FAILED", "模型接口鉴权失败，请检查 API Key。", 401, False)
     if status == 403:
-        return ModelGatewayError(
-            code="MODEL_PERMISSION_DENIED",
-            user_message="当前 API Key 无权使用该模型或接口。",
-            status_code=403,
-            retryable=False,
-        )
+        return ModelGatewayError("MODEL_PERMISSION_DENIED", "当前 API Key 无权使用该模型或接口。", 403, False)
     if status == 429:
         retry_after = _retry_after_seconds(response)
-        return ModelGatewayError(
-            code="MODEL_RATE_LIMITED",
-            user_message=f"模型服务请求过于频繁，请在 {retry_after} 秒后重试。",
-            status_code=429,
-            retryable=True,
-            retry_after=retry_after,
-        )
+        return ModelGatewayError("MODEL_RATE_LIMITED", f"模型服务请求过于频繁，请在 {retry_after} 秒后重试。", 429, True, retry_after)
     if status in {400, 404, 409, 422}:
-        return ModelGatewayError(
-            code="MODEL_REQUEST_REJECTED",
-            user_message="模型拒绝了请求，请检查模型名称、Base URL 和输入内容。",
-            status_code=400,
-            retryable=False,
-        )
+        return ModelGatewayError("MODEL_REQUEST_REJECTED", "模型拒绝了请求，请检查模型名称、Base URL 和输入内容。", 400, False)
     if status in {408, 504}:
-        return ModelGatewayError(
-            code="MODEL_TIMEOUT",
-            user_message="模型响应超时，请缩短输入内容或稍后重试。",
-            status_code=504,
-            retryable=True,
-        )
+        return ModelGatewayError("MODEL_TIMEOUT", "模型响应超时，请缩短输入内容或稍后重试。", 504, True)
     if status in {500, 502, 503}:
         return unavailable_error()
+    return ModelGatewayError("MODEL_GATEWAY_ERROR", "模型网关返回异常，请检查配置或稍后重试。", 502, False)
+
+
+def _output_limit_error() -> ModelGatewayError:
     return ModelGatewayError(
-        code="MODEL_GATEWAY_ERROR",
-        user_message="模型网关返回异常，请检查配置或稍后重试。",
+        code="MODEL_OUTPUT_LIMIT_EXCEEDED",
+        user_message="模型输出超过服务端安全上限，请缩小任务范围后重试。",
         status_code=502,
-        retryable=False,
+        retryable=True,
     )
 
 
 class LLMClient:
     def __init__(self, config: Optional[LLMConfig] = None):
         self.config = config or LLMConfig.from_env()
-        complete = bool(
-            self.config.api_key.strip()
-            and self.config.base_url.strip()
-            and self.config.model.strip()
-        )
-        self._base_url = (
-            _validate_base_url(self.config.base_url)
-            if complete
-            else self.config.base_url.strip().rstrip("/")
-        )
+        complete = bool(self.config.api_key.strip() and self.config.base_url.strip() and self.config.model.strip())
+        self._base_url = _validate_base_url(self.config.base_url) if complete else self.config.base_url.strip().rstrip("/")
+        self._max_output_chars = _env_int("MODEL_MAX_OUTPUT_CHARS", 120000, 1000, 500000)
+        self._max_completion_tokens = _env_int("MODEL_MAX_COMPLETION_TOKENS", 8192, 256, 32768)
 
     @property
     def enabled(self) -> bool:
@@ -357,22 +266,23 @@ class LLMClient:
         }
 
     def _messages(self, system_prompt: str, user_prompt: str) -> List[Dict[str, str]]:
-        return [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+        return [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
 
     def _payload(self, system_prompt: str, user_prompt: str, *, stream: bool = False) -> Dict[str, object]:
         return {
             "model": self.config.model,
             "messages": self._messages(system_prompt, user_prompt),
             "temperature": self.config.temperature,
+            "max_tokens": self._max_completion_tokens,
             "stream": stream,
         }
 
     def _post(self, system_prompt: str, user_prompt: str, *, stream: bool) -> requests.Response:
         if self.config.source == "server":
             _consume_public_model_quota()
+
+        # Re-check DNS immediately before connecting to narrow rebinding/TOCTOU exposure.
+        _validate_base_url(self._base_url)
         try:
             response = requests.post(
                 self._url(),
@@ -387,26 +297,21 @@ class LLMClient:
 
         if response.is_redirect:
             response.close()
-            raise ModelGatewayError(
-                code="MODEL_REDIRECT_REJECTED",
-                user_message="模型网关返回了不安全的重定向，请检查 Base URL。",
-                status_code=502,
-                retryable=False,
-            )
+            raise ModelGatewayError("MODEL_REDIRECT_REJECTED", "模型网关返回了不安全的重定向，请检查 Base URL。", 502, False)
         if not response.ok:
             error = _http_error(response)
             response.close()
             raise error
+
+        content_length = response.headers.get("Content-Length", "").strip()
+        if content_length.isdigit() and int(content_length) > self._max_output_chars * 6:
+            response.close()
+            raise _output_limit_error()
         return response
 
     def _require_enabled(self) -> None:
         if not self.enabled:
-            raise ModelGatewayError(
-                code="MODEL_NOT_CONFIGURED",
-                user_message="公共模型尚未配置，请填写自己的 API Key、Base URL 和模型名称。",
-                status_code=400,
-                retryable=False,
-            )
+            raise ModelGatewayError("MODEL_NOT_CONFIGURED", "公共模型尚未配置，请填写自己的 API Key、Base URL 和模型名称。", 400, False)
 
     def chat(self, system_prompt: str, user_prompt: str) -> str:
         self._require_enabled()
@@ -415,28 +320,15 @@ class LLMClient:
             try:
                 data = response.json()
             except ValueError as exc:
-                raise ModelGatewayError(
-                    code="MODEL_BAD_RESPONSE",
-                    user_message="模型返回了无法解析的数据，请更换模型或接口后重试。",
-                    status_code=502,
-                    retryable=False,
-                ) from exc
+                raise ModelGatewayError("MODEL_BAD_RESPONSE", "模型返回了无法解析的数据，请更换模型或接口后重试。", 502, False) from exc
             try:
                 content = str(data["choices"][0]["message"]["content"]).strip()
             except (KeyError, IndexError, TypeError) as exc:
-                raise ModelGatewayError(
-                    code="MODEL_BAD_RESPONSE",
-                    user_message="模型返回格式不兼容，请检查模型接口。",
-                    status_code=502,
-                    retryable=False,
-                ) from exc
+                raise ModelGatewayError("MODEL_BAD_RESPONSE", "模型返回格式不兼容，请检查模型接口。", 502, False) from exc
             if not content:
-                raise ModelGatewayError(
-                    code="MODEL_EMPTY_RESPONSE",
-                    user_message="模型没有返回有效内容，请重新生成或更换模型。",
-                    status_code=502,
-                    retryable=True,
-                )
+                raise ModelGatewayError("MODEL_EMPTY_RESPONSE", "模型没有返回有效内容，请重新生成或更换模型。", 502, True)
+            if len(content) > self._max_output_chars:
+                raise _output_limit_error()
             return content
         finally:
             response.close()
@@ -445,6 +337,7 @@ class LLMClient:
         self._require_enabled()
         response = self._post(system_prompt, user_prompt, stream=True)
         yielded = False
+        total_chars = 0
         try:
             try:
                 for raw_line in response.iter_lines(chunk_size=1, decode_unicode=True):
@@ -464,30 +357,22 @@ class LLMClient:
                     except json.JSONDecodeError:
                         continue
                     if data.get("error"):
-                        raise ModelGatewayError(
-                            code="MODEL_GATEWAY_ERROR",
-                            user_message="模型网关在生成过程中返回异常，请稍后重试。",
-                            status_code=502,
-                            retryable=True,
-                        )
+                        raise ModelGatewayError("MODEL_GATEWAY_ERROR", "模型网关在生成过程中返回异常，请稍后重试。", 502, True)
                     choices = data.get("choices") or []
                     if not choices:
                         continue
                     choice = choices[0] or {}
-                    delta = choice.get("delta") or {}
-                    message = choice.get("message") or {}
-                    content = delta.get("content") or message.get("content") or choice.get("text") or ""
+                    content = (choice.get("delta") or {}).get("content") or (choice.get("message") or {}).get("content") or choice.get("text") or ""
                     if content:
+                        text = str(content)
+                        total_chars += len(text)
+                        if total_chars > self._max_output_chars:
+                            raise _output_limit_error()
                         yielded = True
-                        yield str(content)
+                        yield text
             except requests.RequestException as exc:
                 raise _request_error(exc) from exc
             if not yielded:
-                raise ModelGatewayError(
-                    code="MODEL_EMPTY_RESPONSE",
-                    user_message="模型没有返回有效内容，请重新生成或更换模型。",
-                    status_code=502,
-                    retryable=True,
-                )
+                raise ModelGatewayError("MODEL_EMPTY_RESPONSE", "模型没有返回有效内容，请重新生成或更换模型。", 502, True)
         finally:
             response.close()
