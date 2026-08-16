@@ -12,8 +12,8 @@ from backend.service_workflow_store import reset_service_workflow_store_for_test
 WORKSPACE_KEY = "integration-" + ("z" * 40)
 
 
-def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'main-app.db'}")
+def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):  # noqa: ARG001
+    # The autouse fixture already provides a migrated, isolated database.
     reset_knowledge_store_for_tests()
     reset_service_workflow_store_for_tests()
     reset_review_store_for_tests()
