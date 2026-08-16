@@ -9,7 +9,7 @@ from sqlalchemy import create_engine, inspect, text
 from backend.model_registry import get_model_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
-REVISION = "20260805_0001"
+REVISION = "20260816_0002"
 EXPECTED_TABLES = {
     "projects",
     "project_versions",
