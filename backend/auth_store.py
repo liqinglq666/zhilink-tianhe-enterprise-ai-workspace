@@ -214,6 +214,13 @@ class AccountStore:
         except ProjectStoreUnavailable as exc:
             raise AccountStoreError(503, "ACCOUNT_STORAGE_UNAVAILABLE", "账号与组织存储暂时不可用，请稍后重试。", retryable=True) from exc
 
+    def _email_exists(self, email: str) -> bool:
+        try:
+            with self.sessions() as session:
+                return bool(session.scalar(select(func.count(UserRecord.id)).where(UserRecord.email == email)))
+        except SQLAlchemyError:
+            return False
+
     def register(self, *, email: str, password: str, display_name: str, organization_name: str, user_agent: str = "") -> tuple[AuthSession, str, str]:
         if os.getenv("AUTH_ALLOW_REGISTRATION", "true").strip().lower() not in {"1", "true", "yes", "on"}:
             raise AccountStoreError(403, "AUTH_REGISTRATION_DISABLED", "当前部署未开放注册。")
@@ -227,11 +234,21 @@ class AccountStore:
         membership = OrganizationMembershipRecord(id=str(uuid4()), organization_id=organization.id, user_id=user.id, role="owner")
         try:
             with self.sessions.begin() as session:
-                session.add_all([user, organization, membership])
+                if session.scalar(select(func.count(UserRecord.id)).where(UserRecord.email == normalized)):
+                    raise AccountStoreError(409, "AUTH_EMAIL_EXISTS", "该邮箱已经注册，请直接登录。")
+                session.add(user)
+                session.flush()
+                session.add(organization)
+                session.flush()
+                session.add(membership)
                 session.flush()
             return self._create_session(user, user_agent=user_agent)
+        except AccountStoreError:
+            raise
         except IntegrityError as exc:
-            raise AccountStoreError(409, "AUTH_EMAIL_EXISTS", "该邮箱已经注册，请直接登录。") from exc
+            if self._email_exists(normalized):
+                raise AccountStoreError(409, "AUTH_EMAIL_EXISTS", "该邮箱已经注册，请直接登录。") from exc
+            raise AccountStoreError(503, "ACCOUNT_STORAGE_UNAVAILABLE", "账号创建失败，请稍后重试。", retryable=True) from exc
         except SQLAlchemyError as exc:
             raise AccountStoreError(503, "ACCOUNT_STORAGE_UNAVAILABLE", "账号创建失败，请稍后重试。", retryable=True) from exc
 
@@ -338,9 +355,15 @@ class AccountStore:
         member = OrganizationMembershipRecord(id=str(uuid4()), organization_id=org.id, user_id=user_id, role="owner")
         try:
             with self.sessions.begin() as session:
-                session.add_all([org, member])
+                if session.get(UserRecord, user_id) is None:
+                    raise AccountStoreError(404, "AUTH_USER_NOT_FOUND", "当前账号不存在或已失效。")
+                session.add(org)
+                session.flush()
+                session.add(member)
                 session.flush()
             return {"id": org.id, "name": org.name, "slug": org.slug, "role": "owner", "created_at": org.created_at}
+        except AccountStoreError:
+            raise
         except SQLAlchemyError as exc:
             raise AccountStoreError(503, "ACCOUNT_STORAGE_UNAVAILABLE", "组织创建失败。", retryable=True) from exc
 
