@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.project_routes import UI_BUNDLE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
@@ -55,7 +56,7 @@ def test_core_source_and_bundle_do_not_duplicate_example_payloads() -> None:
         bundle = client.get("/assets/app.js")
 
     assert bundle.status_code == 200
-    assert bundle.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-fetch-hooks-v11"
+    assert bundle.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
     assert "const exampleScenarios = {};" in bundle.text
     assert "天河路商圈青年品牌联动运营小组" not in bundle.text
     assert "会议主题：天河路商圈暑期青年品牌联动促消费活动筹备会" not in bundle.text
