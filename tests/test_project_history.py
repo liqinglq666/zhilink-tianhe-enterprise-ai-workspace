@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -42,10 +43,19 @@ def make_store(url: str) -> ProjectStore:
 
 
 def migrate(url: str) -> None:
-    config = Config(str(ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(ROOT / "alembic"))
-    config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
-    command.upgrade(config, "head")
+    """Run Alembic against this exact fixture DB even when the suite sets DATABASE_URL."""
+    previous = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = url
+    try:
+        config = Config(str(ROOT / "alembic.ini"))
+        config.set_main_option("script_location", str(ROOT / "alembic"))
+        config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
+        command.upgrade(config, "head")
+    finally:
+        if previous is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = previous
 
 
 def test_store_creates_lists_and_restores_history(tmp_path):
