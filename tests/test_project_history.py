@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
@@ -11,6 +12,7 @@ from fastapi.testclient import TestClient
 from backend.model_registry import get_model_metadata
 from backend.project_routes import register_project_routes
 from backend.project_store import (
+    ProjectNotFound,
     ProjectRecord,
     ProjectStore,
     hash_workspace_key,
@@ -94,14 +96,12 @@ def test_history_is_workspace_isolated_and_deleted_with_project(tmp_path):
     store = make_store(f"sqlite:///{tmp_path / 'isolation.db'}")
     created = store.create(KEY, name="项目", description="", snapshot=snapshot())
 
-    with __import__("pytest").raises(Exception) as caught:
+    with pytest.raises(ProjectNotFound):
         store.list_history(OTHER, created["id"])
-    assert caught.value.__class__.__name__ == "ProjectNotFound"
 
     store.delete(KEY, created["id"])
-    with __import__("pytest").raises(Exception) as caught:
+    with pytest.raises(ProjectNotFound):
         store.list_history(KEY, created["id"])
-    assert caught.value.__class__.__name__ == "ProjectNotFound"
 
 
 def test_noop_save_does_not_create_duplicate_version(tmp_path):
@@ -113,7 +113,9 @@ def test_noop_save_does_not_create_duplicate_version(tmp_path):
 
 
 def make_client(monkeypatch, tmp_path):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'routes.db'}")
+    url = f"sqlite:///{tmp_path / 'routes.db'}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    migrate(url)
     reset_project_store_for_tests()
     app = FastAPI()
     register_project_routes(app)
