@@ -18,8 +18,8 @@ from backend.project_store import reset_project_store_for_tests
 PASSWORD = "correct horse battery staple"
 
 
-def make_app(tmp_path):
-    os.environ["DATABASE_URL"] = f"sqlite:///{tmp_path / 'knowledge.db'}"
+def make_app(tmp_path):  # noqa: ARG001
+    # The autouse fixture already provides a migrated, isolated database.
     reset_knowledge_store_for_tests()
     reset_account_store_for_tests()
     reset_project_store_for_tests()
