@@ -128,12 +128,10 @@ python scripts/check_schema.py
 backend/                         FastAPI API、账号、项目、知识库、审核与服务流程
 src/zhilian_tianhe_agent/       Agent、LLM client、政策检索与业务逻辑
 frontend/                       V4 工作台 HTML/CSS/JS
-a le mbic/                      Alembic 配置（目录名实际为 alembic/）
+alembic/                        Alembic migrations
 scripts/                        migration / schema check
 tests/                          API、存储、安全、迁移和 UI contract 测试
 ```
-
-> 上方目录中的迁移目录实际名称为 `alembic/`。
 
 ## 发布检查
 
