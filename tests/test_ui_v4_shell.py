@@ -19,12 +19,13 @@ def test_production_bundle_is_one_consolidated_v4_runtime() -> None:
     assert response.headers["cache-control"] == "no-store, max-age=0"
     assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
 
-    required = (
-        "ZHILINK_STORAGE_RECOVERY",
+    core_runtime = (
         "ZHILINK_WORKSPACE_CONTRACTS_READY",
         "ZHILINK_WORKSPACE_HOOKS_READY",
         "ZHILINK_RESULT_EVENTS_READY",
         "ZHILINK_UI_V4_RUNTIME_READY",
+    )
+    consumers = (
         "ZHILINK_EXAMPLE_LOADER_READY",
         "ZHILINK_DATA_PROVENANCE_READY",
         "ZHILINK_UI_V4_SHELL_READY",
@@ -40,8 +41,12 @@ def test_production_bundle_is_one_consolidated_v4_runtime() -> None:
         "ZHILINK_UI_V4_RESULTS_READY",
         "ZHILINK_UI_V4_FINAL_QA_READY",
     )
-    positions = [response.text.index(marker) for marker in required]
-    assert positions == sorted(positions)
+    storage_position = response.text.index("ZHILINK_STORAGE_RECOVERY")
+    core_positions = [response.text.index(marker) for marker in core_runtime]
+    consumer_positions = [response.text.index(marker) for marker in consumers]
+    assert storage_position < min(core_positions)
+    assert max(core_positions) < min(consumer_positions)
+    assert consumer_positions == sorted(consumer_positions)
 
     for legacy in (
         "ZHILINK_UI_REDESIGN_LIVE_READY",
