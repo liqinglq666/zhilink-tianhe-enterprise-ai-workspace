@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.project_routes import UI_BUNDLE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
@@ -112,7 +113,7 @@ def test_bundle_loads_runtime_contracts_before_examples_and_consumers() -> None:
         old_hook_bridge = client.get("/assets/workspace-hooks.js")
 
     assert bundle.status_code == 200
-    assert bundle.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-fetch-hooks-v11"
+    assert bundle.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
     assert bundle.text.index("ZHILINK_WORKSPACE_CONTRACTS_READY") < bundle.text.index("ZHILINK_EXAMPLE_LOADER_READY")
     assert bundle.text.index("ZHILINK_WORKSPACE_HOOKS_READY") < bundle.text.index("ZHILINK_GENERATION_CONTROLS_READY")
     assert bundle.text.index("ZHILINK_RESULT_EVENTS_READY") < bundle.text.index("ZHILINK_DATA_PROVENANCE_READY")
