@@ -1,8 +1,7 @@
-"""Stable database schema identifiers used by migrations and readiness checks."""
+"""Stable database schema requirements used by readiness checks."""
 
 from __future__ import annotations
 
-BASELINE_REVISION = "20260805_0001"
 REQUIRED_TABLES = frozenset(
     {
         "projects",

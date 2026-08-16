@@ -167,9 +167,7 @@ def _build_engine(database_url: str) -> Engine:
     return create_engine(database_url, **kwargs)
 
 
-def _project_to_dict(
-    record: ProjectRecord, *, include_snapshot: bool = True
-) -> dict[str, Any]:
+def _project_to_dict(record: ProjectRecord, *, include_snapshot: bool = True) -> dict[str, Any]:
     data: dict[str, Any] = {
         "id": record.id,
         "name": record.name,
@@ -184,9 +182,7 @@ def _project_to_dict(
     return data
 
 
-def _history_to_dict(
-    record: ProjectHistoryRecord, *, include_snapshot: bool = False
-) -> dict[str, Any]:
+def _history_to_dict(record: ProjectHistoryRecord, *, include_snapshot: bool = False) -> dict[str, Any]:
     data: dict[str, Any] = {
         "id": record.id,
         "project_id": record.project_id,
@@ -222,9 +218,7 @@ def _changed_modules(
     changed: set[str] = set()
     if metadata_changed:
         changed.add("project")
-    if _mapping(old_snapshot).get("current_section") != _mapping(new_snapshot).get(
-        "current_section"
-    ):
+    if _mapping(old_snapshot).get("current_section") != _mapping(new_snapshot).get("current_section"):
         changed.add("project")
     if _mapping(old_snapshot).get("identity") != _mapping(new_snapshot).get("identity"):
         changed.add("identity")
@@ -276,12 +270,11 @@ def _default_label(change_kind: str, source_version_number: int | None = None) -
 
 class ProjectStore:
     def __init__(self, database_url: str):
+        """Connect to a schema that has already been upgraded by Alembic."""
         try:
             self.database_url = normalize_database_url(database_url)
             self.engine = _build_engine(self.database_url)
-            Base.metadata.create_all(self.engine)
             self.sessions = sessionmaker(bind=self.engine, expire_on_commit=False)
-            self._backfill_history()
         except (SQLAlchemyError, OSError, ValueError) as exc:
             raise ProjectStoreUnavailable("项目数据库初始化失败。") from exc
 
@@ -312,27 +305,6 @@ class ProjectStore:
         session.add(item)
         session.flush()
         return item
-
-    def _backfill_history(self) -> None:
-        try:
-            with self.sessions.begin() as session:
-                projects = session.scalars(select(ProjectRecord)).all()
-                for record in projects:
-                    count = session.scalar(
-                        select(func.count(ProjectHistoryRecord.id)).where(
-                            ProjectHistoryRecord.project_id == record.id
-                        )
-                    )
-                    if count:
-                        continue
-                    self._append_history(
-                        session,
-                        record,
-                        change_kind="baseline",
-                        changed_modules=_initial_modules(record.snapshot or {}),
-                    )
-        except SQLAlchemyError as exc:
-            raise ProjectStoreUnavailable("项目版本历史初始化失败。") from exc
 
     def create(
         self,
@@ -379,9 +351,7 @@ class ProjectStore:
                 filters = [ProjectRecord.workspace_hash == workspace_hash]
                 if not include_archived:
                     filters.append(ProjectRecord.status == "active")
-                total = session.scalar(
-                    select(func.count(ProjectRecord.id)).where(*filters)
-                ) or 0
+                total = session.scalar(select(func.count(ProjectRecord.id)).where(*filters)) or 0
                 records = session.scalars(
                     select(ProjectRecord)
                     .where(*filters)
@@ -389,9 +359,7 @@ class ProjectStore:
                     .limit(limit)
                     .offset(offset)
                 ).all()
-                return [
-                    _project_to_dict(record, include_snapshot=False) for record in records
-                ], int(total)
+                return [_project_to_dict(record, include_snapshot=False) for record in records], int(total)
         except SQLAlchemyError as exc:
             raise ProjectStoreUnavailable("项目列表读取失败。") from exc
 
@@ -486,8 +454,7 @@ class ProjectStore:
                         old_snapshot,
                         record.snapshot or {},
                         metadata_changed=metadata_changed,
-                    )
-                    or ["project"],
+                    ) or ["project"],
                 )
             return _project_to_dict(record)
         except (ProjectNotFound, ProjectVersionConflict):
@@ -518,9 +485,7 @@ class ProjectStore:
                     ProjectHistoryRecord.project_id == project_id,
                     ProjectHistoryRecord.workspace_hash == workspace_hash,
                 ]
-                total = session.scalar(
-                    select(func.count(ProjectHistoryRecord.id)).where(*filters)
-                ) or 0
+                total = session.scalar(select(func.count(ProjectHistoryRecord.id)).where(*filters)) or 0
                 records = session.scalars(
                     select(ProjectHistoryRecord)
                     .where(*filters)
@@ -534,9 +499,7 @@ class ProjectStore:
         except SQLAlchemyError as exc:
             raise ProjectStoreUnavailable("项目版本历史读取失败。") from exc
 
-    def get_history(
-        self, workspace_key: str, project_id: str, version_number: int
-    ) -> dict[str, Any]:
+    def get_history(self, workspace_key: str, project_id: str, version_number: int) -> dict[str, Any]:
         workspace_hash = hash_workspace_key(workspace_key)
         try:
             with self.sessions() as session:
@@ -608,8 +571,7 @@ class ProjectStore:
                     project,
                     change_kind="restore",
                     label=version_label,
-                    changed_modules=_changed_modules(old_snapshot, project.snapshot or {})
-                    or ["project"],
+                    changed_modules=_changed_modules(old_snapshot, project.snapshot or {}) or ["project"],
                     source_version_number=version_number,
                 )
             return _project_to_dict(project)

@@ -1,9 +1,12 @@
-/* Preserve generated-result trust metadata when explicit project snapshots are saved. */
+/* Preserve generated-result trust metadata through the central request hook. */
 (() => {
-  const META_STORAGE = "zhilian_meta";
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
+  if (!contracts || !hooks) throw new Error("Workspace runtime must load before project result metadata.");
+
+  const META_STORAGE = contracts.storage.meta;
   const PROJECT_PATH = /^\/api\/projects(?:\/|\?|$)/;
   const WRITABLE_META_FIELDS = ["origin", "example_key", "result_schema_version"];
-  const originalFetch = window.fetch.bind(window);
 
   function readJson(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
@@ -50,9 +53,10 @@
     return { ...init, body: JSON.stringify(payload) };
   }
 
-  window.fetch = function projectResultMetaFetch(input, init = {}) {
-    return originalFetch(input, enrichProjectPayload(input, init));
-  };
+  hooks.register("fetch:request", request => ({
+    ...request,
+    init: enrichProjectPayload(request.input, request.init || {}),
+  }));
 
   window.ZHILINK_PROJECT_RESULT_META_READY = true;
 })();

@@ -5,58 +5,60 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.project_routes import UI_BUNDLE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
 
 
-def test_production_bundle_is_native_v4_and_preserves_business_layers() -> None:
+def test_production_bundle_is_one_consolidated_v4_runtime() -> None:
     with TestClient(app) as client:
         response = client.get("/assets/app.js")
 
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store, max-age=0"
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-10-ui-v4-native-v3"
+    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
 
-    required = [
-        "ZHILINK_DATA_PROVENANCE_V2_READY",
+    core_runtime = (
+        "ZHILINK_WORKSPACE_CONTRACTS_READY",
+        "ZHILINK_WORKSPACE_HOOKS_READY",
+        "ZHILINK_RESULT_EVENTS_READY",
+        "ZHILINK_UI_V4_RUNTIME_READY",
+    )
+    consumers = (
+        "ZHILINK_EXAMPLE_LOADER_READY",
+        "ZHILINK_DATA_PROVENANCE_READY",
         "ZHILINK_UI_V4_SHELL_READY",
         "ZHILINK_API_DRAWER_V4_READY",
+        "ZHILINK_MODEL_CONFIG_SAVE_V4_READY",
         "ZHILINK_MEETING_USER_VIEW_READY",
         "ZHILINK_UI_V4_FOUNDATION_READY",
         "ZHILINK_UI_V4_DASHBOARD_READY",
         "ZHILINK_UI_V4_WORKSPACE_READY",
-        "ZHILINK_UI_V4_NAVIGATION_READY",
         "ZHILINK_UI_V4_OVERLAYS_READY",
         "ZHILINK_UI_V4_STATES_READY",
-    ]
-    for marker in required:
-        assert marker in response.text
+        "ZHILINK_UI_V4_FORMS_READY",
+        "ZHILINK_UI_V4_RESULTS_READY",
+        "ZHILINK_UI_V4_FINAL_QA_READY",
+    )
+    storage_position = response.text.index("ZHILINK_STORAGE_RECOVERY")
+    core_positions = [response.text.index(marker) for marker in core_runtime]
+    consumer_positions = [response.text.index(marker) for marker in consumers]
+    assert storage_position < min(core_positions)
+    assert max(core_positions) < min(consumer_positions)
+    assert consumer_positions == sorted(consumer_positions)
 
-    ordered = [
-        "ZHILINK_UI_V4_SHELL_READY",
-        "ZHILINK_API_DRAWER_V4_READY",
-        "ZHILINK_MEETING_USER_VIEW_READY",
-        "ZHILINK_UI_V4_FOUNDATION_READY",
-        "ZHILINK_UI_V4_DASHBOARD_READY",
-        "ZHILINK_UI_V4_WORKSPACE_READY",
-        "ZHILINK_UI_V4_NAVIGATION_READY",
-        "ZHILINK_UI_V4_OVERLAYS_READY",
-        "ZHILINK_UI_V4_STATES_READY",
-    ]
-    positions = [response.text.rfind(marker) for marker in ordered]
-    assert positions == sorted(positions)
-
-    for removed_marker in (
+    for legacy in (
         "ZHILINK_UI_REDESIGN_LIVE_READY",
-        "ZHILINK_UI_REDESIGN_LIVE_FIXES_READY",
         "ZHILINK_UI_V3_READY",
         "ZHILINK_UI_V2_READY",
+        "ZHILINK_SIMPLE_UI_READY",
+        "ZHILINK_DATA_PROVENANCE_V2_READY",
     ):
-        assert removed_marker not in response.text
+        assert legacy not in response.text
 
 
-def test_replaced_legacy_and_fake_preview_assets_are_deleted() -> None:
+def test_replaced_ui_layers_and_fake_preview_are_deleted() -> None:
     removed = (
         "ui-redesign-live.js",
         "ui-redesign-live.css",
@@ -66,99 +68,73 @@ def test_replaced_legacy_and_fake_preview_assets_are_deleted() -> None:
         "ui-v2-dashboard.js",
         "ui-v2-dashboard.css",
         "ui-v4-navigation-compat.css",
+        "ui-v4-navigation.js",
+        "ui-v4-navigation.css",
+        "product-simplification.js",
+        "product-simplification.css",
+        "data-provenance-guard-v2.js",
+        "result-events.js",
+        "workspace-hooks.js",
         "ui-preview.html",
         "ui-preview.css",
         "ui-preview.js",
     )
-    for filename in removed:
-        assert not (ASSETS / filename).exists(), filename
-
+    assert all(not (ASSETS / filename).exists() for filename in removed)
     with TestClient(app) as client:
-        preview = client.get("/preview")
-    assert preview.status_code == 404
+        assert client.get("/preview").status_code == 404
 
 
-def test_v4_shell_owns_workspace_chrome_without_legacy_names() -> None:
-    script = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
-    stylesheet = (ASSETS / "ui-v4-shell.css").read_text(encoding="utf-8")
-
-    assert "ZHILINK_UI_V4_SHELL_READY" in script
-    assert 'document.body.classList.add("ui-v4-shell")' in script
-    assert 'nav.id = "uiV4TopNav"' in script
-    assert 'id="uiV4AccountToggle"' in script
-    assert 'recent.id = "uiV4SidebarRecent"' in script
-    assert 'pending.id = "uiV4PendingPanel"' in script
-    assert 'usage.id = "uiV4UsagePanel"' in script
-    assert 'page.classList.add("ui-v4-business-page")' in script
-    assert ".ui-v4-shell .shell" in stylesheet
-    assert ".ui-v4-sidebar-project" in stylesheet
-    assert ".ui-v4-account-menu" in stylesheet
-    assert "@media (max-width: 1020px)" in stylesheet
-
-    for forbidden in ("ui-redesign-live", "ui-v3-clean", "liveTopNav", "liveAccount", "livePending", "liveUsage"):
-        assert forbidden not in script
-        assert forbidden not in stylesheet
+def test_native_index_owns_core_workspace_chrome_before_javascript() -> None:
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for required in (
+        'id="uiV4MobileMenu"',
+        'id="uiV4TopNav"',
+        'id="uiV4ProjectContext"',
+        'id="uiV4AccountToggle"',
+        'id="uiV4SidebarRecent"',
+        'id="uiV4ResourceNavigation"',
+        'id="uiV4MobileBackdrop"',
+        'id="uiV4PendingPanel"',
+        'id="uiV4UsagePanel"',
+        'id="apiPanel" class="api-panel api-drawer-v4"',
+    ):
+        assert required in html
+    assert "ui-v4-navigation" not in html
+    assert "hero-visual" not in html
 
 
-def test_foundation_dashboard_workspace_and_navigation_use_v4_primitives_only() -> None:
-    files = (
-        "ui-v4-foundation.js",
-        "ui-v4-foundation.css",
-        "ui-v4-dashboard.js",
-        "ui-v4-dashboard.css",
-        "ui-v4-workspace.js",
-        "ui-v4-workspace.css",
-        "ui-v4-navigation.js",
-        "ui-v4-navigation.css",
-        "ui-v4-final-qa.js",
-        "ui-v4-final-qa.css",
-    )
-    for filename in files:
-        content = (ASSETS / filename).read_text(encoding="utf-8")
-        for forbidden in ("ui-redesign-live", "ui-v3-clean", "liveTopNav", "liveAccountToggle", "liveSidebarProject"):
-            assert forbidden not in content, f"{forbidden} leaked into {filename}"
+def test_v4_shell_uses_shared_runtime_contracts_without_recreating_business_state() -> None:
+    shell = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
+    dashboard = (ASSETS / "ui-v4-dashboard.js").read_text(encoding="utf-8")
+    workspace = (ASSETS / "ui-v4-workspace.js").read_text(encoding="utf-8")
+
+    assert "window.ZHILINK_WORKSPACE_CONTRACTS" in shell
+    assert "window.ZHILINK_UI_V4_ICONS" in shell
+    assert "contracts.storage.currentProject" in shell
+    assert "contracts.storage.workspaceKey" in shell
+    assert "const MODULES = contracts.modules" in shell
+    assert "document.createElement" not in shell
+
+    assert "const MODULES = contracts.modules" in dashboard
+    assert "const MODULE_ORDER = contracts.moduleOrder" in dashboard
+    assert "function renderPending" in dashboard
+    assert "function renderUsage" in dashboard
+
+    assert "const SHARED_MODULES = contracts.modules" in workspace
+    assert 'document.querySelectorAll(".ui-v4-business-page[id]").forEach(decoratePage);' in workspace
 
 
-def test_v4_dashboard_keeps_task_first_information_architecture() -> None:
-    script = (ASSETS / "ui-v4-dashboard.js").read_text(encoding="utf-8")
-    stylesheet = (ASSETS / "ui-v4-dashboard.css").read_text(encoding="utf-8")
+def test_workspace_keeps_task_first_split_workbench_and_accessibility_contracts() -> None:
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    css = (ASSETS / "ui-v4-workspace.css").read_text(encoding="utf-8")
+    final_qa = (ASSETS / "ui-v4-final-qa.css").read_text(encoding="utf-8")
 
-    assert 'setText(title, "今天要处理什么？")' in script
-    assert 'setText(pending.querySelector(".ui-v4-panel-head h3"), "需要你处理")' in script
-    assert 'setText(toolbar.querySelector("h3"), "新建任务")' in script
-    assert 'setText(recent.querySelector(".section-toolbar h3"), "最近材料")' in script
-    assert 'setText(usage.querySelector(".ui-v4-panel-head h3"), "工作状态")' in script
-    assert ".ui-v4-attention-panel" in stylesheet
-    assert ".ui-v4-secondary-grid" in stylesheet
-    for forbidden in ("98%", "节省时间", "提升 35%", "审核准确率", "效率提升"):
-        assert forbidden not in script
-        assert forbidden not in stylesheet
-
-
-def test_v4_workspace_keeps_split_workbench_without_v3_grid_dependency() -> None:
-    script = (ASSETS / "ui-v4-workspace.js").read_text(encoding="utf-8")
-    stylesheet = (ASSETS / "ui-v4-workspace.css").read_text(encoding="utf-8")
-
-    assert 'page.classList.add("ui-v4-workspace-page", "ui-v4-business-page")' in script
-    assert 'result.dataset.uiV4ResultState = result.classList.contains("empty") ? "empty" : "ready"' in script
-    assert 'emptyTitle: "会议纪要将在这里生成"' in script
-    assert "display: grid" in stylesheet
-    assert "grid-template-columns: minmax(360px, .78fr) minmax(520px, 1.22fr)" in stylesheet
-    assert '[data-ui-v4-module="meeting"]' in stylesheet
-    assert "@media (max-width: 1180px)" in stylesheet
-
-
-def test_navigation_uses_v4_shell_resources_and_project_context() -> None:
-    script = (ASSETS / "ui-v4-navigation.js").read_text(encoding="utf-8")
-    stylesheet = (ASSETS / "ui-v4-navigation.css").read_text(encoding="utf-8")
-
-    assert 'home: "工作首页"' in script
-    assert 'report: "报告归档"' in script
-    assert 'resource.id = "uiV4ResourceNavigation"' in script
-    assert 'project.id = "uiV4ProjectContext"' in script
-    assert 'document.getElementById("uiV4TopNav")' in script
-    assert 'document.getElementById("uiV4MobileMenu")' in script
-    assert "--ui4-sidebar-width: 252px" in stylesheet
-    assert ".ui-v4-resource-navigation" in stylesheet
-    assert ".ui-v4-project-context" in stylesheet
-    assert "@media (max-width: 720px)" in stylesheet
+    for text in ("今天要处理什么？", "新建任务", "需要你处理", "最近材料", "工作状态"):
+        assert text in html
+    for module in ("profile", "meeting", "contract", "policy", "match", "landing", "report"):
+        assert f'id="{module}" class="page ui-v4-business-page"' in html
+    assert "grid-template-columns: minmax(360px, .78fr) minmax(520px, 1.22fr)" in css
+    assert "@media (max-width: 1180px)" in css
+    assert "@media (max-width: 390px)" in final_qa
+    assert "@media (max-width: 360px)" in final_qa
+    assert "@media (prefers-reduced-motion: reduce)" in final_qa

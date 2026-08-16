@@ -21,9 +21,11 @@ from .schemas import APIConfig, ProfileData
 from .service import make_hub, profile_to_dict
 
 router = APIRouter(prefix="/api/policy/official", tags=["official-policy"])
-MAX_POLICY_CONCURRENCY = max(0, int(os.getenv("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", "1") or "1"))
+MAX_POLICY_CONCURRENCY = max(1, int(os.getenv("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", "1") or "1"))
+MAX_POLICY_SEARCH_CONCURRENCY = max(1, int(os.getenv("MAX_CONCURRENT_POLICY_SEARCHES_PER_CLIENT", "1") or "1"))
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "").strip().lower() in {"1", "true", "yes", "on"}
 POLICY_GENERATION_LIMITER = ClientConcurrencyLimiter(MAX_POLICY_CONCURRENCY)
+POLICY_SEARCH_LIMITER = ClientConcurrencyLimiter(MAX_POLICY_SEARCH_CONCURRENCY)
 POLICY_MODE = "AI模型流式模式（官方候选来源与人工核验）"
 
 
@@ -61,14 +63,10 @@ def _client_key(request: Request) -> str:
     return "unknown"
 
 
-def _acquire(request: Request) -> str:
+def _acquire(limiter: ClientConcurrencyLimiter, request: Request, message: str) -> str:
     key = _client_key(request)
-    if not POLICY_GENERATION_LIMITER.try_acquire(key):
-        raise HTTPException(
-            status_code=429,
-            detail="当前已有政策生成任务正在运行，请等待完成或取消后再试。",
-            headers={"Retry-After": "2"},
-        )
+    if not limiter.try_acquire(key):
+        raise HTTPException(status_code=429, detail=message, headers={"Retry-After": "2"})
     return key
 
 
@@ -77,20 +75,24 @@ def _sse(data: Dict[str, Any]) -> str:
 
 
 @router.post("/search", response_model=OfficialPolicyRetrieval)
-def search_official_policy(payload: OfficialPolicySearchRequest) -> OfficialPolicyRetrieval:
-    profile = profile_to_dict(payload.profile)
-    raw = get_official_policy_retriever().search(
-        profile,
-        payload.demand,
-        query=payload.query,
-        limit=payload.limit,
-    )
-    return refine_policy_retrieval(raw, profile, payload.demand)
+def search_official_policy(payload: OfficialPolicySearchRequest, request: Request) -> OfficialPolicyRetrieval:
+    key = _acquire(POLICY_SEARCH_LIMITER, request, "当前已有政策检索任务正在运行，请稍后再试。")
+    try:
+        profile = profile_to_dict(payload.profile)
+        raw = get_official_policy_retriever().search(
+            profile,
+            payload.demand,
+            query=payload.query,
+            limit=payload.limit,
+        )
+        return refine_policy_retrieval(raw, profile, payload.demand)
+    finally:
+        POLICY_SEARCH_LIMITER.release(key)
 
 
 @router.post("", response_model=OfficialPolicyGenerateResponse)
 def generate_official_policy(payload: OfficialPolicyGenerateRequest, request: Request) -> OfficialPolicyGenerateResponse:
-    key = _acquire(request)
+    key = _acquire(POLICY_GENERATION_LIMITER, request, "当前已有政策生成任务正在运行，请等待完成或取消后再试。")
     try:
         hub = make_hub(payload.config)
         agent = OfficialPolicyAgent(hub.llm, get_official_policy_retriever())
@@ -102,7 +104,7 @@ def generate_official_policy(payload: OfficialPolicyGenerateRequest, request: Re
 
 @router.post("/stream")
 def stream_official_policy(payload: OfficialPolicyGenerateRequest, request: Request) -> StreamingResponse:
-    key = _acquire(request)
+    key = _acquire(POLICY_GENERATION_LIMITER, request, "当前已有政策生成任务正在运行，请等待完成或取消后再试。")
     try:
         hub = make_hub(payload.config)
         agent = OfficialPolicyAgent(hub.llm, get_official_policy_retriever())
@@ -112,7 +114,6 @@ def stream_official_policy(payload: OfficialPolicyGenerateRequest, request: Requ
         raise
 
     async def event_generator():
-        full: list[str] = []
         iterator = iter(chunks)
         try:
             yield _sse({
@@ -121,14 +122,11 @@ def stream_official_policy(payload: OfficialPolicyGenerateRequest, request: Requ
                 "retrieval": prepared.retrieval.model_dump(mode="json"),
             })
             async for chunk in iterate_in_threadpool(iterator):
-                if not chunk:
-                    continue
-                full.append(chunk)
-                yield _sse({"type": "delta", "content": chunk})
-            content = "".join(full)
+                if chunk:
+                    yield _sse({"type": "delta", "content": chunk})
             yield _sse({
                 "type": "done",
-                "content": content,
+                "content": "",
                 "mode": POLICY_MODE,
                 "retrieval": prepared.retrieval.model_dump(mode="json"),
             })

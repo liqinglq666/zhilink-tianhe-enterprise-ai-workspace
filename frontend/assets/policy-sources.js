@@ -1,20 +1,18 @@
-/* Official-policy candidate retrieval, source viewer, and grounded route switch. */
+/* Official-policy candidate retrieval and grounded generation hook. */
 (() => {
   const STORAGE_KEY = "zhilian_official_policy_sources_v3";
-  const POLICY_RESULT_SCHEMA_VERSION = "20260807-policy-grounded-v3";
-  const RESULTS_STORAGE = "zhilian_results";
-  const META_STORAGE = "zhilian_meta";
-  const STRUCTURED_STORAGE = "zhilian_structured_results_v1";
-  const QUARANTINE_STORAGE = "zhilian_legacy_result_quarantine_v1";
   const SEARCH_TIMEOUT_MS = 20000;
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
   let cached = read(sessionStorage.getItem(STORAGE_KEY), null);
   let activeSearch = null;
-  let resultGuardInstalled = false;
+
+  if (!contracts) throw new Error("Workspace contracts must load before policy sources.");
+  if (!hooks) throw new Error("Workspace hooks must load before policy sources.");
 
   function read(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
   }
-
   function safe(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -23,75 +21,12 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
-
-  function migrateStalePolicyResult() {
-    const results = read(sessionStorage.getItem(RESULTS_STORAGE), {});
-    const meta = read(sessionStorage.getItem(META_STORAGE), {});
-    if (!results?.policy) return false;
-    if (String(meta?.policy?.result_schema_version || "") === POLICY_RESULT_SCHEMA_VERSION) return false;
-
-    const history = read(sessionStorage.getItem(QUARANTINE_STORAGE), []);
-    const snapshot = {
-      quarantined_at: new Date().toISOString(),
-      expected_versions: { policy: POLICY_RESULT_SCHEMA_VERSION },
-      keys: ["policy"],
-      results: { policy: results.policy },
-      meta: { policy: meta?.policy || {} },
-    };
-    sessionStorage.setItem(
-      QUARANTINE_STORAGE,
-      JSON.stringify([snapshot, ...(Array.isArray(history) ? history : [])].slice(0, 3)),
-    );
-    delete results.policy;
-    delete meta.policy;
-    sessionStorage.setItem(RESULTS_STORAGE, JSON.stringify(results));
-    sessionStorage.setItem(META_STORAGE, JSON.stringify(meta));
-    sessionStorage.removeItem(STRUCTURED_STORAGE);
-
-    if (typeof state !== "undefined") {
-      state.results = results;
-      state.meta = meta;
-      if (typeof showResult === "function") showResult("policy", {});
-      if (typeof updateProgress === "function") updateProgress();
-    }
-    setTimeout(() => {
-      const message = "检测到旧版本政策结果，已隔离。政策需求输入已保留，请重新生成。";
-      if (typeof toast === "function") toast(message);
-      else console.info(message);
-    }, 120);
-    return true;
-  }
-
-  function stampPolicyResultVersion() {
-    if (typeof state === "undefined" || !state.results?.policy) return;
-    state.meta ||= {};
-    state.meta.policy ||= {};
-    state.meta.policy.result_schema_version = POLICY_RESULT_SCHEMA_VERSION;
-    sessionStorage.setItem(META_STORAGE, JSON.stringify(state.meta));
-  }
-
-  function installPolicyResultVersionGuard() {
-    if (resultGuardInstalled) return;
-    if (typeof setResult !== "function") {
-      setTimeout(installPolicyResultVersionGuard, 40);
-      return;
-    }
-    resultGuardInstalled = true;
-    const previousSetResult = setResult;
-    setResult = function policySchemaAwareSetResult(key, result) {
-      const value = previousSetResult.apply(this, arguments);
-      if (key === "policy") stampPolicyResultVersion();
-      return value;
-    };
-  }
-
   async function digest(value) {
     if (!window.crypto?.subtle) return String(value || "");
     const bytes = new TextEncoder().encode(String(value || ""));
     const hash = await crypto.subtle.digest("SHA-256", bytes);
     return Array.from(new Uint8Array(hash), item => item.toString(16).padStart(2, "0")).join("");
   }
-
   function currentInput() {
     if (typeof saveProfileToState === "function") saveProfileToState();
     return {
@@ -99,7 +34,6 @@
       demand: document.getElementById("policyDemand")?.value?.trim() || "",
     };
   }
-
   function isOfficialUrl(raw) {
     try {
       const url = new URL(raw, location.origin);
@@ -111,7 +45,6 @@
       return false;
     }
   }
-
   function retrievalStatusLabel(status) {
     return {
       ok: "候选来源初筛完成",
@@ -121,7 +54,6 @@
       disabled: "官方来源检索已关闭",
     }[status] || "官方来源状态待确认";
   }
-
   function documentStatusLabel(status) {
     return {
       active: "系统初判有效 · 待核验",
@@ -243,12 +175,10 @@
     if (!panel || typeof state === "undefined" || !state.results?.policy) return;
     panel.querySelector(".policy-source-bar")?.remove();
     const retrieval = cached?.retrieval;
+    const count = retrieval?.sources?.length || 0;
+    const countText = count ? `${count} 个通过初筛的候选来源` : "0 个可核验的直接相关候选来源";
     const bar = document.createElement("div");
     bar.className = `policy-source-bar policy-source-${safe(retrieval?.status || "unknown")}`;
-    const count = retrieval?.sources?.length || 0;
-    const countText = count
-      ? `${count} 个通过初筛的候选来源`
-      : "0 个可核验的直接相关候选来源";
     bar.innerHTML = `
       <div><strong>${safe(retrieval ? retrievalStatusLabel(retrieval.status) : "正在准备官方候选来源")}</strong>
       <small>${retrieval ? `${countText} · ${safe(retrieval.retrieved_at || "")} · 结论须人工核验` : "生成政策报告前会自动检索"}</small></div>
@@ -265,22 +195,18 @@
     const status = document.getElementById("officialPolicyStatus");
     const list = document.getElementById("officialPolicyList");
     if (!status || !list) return;
-
     if (!retrieval) {
       status.innerHTML = "<strong>尚未执行检索</strong><p>点击重新检索读取当前企业档案和政策需求。</p>";
       list.innerHTML = "";
       return;
     }
-
     status.innerHTML = `<div><strong>${safe(retrievalStatusLabel(retrieval.status))}</strong><span>${safe(retrieval.retrieved_at || "")}</span></div>
       <p>检索词：${safe(retrieval.query || "未提供")}</p>
       ${(retrieval.warnings || []).length ? `<ul>${retrieval.warnings.map(item => `<li>${safe(item)}</li>`).join("")}</ul>` : ""}`;
-
     if (!retrieval.sources?.length) {
       list.innerHTML = '<p class="policy-source-empty">本次没有保留可核验的直接相关官方候选来源。AI 结果不得输出具体政策名称、金额、期限、主管部门或资格结论。</p>';
       return;
     }
-
     list.innerHTML = retrieval.sources.map(source => {
       const href = isOfficialUrl(source.official_url) ? source.official_url : "";
       const dates = [
@@ -309,52 +235,36 @@
     modal?.classList.add("show");
     modal?.setAttribute("aria-hidden", "false");
   }
-
   function closeViewer() {
     const modal = document.getElementById("officialPolicyModal");
     modal?.classList.remove("show");
     modal?.setAttribute("aria-hidden", "true");
   }
 
-  function installRouteSwitch() {
-    if (window.__ZHILINK_POLICY_SOURCE_ROUTE_INSTALLED) return;
-    if (typeof apiStream !== "function" || typeof showResult !== "function") {
-      setTimeout(installRouteSwitch, 50);
-      return;
-    }
-    window.__ZHILINK_POLICY_SOURCE_ROUTE_INSTALLED = true;
-
-    const previousApiStream = apiStream;
-    apiStream = async function officialPolicyAwareStream(url, payload, key) {
-      if (url === "/api/policy/stream" && key === "policy") {
-        await searchSources(false).catch(error => console.warn("official policy candidate pre-search unavailable", error));
-        return previousApiStream("/api/policy/official/stream", payload, key);
-      }
-      return previousApiStream(url, payload, key);
-    };
-
-    const previousShowResult = showResult;
-    showResult = function officialPolicyAwareShowResult(key, result) {
-      previousShowResult(key, result);
-      if (key === "policy") Promise.resolve().then(decorate);
-    };
-  }
+  hooks.register("generation:request", async request => {
+    if (request.url !== "/api/policy/stream" || request.key !== "policy") return request;
+    await searchSources(false).catch(error => console.warn("official policy candidate pre-search unavailable", error));
+    return { ...request, url: "/api/policy/official/stream" };
+  });
 
   function start() {
-    migrateStalePolicyResult();
-    installPolicyResultVersionGuard();
     injectUi();
-    installRouteSwitch();
+    window.addEventListener(contracts.events.resultUpdated, event => {
+      if (event.detail?.key === "policy") queueMicrotask(decorate);
+    });
+    window.addEventListener(contracts.events.structuredUpdated, event => {
+      if (event.detail?.module === "policy") queueMicrotask(decorate);
+    });
+    window.addEventListener(contracts.events.reviewUpdated, event => {
+      if (event.detail?.module === "policy") queueMicrotask(decorate);
+    });
     document.addEventListener("click", event => {
       if (event.target.closest("[data-open-policy-sources]")) openViewer();
     });
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && document.getElementById("officialPolicyModal")?.classList.contains("show")) closeViewer();
     });
-    setTimeout(() => {
-      if (typeof state !== "undefined" && state.results?.policy) decorate();
-    }, 600);
-    window.ZHILINK_POLICY_RESULT_SCHEMA_VERSION = POLICY_RESULT_SCHEMA_VERSION;
+    if (typeof state !== "undefined" && state.results?.policy) decorate();
   }
 
   window.ZHILINK_POLICY_SOURCES = {

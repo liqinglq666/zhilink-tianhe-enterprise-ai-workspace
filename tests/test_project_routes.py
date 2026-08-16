@@ -10,8 +10,8 @@ KEY = "workspace-" + ("x" * 40)
 OTHER_KEY = "workspace-" + ("y" * 40)
 
 
-def make_client(monkeypatch, tmp_path) -> TestClient:
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'api.db'}")
+def make_client(monkeypatch, tmp_path) -> TestClient:  # noqa: ARG001
+    # The autouse test fixture already provides a migrated, isolated database.
     reset_project_store_for_tests()
     app = FastAPI()
     register_project_routes(app)

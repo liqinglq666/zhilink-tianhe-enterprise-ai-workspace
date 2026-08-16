@@ -2,18 +2,19 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-GUARD = ROOT / "frontend" / "assets" / "data-provenance-guard-v2.js"
+GUARD = ROOT / "frontend" / "assets" / "data-provenance-guard.js"
 POLICY = ROOT / "frontend" / "assets" / "policy-sources.js"
 
 
-def test_result_cache_guard_loads_its_core_assets_without_legacy_ui_loader():
+def test_result_cache_guard_is_single_asset_without_wrapper_loader():
     source = GUARD.read_text(encoding="utf-8")
 
-    assert 'const CORE_SCRIPT = "/assets/data-provenance-guard.js?v=20260806.1"' in source
-    assert 'const CORE_STYLE = "/assets/data-provenance-guard.css?v=20260806.1"' in source
-    assert 'style.dataset.zhilinkDataProvenance = "true"' in source
-    assert 'script.dataset.zhilinkDataProvenanceCore = "true"' in source
-    assert "loadCoreGuard();" in source
+    assert 'STYLE_URL = "/assets/data-provenance-guard.css?v=20260806.1"' in source
+    assert 'link.dataset.zhilinkDataProvenance = "true"' in source
+    assert "function ensureStyles()" in source
+    assert "CORE_SCRIPT" not in source
+    assert "loadCoreGuard" not in source
+    assert not (ROOT / "frontend" / "assets" / "data-provenance-guard-v2.js").exists()
 
 
 def test_stale_generated_results_are_quarantined_before_reuse():
@@ -22,29 +23,28 @@ def test_stale_generated_results_are_quarantined_before_reuse():
     assert 'const BASE_RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2"' in source
     assert 'contract: "20260807-contract-grounded-v3"' in source
     assert 'policy: "20260807-policy-grounded-v3"' in source
-    assert 'const QUARANTINE_STORAGE = "zhilian_legacy_result_quarantine_v1"' in source
+    assert "const QUARANTINE_STORAGE = contracts.storage.legacyQuarantine" in source
     assert 'String(meta?.[key]?.result_schema_version || "") !== expectedVersion(key)' in source
     assert "expected_versions" in source
     assert "delete results[key]" in source
     assert "delete meta[key]" in source
     assert "persistActiveResults(results, meta)" in source
     assert "sessionStorage.removeItem(STRUCTURED_STORAGE)" in source
-    assert "active.results = results" in source
-    assert "window.showResult(key, {})" in source
+    assert "current.results = results" in source
+    assert "window.showResult?.(key, {})" in source
 
 
-def test_policy_bundle_has_independent_no_store_cache_migration():
-    source = POLICY.read_text(encoding="utf-8")
+def test_policy_schema_migration_is_owned_by_unified_guard_not_policy_ui():
+    guard = GUARD.read_text(encoding="utf-8")
+    policy = POLICY.read_text(encoding="utf-8")
 
-    assert 'POLICY_RESULT_SCHEMA_VERSION = "20260807-policy-grounded-v3"' in source
-    assert "migrateStalePolicyResult" in source
-    assert "delete results.policy" in source
-    assert "delete meta.policy" in source
-    assert "stampPolicyResultVersion" in source
-    assert 'if (key === "policy")' in source
-    assert "政策需求输入已保留" in source
-    assert 'sessionStorage.removeItem("zhilian_form_inputs")' not in source
-    assert 'sessionStorage.removeItem("policyDemand")' not in source
+    assert 'policy: "20260807-policy-grounded-v3"' in guard
+    assert "quarantineLegacyResults" in guard
+    assert "stampCommittedResult" in guard
+    assert "POLICY_RESULT_SCHEMA_VERSION" not in policy
+    assert "migrateStalePolicyResult" not in policy
+    assert "stampPolicyResultVersion" not in policy
+    assert 'sessionStorage.removeItem("zhilian_form_inputs")' not in guard
 
 
 def test_module_schema_upgrades_do_not_invalidate_unrelated_current_results():
@@ -58,14 +58,12 @@ def test_module_schema_upgrades_do_not_invalidate_unrelated_current_results():
     assert "ZHILINK_RESULT_SCHEMA_VERSIONS" in source
 
 
-def test_new_results_receive_module_schema_version_without_clearing_inputs():
+def test_new_results_receive_module_schema_version_from_commit_event():
     source = GUARD.read_text(encoding="utf-8")
 
-    original_call = source.index("const value = original.apply(this, arguments)")
-    stamp_call = source.index("stampCurrentResult(key)", original_call)
-    assert original_call < stamp_call
-    assert "active.meta[key].result_schema_version = expectedVersion(key)" in source
-    assert 'sessionStorage.setItem(META_STORAGE, JSON.stringify(active.meta))' in source
-    assert "zhilian_form_inputs" not in source
-    assert "meetingInput" not in source
-    assert "policyDemand" not in source
+    assert "window.addEventListener(EVENTS.resultUpdated, event =>" in source
+    assert 'event.detail?.source === "commit"' in source
+    assert "stampCommittedResult(key)" in source
+    assert "current.meta[key].result_schema_version = expectedVersion(key)" in source
+    assert "persistMeta()" in source
+    assert "EVENTS.resultSchemaStamped" in source

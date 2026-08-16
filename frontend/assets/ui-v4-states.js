@@ -1,6 +1,5 @@
 /* UI V4 states: consistent empty, loading, error and feedback presentation without owning business state. */
 (() => {
-  const VERSION = "20260810.1";
   const STATE_SELECTOR = [
     ".result-panel",
     ".project-empty",
@@ -12,36 +11,6 @@
     "#connectionResult",
     "#toast",
   ].join(",");
-
-  let observer = null;
-  let queued = false;
-
-  function ensureStyles() {
-    if (document.querySelector("link[data-ui-v4-states]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `/assets/ui-v4-states.css?v=${VERSION}`;
-    link.dataset.uiV4States = "true";
-    document.head.appendChild(link);
-  }
-
-  function ensureForms() {
-    if (window.ZHILINK_UI_V4_FORMS_READY || document.querySelector("script[data-ui-v4-forms]")) return;
-    const script = document.createElement("script");
-    script.src = `/assets/ui-v4-forms.js?v=${VERSION}`;
-    script.dataset.uiV4Forms = "true";
-    script.async = false;
-    document.body.appendChild(script);
-  }
-
-  function ensureResults() {
-    if (window.ZHILINK_UI_V4_RESULTS_READY || document.querySelector("script[data-ui-v4-results]")) return;
-    const script = document.createElement("script");
-    script.src = `/assets/ui-v4-results.js?v=${VERSION}`;
-    script.dataset.uiV4Results = "true";
-    script.async = false;
-    document.body.appendChild(script);
-  }
 
   function normalizedText(element) {
     return String(element?.textContent || "").replace(/\s+/g, " ").trim();
@@ -117,12 +86,10 @@
     actionOrientedEmptyCopy(element);
     const text = normalizedText(element);
     let state = classifyText(text);
-
     if (element.matches(".project-empty, .knowledge-empty, .knowledge-search-empty, .account-empty, .recent-list.empty")) {
       state = state === "loading" || state === "error" ? state : "empty";
     }
     if (element.matches(".knowledge-error, .project-empty.error, .account-empty.error")) state = "error";
-
     element.classList.add("ui-v4-state-surface");
     element.dataset.uiV4State = state;
     if (state === "loading") {
@@ -190,41 +157,10 @@
     decorateDisabledControls(root);
   }
 
-  function queueSync() {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      sync(document);
-    });
-  }
-
-  function installObserver() {
-    if (observer || !document.body) return;
-    observer = new MutationObserver(mutations => {
-      const relevant = mutations.some(mutation => {
-        if (mutation.type === "characterData") return true;
-        if (mutation.type === "childList") return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
-        return mutation.type === "attributes" && ["class", "disabled"].includes(mutation.attributeName);
-      });
-      if (relevant) queueSync();
-    });
-    observer.observe(document.body, {
-      subtree: true,
-      childList: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ["class", "disabled"],
-    });
-  }
-
   function start() {
-    ensureStyles();
     document.body.classList.add("ui-v4-states");
     sync(document);
-    installObserver();
-    ensureForms();
-    ensureResults();
+    window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(() => sync(document), { immediate: false });
     window.ZHILINK_UI_V4_STATES_READY = true;
   }
 

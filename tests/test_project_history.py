@@ -1,11 +1,26 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from backend.model_registry import get_model_metadata
 from backend.project_routes import register_project_routes
-from backend.project_store import ProjectStore, reset_project_store_for_tests
+from backend.project_store import (
+    ProjectNotFound,
+    ProjectRecord,
+    ProjectStore,
+    hash_workspace_key,
+    reset_project_store_for_tests,
+)
 
+ROOT = Path(__file__).resolve().parents[1]
 KEY = "workspace-" + ("x" * 40)
 OTHER = "workspace-" + ("y" * 40)
 
@@ -21,11 +36,31 @@ def snapshot(meeting: str = "第一次会议", contract: str = ""):
     }
 
 
+def make_store(url: str) -> ProjectStore:
+    store = ProjectStore(url)
+    get_model_metadata().create_all(store.engine, checkfirst=True)
+    return store
+
+
+def migrate(url: str) -> None:
+    """Run Alembic against this exact fixture DB even when the suite sets DATABASE_URL."""
+    previous = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = url
+    try:
+        config = Config(str(ROOT / "alembic.ini"))
+        config.set_main_option("script_location", str(ROOT / "alembic"))
+        config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
+        command.upgrade(config, "head")
+    finally:
+        if previous is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = previous
+
+
 def test_store_creates_lists_and_restores_history(tmp_path):
-    store = ProjectStore(f"sqlite:///{tmp_path / 'history.db'}")
-    created = store.create(
-        KEY, name="项目一", description="", snapshot=snapshot(), version_label="初始建档"
-    )
+    store = make_store(f"sqlite:///{tmp_path / 'history.db'}")
+    created = store.create(KEY, name="项目一", description="", snapshot=snapshot(), version_label="初始建档")
     assert created["lock_version"] == 1
 
     versions, total = store.list_history(KEY, created["id"])
@@ -68,40 +103,29 @@ def test_store_creates_lists_and_restores_history(tmp_path):
 
 
 def test_history_is_workspace_isolated_and_deleted_with_project(tmp_path):
-    store = ProjectStore(f"sqlite:///{tmp_path / 'isolation.db'}")
+    store = make_store(f"sqlite:///{tmp_path / 'isolation.db'}")
     created = store.create(KEY, name="项目", description="", snapshot=snapshot())
 
-    try:
+    with pytest.raises(ProjectNotFound):
         store.list_history(OTHER, created["id"])
-    except Exception as exc:
-        assert exc.__class__.__name__ == "ProjectNotFound"
-    else:
-        raise AssertionError("other workspace should not access history")
 
     store.delete(KEY, created["id"])
-    try:
+    with pytest.raises(ProjectNotFound):
         store.list_history(KEY, created["id"])
-    except Exception as exc:
-        assert exc.__class__.__name__ == "ProjectNotFound"
-    else:
-        raise AssertionError("deleted history should not remain accessible")
 
 
 def test_noop_save_does_not_create_duplicate_version(tmp_path):
-    store = ProjectStore(f"sqlite:///{tmp_path / 'noop.db'}")
+    store = make_store(f"sqlite:///{tmp_path / 'noop.db'}")
     created = store.create(KEY, name="项目", description="", snapshot=snapshot())
-    saved = store.update(
-        KEY,
-        created["id"],
-        expected_lock_version=1,
-        snapshot=snapshot(),
-    )
+    saved = store.update(KEY, created["id"], expected_lock_version=1, snapshot=snapshot())
     assert saved["lock_version"] == 1
     assert store.list_history(KEY, created["id"])[1] == 1
 
 
 def make_client(monkeypatch, tmp_path):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'routes.db'}")
+    url = f"sqlite:///{tmp_path / 'routes.db'}"
+    monkeypatch.setenv("DATABASE_URL", url)
+    migrate(url)
     reset_project_store_for_tests()
     app = FastAPI()
     register_project_routes(app)
@@ -119,11 +143,7 @@ def test_version_routes(monkeypatch, tmp_path):
     updated = client.put(
         f"/api/projects/{created['id']}",
         headers=headers,
-        json={
-            "lock_version": 1,
-            "snapshot": snapshot("更新后的会议"),
-            "version_label": "会议更新",
-        },
+        json={"lock_version": 1, "snapshot": snapshot("更新后的会议"), "version_label": "会议更新"},
     ).json()
     assert updated["lock_version"] == 2
 
@@ -132,9 +152,7 @@ def test_version_routes(monkeypatch, tmp_path):
     assert listing.json()["total"] == 2
     assert "snapshot" not in listing.json()["items"][0]
 
-    detail = client.get(
-        f"/api/projects/{created['id']}/versions/1", headers=headers
-    )
+    detail = client.get(f"/api/projects/{created['id']}/versions/1", headers=headers)
     assert detail.status_code == 200
     assert detail.json()["snapshot"]["forms"]["meetingInput"] == "第一次会议"
 
@@ -155,19 +173,14 @@ def test_version_routes(monkeypatch, tmp_path):
     assert stale.status_code == 409
     assert stale.json()["current_version"] == 3
 
-    missing = client.get(
-        f"/api/projects/{created['id']}/versions/99", headers=headers
-    )
+    missing = client.get(f"/api/projects/{created['id']}/versions/99", headers=headers)
     assert missing.status_code == 404
     assert missing.json()["code"] == "PROJECT_HISTORY_NOT_FOUND"
 
 
-def test_existing_projects_receive_single_baseline_history(tmp_path):
+def test_migration_backfills_existing_projects_once(tmp_path):
     url = f"sqlite:///{tmp_path / 'backfill.db'}"
-    store = ProjectStore(url)
-    from backend.project_store import ProjectRecord, hash_workspace_key
-    from uuid import uuid4
-
+    store = make_store(url)
     record = ProjectRecord(
         id=str(uuid4()),
         workspace_hash=hash_workspace_key(KEY),
@@ -180,6 +193,8 @@ def test_existing_projects_receive_single_baseline_history(tmp_path):
         session.add(record)
     store.engine.dispose()
 
+    migrate(url)
+    migrate(url)
     migrated = ProjectStore(url)
     versions, total = migrated.list_history(KEY, record.id)
     assert total == 1
@@ -196,12 +211,8 @@ def test_history_routes_are_workspace_isolated(monkeypatch, tmp_path):
     ).json()
 
     other_headers = {"X-Workspace-Key": OTHER}
-    listing = client.get(
-        f"/api/projects/{created['id']}/versions", headers=other_headers
-    )
-    detail = client.get(
-        f"/api/projects/{created['id']}/versions/1", headers=other_headers
-    )
+    listing = client.get(f"/api/projects/{created['id']}/versions", headers=other_headers)
+    detail = client.get(f"/api/projects/{created['id']}/versions/1", headers=other_headers)
     restore = client.post(
         f"/api/projects/{created['id']}/versions/1/restore",
         headers=other_headers,

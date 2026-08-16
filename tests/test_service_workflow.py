@@ -19,8 +19,8 @@ from backend.service_workflow_store import reset_service_workflow_store_for_test
 PASSWORD = "correct horse battery staple"
 
 
-def make_app(tmp_path):
-    os.environ["DATABASE_URL"] = f"sqlite:///{tmp_path / 'workflow.db'}"
+def make_app(tmp_path):  # noqa: ARG001
+    # The autouse fixture already provides a migrated, isolated database.
     reset_service_workflow_store_for_tests()
     reset_knowledge_store_for_tests()
     reset_review_store_for_tests()

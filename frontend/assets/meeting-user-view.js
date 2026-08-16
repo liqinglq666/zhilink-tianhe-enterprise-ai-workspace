@@ -3,24 +3,25 @@
   const INTERNAL_REF_RE = /\[(?:MT-\d{2}|MP-\d{2}|MT-C\d{2})\]/g;
   const HIDDEN_SECTIONS = new Set(["自动一致性校验", "输入证据与待确认索引", "证据索引", "AI 建议补充动作"]);
   const EVIDENCE_HEADERS = ["证据编号", "原文证据", "依据编号", "证据引用", "来源编号"];
-  let observer = null;
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
   let scheduled = false;
   let decorating = false;
+
+  if (!contracts) throw new Error("Workspace contracts must load before meeting user view.");
+  if (!hooks) throw new Error("Workspace hooks must load before meeting user view.");
 
   function rawMeeting() {
     return typeof state !== "undefined" ? String(state.results?.meeting || "") : "";
   }
-
   function splitRow(line) {
     const value = String(line || "").trim();
     if (!value.startsWith("|") || !value.endsWith("|")) return null;
     return value.slice(1, -1).split("|").map(cell => cell.trim());
   }
-
   function joinRow(cells) {
     return `| ${cells.join(" | ")} |`;
   }
-
   function stripHiddenSections(markdown) {
     const output = [];
     let hidden = false;
@@ -34,12 +35,10 @@
     }
     return output.join("\n");
   }
-
   function removeEvidenceColumns(markdown) {
     const output = [];
     let dropIndexes = [];
     let inTable = false;
-
     for (const line of String(markdown || "").split(/\r?\n/)) {
       const cells = splitRow(line);
       if (!cells) {
@@ -59,7 +58,6 @@
     }
     return output.join("\n");
   }
-
   function normalizeStatuses(markdown) {
     return String(markdown || "")
       .replace(/原文事实/g, "已确认")
@@ -69,7 +67,6 @@
       .replace(/待确认（AI\s*建议：[^）]*）/g, "待确认")
       .replace(/^##\s+(?:原文待办事项|待办事项表)\s*$/gm, "## 待办事项");
   }
-
   function cleanInternalRefs(markdown) {
     return String(markdown || "")
       .replace(INTERNAL_REF_RE, "")
@@ -79,11 +76,9 @@
       .replace(/\n{3,}/g, "\n\n")
       .trim();
   }
-
   function sanitizeMeetingMarkdown(markdown) {
     return cleanInternalRefs(normalizeStatuses(removeEvidenceColumns(stripHiddenSections(markdown))));
   }
-
   function sanitizeReportMarkdown(markdown) {
     return cleanInternalRefs(removeEvidenceColumns(stripHiddenSections(markdown)));
   }
@@ -92,7 +87,6 @@
     const items = [];
     const seen = new Set();
     let headers = null;
-
     for (const line of String(markdown || "").split(/\r?\n/)) {
       const cells = splitRow(line);
       if (!cells) {
@@ -104,13 +98,11 @@
         continue;
       }
       if (cells.every(cell => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")))) continue;
-
       const idIndex = headers.findIndex(cell => cell.includes("证据编号"));
       const sourceIndex = headers.findIndex(cell => cell.includes("来源"));
       const excerptIndex = headers.findIndex(cell => /输入摘录|摘录/.test(cell));
       if (idIndex < 0 || excerptIndex < 0) continue;
       if (!/^(?:MT-\d{2}|MP-\d{2})$/.test(cells[idIndex] || "")) continue;
-
       const excerpt = String(cells[excerptIndex] || "").trim();
       if (!excerpt || seen.has(excerpt)) continue;
       seen.add(excerpt);
@@ -118,7 +110,6 @@
     }
     return items;
   }
-
   function pendingItems(markdown) {
     const items = [];
     const seen = new Set();
@@ -136,7 +127,6 @@
     }
     return items;
   }
-
   function safe(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -186,7 +176,6 @@
     modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");
   }
-
   function closeSources() {
     const modal = document.getElementById("meetingSourceDialog");
     if (!modal) return;
@@ -211,10 +200,8 @@
     decorating = true;
     try {
       replaceResultBody(panel, sanitizeMeetingMarkdown(raw));
-
       const mode = panel.querySelector(".result-meta .meta-pill");
       if (mode && mode.textContent !== "AI 生成 · 待人工确认") mode.textContent = "AI 生成 · 待人工确认";
-
       const origin = panel.querySelector(".data-origin-pill");
       if (origin?.textContent.includes("示例生成")) origin.textContent = "示例数据 · 不会保存为正式材料";
       else if (origin?.textContent.includes("旧会话材料")) origin.textContent = "旧会话材料 · 请重新确认后使用";
@@ -224,7 +211,6 @@
         bar.className = "structured-result-bar structured-valid meeting-user-structure-bar";
         bar.innerHTML = '<div><strong>已完成结构检查</strong><small>事实、待确认项和 AI 建议已区分，请人工复核后归档。</small></div>';
       }
-
       const actions = panel.querySelector(".result-actions");
       if (actions && !actions.querySelector("[data-open-meeting-sources]")) {
         const button = document.createElement("button");
@@ -242,63 +228,28 @@
   function scheduleDecorate() {
     if (scheduled) return;
     scheduled = true;
-    setTimeout(() => {
+    queueMicrotask(() => {
       scheduled = false;
       decorateMeetingPanel();
-    }, 0);
+    });
   }
 
-  function installResultGuards() {
-    if (typeof showResult === "function") {
-      const originalShowResult = showResult;
-      showResult = function userFacingShowResult(key, result) {
-        const value = originalShowResult.apply(this, arguments);
-        if (key === "meeting") scheduleDecorate();
-        if (key === "report" && result?.content) replaceResultBody(document.getElementById("reportResult"), sanitizeReportMarkdown(result.content));
-        return value;
+  function sanitizeCollectedResults(context) {
+    if (context.scope === "single" && ["meeting", "report"].includes(context.key)) {
+      const result = context.result;
+      const content = context.key === "meeting"
+        ? sanitizeMeetingMarkdown(result?.content)
+        : sanitizeReportMarkdown(result?.content);
+      return {
+        ...context,
+        result: { ...result, content, results: { ...(result?.results || {}), [result?.title]: content } },
       };
     }
-
-    if (typeof setResult === "function") {
-      const originalSetResult = setResult;
-      setResult = function userFacingSetResult(key, result) {
-        const next = key === "meeting" && result ? { ...result, mode: "AI 生成 · 待人工确认" } : result;
-        const value = originalSetResult.call(this, key, next);
-        if (key === "meeting") scheduleDecorate();
-        return value;
-      };
-    }
-  }
-
-  function installExportGuards() {
-    if (typeof collectSingleModuleResult === "function") {
-      const originalCollectSingle = collectSingleModuleResult;
-      collectSingleModuleResult = function userFacingSingleExport(key) {
-        const result = originalCollectSingle.apply(this, arguments);
-        if (key !== "meeting" && key !== "report") return result;
-        const content = key === "meeting" ? sanitizeMeetingMarkdown(result.content) : sanitizeReportMarkdown(result.content);
-        return { ...result, content, results: { ...result.results, [result.title]: content } };
-      };
-    }
-
-    if (typeof downloadReportFile === "function") {
-      const originalDownloadReport = downloadReportFile;
-      downloadReportFile = function userFacingReportExport() {
-        const currentCollector = collectResultsForReport;
-        collectResultsForReport = function sanitizedResultsForExport(includeAiSummary = false) {
-          const results = currentCollector(includeAiSummary);
-          const next = { ...results };
-          if (next["会议纪要"]) next["会议纪要"] = sanitizeMeetingMarkdown(next["会议纪要"]);
-          if (next["AI整合报告"]) next["AI整合报告"] = sanitizeReportMarkdown(next["AI整合报告"]);
-          return next;
-        };
-        try {
-          return originalDownloadReport.apply(this, arguments);
-        } finally {
-          collectResultsForReport = currentCollector;
-        }
-      };
-    }
+    if (context.scope !== "report" || !context.includeAiSummary) return context;
+    const results = { ...(context.results || {}) };
+    if (results["会议纪要"]) results["会议纪要"] = sanitizeMeetingMarkdown(results["会议纪要"]);
+    if (results["AI整合报告"]) results["AI整合报告"] = sanitizeReportMarkdown(results["AI整合报告"]);
+    return { ...context, results };
   }
 
   function installInteractions() {
@@ -326,20 +277,24 @@
     });
   }
 
-  function startObserver() {
-    const panel = document.getElementById("meetingResult");
-    if (!panel || observer) return;
-    observer = new MutationObserver(scheduleDecorate);
-    observer.observe(panel, { childList: true, subtree: true, characterData: true });
-  }
+  window.addEventListener(contracts.events.resultUpdated, event => {
+    const key = event.detail?.key;
+    if (key === "meeting") scheduleDecorate();
+    if (key === "report" && event.detail?.content) {
+      queueMicrotask(() => replaceResultBody(document.getElementById("reportResult"), sanitizeReportMarkdown(event.detail.content)));
+    }
+  });
+  window.addEventListener(contracts.events.structuredUpdated, event => {
+    if (event.detail?.module === "meeting") scheduleDecorate();
+  });
+  window.addEventListener(contracts.events.reviewUpdated, event => {
+    if (event.detail?.module === "meeting") scheduleDecorate();
+  });
 
+  hooks.register("results:collect", sanitizeCollectedResults);
   ensureDrawer();
-  installResultGuards();
-  installExportGuards();
   installInteractions();
-  startObserver();
   scheduleDecorate();
-  setTimeout(scheduleDecorate, 600);
 
   window.ZHILINK_MEETING_USER_VIEW = { sanitize: sanitizeMeetingMarkdown, sources: sourceItems };
   window.ZHILINK_MEETING_USER_VIEW_READY = true;

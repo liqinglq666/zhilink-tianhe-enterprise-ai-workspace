@@ -17,8 +17,10 @@ def test_meeting_view_keeps_internal_ids_out_of_default_ui_and_exports():
     assert "AI 生成 · 待人工确认" in source
     assert "示例数据 · 不会保存为正式材料" in source
     assert "查看生成依据" in source
-    assert "sanitizeMeetingMarkdown(result.content)" in source
-    assert "downloadReportFile" in source
+    assert "sanitizeMeetingMarkdown(result?.content)" in source
+    assert 'hooks.register("results:collect", sanitizeCollectedResults)' in source
+    assert "downloadReportFile =" not in source
+    assert "collectResultsForReport =" not in source
     assert "copyText(sanitizeMeetingMarkdown(rawMeeting()))" in source
 
 

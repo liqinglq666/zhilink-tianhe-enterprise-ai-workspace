@@ -1,7 +1,11 @@
 /* Deterministic structured JSON views for generated Markdown. */
 (() => {
-  const STORAGE_KEY = "zhilian_structured_results_v1";
-  const MODULES = ["profile", "meeting", "contract", "policy", "match", "landing", "report"];
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  if (!contracts) throw new Error("Workspace contracts must load before structured results.");
+
+  const STORAGE_KEY = contracts.storage.structuredResults;
+  const MODULES = contracts.schemaResultKeys;
+  const TITLES = contracts.resultTitles;
   const cache = read(sessionStorage.getItem(STORAGE_KEY), {});
   const pending = new Map();
   let activeModule = "";
@@ -9,7 +13,6 @@
   function read(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
   }
-
   function safe(value) {
     return String(value ?? "")
       .replaceAll("&", "&amp;")
@@ -18,7 +21,6 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
-
   function saveCache() {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
   }
@@ -113,7 +115,7 @@
 
   function decorate(module) {
     const panel = document.getElementById(`${module}Result`);
-    if (!panel || !state.results[module]) return;
+    if (!panel || typeof state === "undefined" || !state.results[module]) return;
     panel.querySelector(".structured-result-bar")?.remove();
     const data = cache[module];
     const bar = document.createElement("div");
@@ -132,6 +134,7 @@
       if (meta) meta.insertAdjacentElement("afterend", bar);
       else panel.prepend(bar);
     }
+    window.dispatchEvent(new CustomEvent(contracts.events.structuredUpdated, { detail: { module, data: data || null } }));
   }
 
   function itemList(title, items) {
@@ -144,7 +147,7 @@
   function render(data) {
     const valid = Boolean(data.validation?.valid);
     const warnings = data.validation?.warnings || [];
-    document.getElementById("structuredDialogTitle").textContent = `${resultTitles[activeModule] || data.title} · 结构化 JSON`;
+    document.getElementById("structuredDialogTitle").textContent = `${TITLES[activeModule] || data.title} · 结构化 JSON`;
     document.getElementById("structuredValidationCard").innerHTML = `
       <div><strong>${valid ? "Schema 校验通过" : "需要人工复核"}</strong>
       <span>SHA-256 ${safe(data.source_sha256.slice(0, 16))}…</span></div>
@@ -183,52 +186,48 @@
     modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");
   }
-
   function close() {
     const modal = document.getElementById("structuredResultModal");
     modal.classList.remove("show");
     modal.setAttribute("aria-hidden", "true");
     activeModule = "";
   }
-
   async function copyJson() {
     const data = cache[activeModule];
     if (!data) return;
     await copyText(JSON.stringify(data, null, 2));
     toast("已复制结构化 JSON。");
   }
-
   function downloadJson() {
     const data = cache[activeModule];
     if (!data) return;
-    const title = (resultTitles[activeModule] || activeModule).replace(/[\\/:*?"<>|]/g, "_");
+    const title = (TITLES[activeModule] || activeModule).replace(/[\\/:*?"<>|]/g, "_");
     downloadTextFile(`${title}.structured.json`, JSON.stringify(data, null, 2), "application/json;charset=utf-8");
     toast("已开始下载结构化 JSON。");
   }
 
-  const originalShowResult = showResult;
-  showResult = function structuredAwareShowResult(key, result) {
-    originalShowResult(key, result);
-    if (result?.structured) {
-      cache[key] = result.structured;
+  function handleResultUpdated(event) {
+    const detail = event.detail || {};
+    const module = detail.key;
+    if (!MODULES.includes(module)) return;
+    if (detail.result?.structured) {
+      cache[module] = detail.result.structured;
       saveCache();
+      decorate(module);
+      return;
     }
-    Promise.resolve().then(() => ensure(key, result?.content || state.results[key] || ""));
-  };
+    ensure(module, detail.content || (typeof state !== "undefined" ? state.results?.[module] || "" : ""));
+  }
 
-  const originalSetResult = setResult;
-  setResult = function structuredAwareSetResult(key, result) {
-    originalSetResult(key, result);
-    if (result?.structured) {
-      cache[key] = result.structured;
-      saveCache();
-      decorate(key);
-    } else {
-      ensure(key, result?.content || "");
-    }
-  };
+  function syncExisting() {
+    if (typeof state === "undefined") return;
+    MODULES.forEach(module => {
+      if (state.results?.[module]) ensure(module, state.results[module]);
+    });
+  }
 
   injectUi();
+  window.addEventListener(contracts.events.resultUpdated, handleResultUpdated);
   document.addEventListener("click", event => {
     const openButton = event.target.closest("[data-open-structured]");
     if (openButton) { open(openButton.dataset.openStructured); return; }
@@ -237,14 +236,10 @@
   document.addEventListener("keydown", event => {
     if (event.key === "Escape" && document.getElementById("structuredResultModal")?.classList.contains("show")) close();
   });
-  document.getElementById("copyStructuredJson").addEventListener("click", () => copyJson().catch(error => toast(error.message || String(error))));
-  document.getElementById("downloadStructuredJson").addEventListener("click", downloadJson);
-
-  setTimeout(() => {
-    MODULES.forEach(module => {
-      if (state.results[module]) ensure(module, state.results[module]);
-    });
-  }, 500);
+  document.getElementById("copyStructuredJson")?.addEventListener("click", () => copyJson().catch(error => toast(error.message || String(error))));
+  document.getElementById("downloadStructuredJson")?.addEventListener("click", downloadJson);
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", syncExisting, { once: true });
+  else syncExisting();
 
   window.ZHILINK_STRUCTURED = {
     get: module => cache[module] || null,

@@ -26,15 +26,6 @@ body.ui-v4-shell.ui-v4-foundation {
   line-height: 1.55;
 }
 
-.ui-v4-foundation .topbar .track,
-.ui-v4-foundation .nav-group-label { font-size: 11px; }
-
-.ui-v4-foundation .topbar h2 {
-  font-size: clamp(20px, 1.7vw, 25px);
-  line-height: 1.3;
-}
-
-.ui-v4-foundation .topbar p,
 .ui-v4-foundation #home .section-toolbar p,
 .ui-v4-foundation .section-head p,
 .ui-v4-foundation .notice,
@@ -54,7 +45,6 @@ body.ui-v4-shell.ui-v4-foundation {
   line-height: 1.6;
 }
 
-.ui-v4-foundation .nav button,
 .ui-v4-foundation .ui-v4-top-nav > button,
 .ui-v4-foundation .ui-v4-account-toggle,
 .ui-v4-foundation label,
@@ -111,7 +101,6 @@ body.ui-v4-shell.ui-v4-foundation {
 }
 
 .ui-v4-foundation #home .hero-card,
-.ui-v4-foundation #home .readiness-card,
 .ui-v4-foundation #home .recent-card,
 .ui-v4-foundation #home .ui-v4-home-panel,
 .ui-v4-foundation #home .module-card,
@@ -134,7 +123,6 @@ body.ui-v4-shell.ui-v4-foundation {
 
 .ui-v4-foundation .sticky-actions { border-radius: var(--ui4-radius); box-shadow: var(--ui4-shadow-sm); }
 .ui-v4-foundation .topbar { background: rgba(248, 250, 252, .94); box-shadow: none; }
-.ui-v4-foundation .sidebar { background: #10233f; box-shadow: none; }
 .ui-v4-foundation .brand-icon,
 .ui-v4-foundation .nav button.active .ui-v4-nav-icon,
 .ui-v4-foundation .ui-v4-account-avatar { background: var(--ui4-primary); box-shadow: none; }

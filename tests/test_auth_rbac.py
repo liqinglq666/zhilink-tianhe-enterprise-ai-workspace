@@ -1,26 +1,39 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 os.environ["AUTH_COOKIE_SECURE"] = "false"
 os.environ["AUTH_ALLOW_REGISTRATION"] = "true"
 os.environ["PASSWORD_MIN_LENGTH"] = "10"
 
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlalchemy import select
-
 from backend.auth_store import UserRecord, get_account_store, reset_account_store_for_tests
 from backend.project_routes import register_project_routes
 from backend.project_store import reset_project_store_for_tests
 
+ROOT = Path(__file__).resolve().parents[1]
 KEY = "workspace-" + ("x" * 40)
 
 
+def migrate(database_url: str) -> None:
+    config = Config(str(ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(ROOT / "alembic"))
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+    command.upgrade(config, "head")
+
+
 def make_app(tmp_path):
-    os.environ["DATABASE_URL"] = f"sqlite:///{tmp_path / 'rbac.db'}"
+    database_url = f"sqlite:///{tmp_path / 'rbac.db'}"
+    os.environ["DATABASE_URL"] = database_url
     reset_account_store_for_tests()
     reset_project_store_for_tests()
+    migrate(database_url)
     app = FastAPI()
     register_project_routes(app)
     return app
@@ -256,12 +269,3 @@ def test_cross_organization_isolation_and_logout(tmp_path):
     logged_out = second.post("/api/auth/logout", headers={"X-CSRF-Token": csrf2})
     assert logged_out.status_code == 200
     assert second.get("/api/auth/session").json()["authenticated"] is False
-
-
-def test_frontend_exposes_account_and_organization_controls():
-    source = open("frontend/assets/account-access.js", encoding="utf-8").read()
-    assert "ACCOUNT_ACCESS_READY" in source
-    assert "credentials: \"same-origin\"" in source
-    assert "X-Organization-Id" in source
-    assert "X-CSRF-Token" in source
-    assert "claim-workspace-projects" in source

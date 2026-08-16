@@ -1,19 +1,16 @@
 /* Persistent project workspaces and immutable version history. */
 (() => {
-  const WORKSPACE_KEY_STORAGE = "zhilian_workspace_key_v1";
-  const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
-  const RESTORE_SECTION_STORAGE = "zhilian_restore_section_v1";
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  if (!contracts) throw new Error("Workspace contracts must load before project storage.");
+
+  const WORKSPACE_KEY_STORAGE = contracts.storage.workspaceKey;
+  const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
+  const RESTORE_SECTION_STORAGE = contracts.storage.restoreSection;
   const PROJECT_TIMEOUT_MS = 20000;
   const MODULE_LABELS = {
     project: "项目信息",
     identity: "使用身份",
-    profile: "企业档案",
-    meeting: "会议纪要",
-    contract: "合同审阅",
-    policy: "政策准备",
-    match: "供需协作",
-    landing: "实施计划",
-    report: "运营报告",
+    ...contracts.resultTitles,
   };
   const FORM_LABELS = {
     profileName: "企业名称",
@@ -135,11 +132,11 @@
 
   function applyProjectSnapshot(project) {
     const snapshot = project.snapshot || {};
-    localStorage.setItem("zhilian_identity", JSON.stringify(snapshot.identity || {}));
-    sessionStorage.setItem("zhilian_profile", JSON.stringify(snapshot.profile || {}));
-    sessionStorage.setItem("zhilian_form_inputs", JSON.stringify(snapshot.forms || {}));
-    sessionStorage.setItem("zhilian_results", JSON.stringify(snapshot.results || {}));
-    sessionStorage.setItem("zhilian_meta", JSON.stringify(snapshot.meta || {}));
+    localStorage.setItem(contracts.storage.identity, JSON.stringify(snapshot.identity || {}));
+    sessionStorage.setItem(contracts.storage.profile, JSON.stringify(snapshot.profile || {}));
+    sessionStorage.setItem(contracts.storage.formInputs, JSON.stringify(snapshot.forms || {}));
+    sessionStorage.setItem(contracts.storage.results, JSON.stringify(snapshot.results || {}));
+    sessionStorage.setItem(contracts.storage.meta, JSON.stringify(snapshot.meta || {}));
     localStorage.setItem(RESTORE_SECTION_STORAGE, snapshot.current_section || "home");
     setCurrentProject(project, false);
     location.reload();
@@ -645,11 +642,9 @@
         markProjectDirty();
       }
     });
-    const originalSetResult = setResult;
-    setResult = function setResultAndMarkProject(key, result) {
-      originalSetResult(key, result);
-      markProjectDirty();
-    };
+    window.addEventListener(contracts.events.resultUpdated, event => {
+      if (event.detail?.source === "commit") markProjectDirty();
+    });
     window.addEventListener("beforeunload", event => {
       if (!currentProject || !projectDirty) return;
       event.preventDefault();

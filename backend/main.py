@@ -53,7 +53,7 @@ from .security import (  # noqa: E402
 )
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
-APP_VERSION = "2.7.0-generation-controls-project-storage"
+APP_VERSION = "2.8.0-release-hardening"
 MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "30"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
@@ -154,13 +154,11 @@ async def guard_requests(request: Request, call_next):
         content_length = request.headers.get("content-length")
         if content_length and content_length.isdigit() and int(content_length) > MAX_BODY_BYTES:
             return _too_large_response()
-
         upstream_receive = request.receive
         try:
             body = await read_limited_body(upstream_receive, MAX_BODY_BYTES)
         except BodyTooLarge:
             return _too_large_response()
-
         request._receive = replay_body(body, upstream_receive)
 
     response = await call_next(request)
@@ -194,31 +192,13 @@ async def model_gateway_error_handler(request: Request, exc: ModelGatewayError):
 async def runtime_error_handler(request: Request, exc: RuntimeError):  # noqa: ARG001
     return JSONResponse(
         status_code=500,
-        content={
-            "detail": "服务处理过程中发生异常，请稍后重试。",
-            "code": "INTERNAL_RUNTIME_ERROR",
-            "retryable": True,
-        },
+        content={"detail": "服务处理过程中发生异常，请稍后重试。", "code": "INTERNAL_RUNTIME_ERROR", "retryable": True},
     )
 
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):  # noqa: ARG001
     return JSONResponse(status_code=400, content={"detail": str(exc)})
-
-
-@app.get("/assets/app.js", include_in_schema=False)
-def frontend_app_bundle() -> Response:
-    """Serve the base application and same-origin feature extensions as one bundle."""
-
-    base_script = (ASSETS_DIR / "app.js").read_text(encoding="utf-8")
-    controls_script = (ASSETS_DIR / "generation-controls.js").read_text(encoding="utf-8")
-    projects_script = (ASSETS_DIR / "project-storage.js").read_text(encoding="utf-8")
-    return Response(
-        content=f"{base_script}\n\n{controls_script}\n\n{projects_script}\n",
-        media_type="application/javascript",
-        headers={"Cache-Control": "no-cache"},
-    )
 
 
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
@@ -236,11 +216,7 @@ def health() -> HealthResponse:
 
 @app.get("/api/defaults", response_model=DefaultsResponse)
 def defaults() -> DefaultsResponse:
-    return DefaultsResponse(
-        provider_presets=PROVIDER_PRESETS,
-        modules=MODULES,
-        disclaimer=LEGAL_DISCLAIMER,
-    )
+    return DefaultsResponse(provider_presets=PROVIDER_PRESETS, modules=MODULES, disclaimer=LEGAL_DISCLAIMER)
 
 
 def _acquire_generation(request: Request) -> str:
@@ -268,35 +244,24 @@ def _sse(data: dict) -> str:
 
 def _stream_error_payload(exc: Exception) -> dict:
     if isinstance(exc, ModelGatewayError):
-        payload = {
-            "type": "error",
-            "error": exc.user_message,
-            "code": exc.code,
-            "retryable": exc.retryable,
-        }
+        payload = {"type": "error", "error": exc.user_message, "code": exc.code, "retryable": exc.retryable}
         if exc.retry_after is not None:
             payload["retry_after"] = exc.retry_after
         return payload
-    return {
-        "type": "error",
-        "error": "生成过程中发生异常，请稍后重试。",
-        "code": "STREAM_INTERNAL_ERROR",
-        "retryable": True,
-    }
+    return {"type": "error", "error": "生成过程中发生异常，请稍后重试。", "code": "STREAM_INTERNAL_ERROR", "retryable": True}
 
 
 def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResponse:
+    """Forward model deltas without duplicating the completed result in server memory."""
     async def event_generator():
-        full: list[str] = []
         iterator = iter(chunks)
         try:
             yield _sse({"type": "meta", "mode": "AI模型流式模式"})
             async for chunk in iterate_in_threadpool(iterator):
-                if not chunk:
-                    continue
-                full.append(chunk)
-                yield _sse({"type": "delta", "content": chunk})
-            yield _sse({"type": "done", "content": "".join(full), "mode": "AI模型流式模式"})
+                if chunk:
+                    yield _sse({"type": "delta", "content": chunk})
+            # The browser already owns the assembled deltas; avoid a second full copy here.
+            yield _sse({"type": "done", "content": "", "mode": "AI模型流式模式"})
         except Exception as exc:  # noqa: BLE001
             yield _sse(_stream_error_payload(exc))
         finally:
@@ -312,10 +277,7 @@ def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResp
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream; charset=utf-8",
-        headers={
-            "Cache-Control": "no-cache, no-transform",
-            "X-Accel-Buffering": "no",
-        },
+        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
 
 
@@ -354,87 +316,57 @@ def test_connection(config: APIConfig, request: Request) -> AgentResponse:
                 retry_after=exc.retry_after,
             )
         except Exception:  # noqa: BLE001
-            return AgentResponse(
-                ok=False,
-                mode="连接失败",
-                error="连接测试发生异常，请检查配置后重试。",
-                error_code="MODEL_TEST_FAILED",
-                retryable=True,
-            )
+            return AgentResponse(ok=False, mode="连接失败", error="连接测试发生异常，请检查配置后重试。", error_code="MODEL_TEST_FAILED", retryable=True)
 
     return _run_generation(request, execute)
 
 
 @app.post("/api/profile", response_model=AgentResponse)
 def profile(req: ProfileRequest, request: Request) -> AgentResponse:
-    return _run_generation(
-        request,
-        lambda: agent_response(make_hub(req.config).profile.run(profile_to_dict(req.profile))),
-    )
+    return _run_generation(request, lambda: agent_response(make_hub(req.config).profile.run(profile_to_dict(req.profile))))
 
 
 @app.post("/api/profile/stream")
 def profile_stream(req: ProfileRequest, request: Request) -> StreamingResponse:
-    return _start_generation_stream(
-        request,
-        lambda: make_hub(req.config).profile.stream(profile_to_dict(req.profile)),
-    )
+    return _start_generation_stream(request, lambda: make_hub(req.config).profile.stream(profile_to_dict(req.profile)))
 
 
 @app.post("/api/meeting", response_model=AgentResponse)
 def meeting(req: MeetingRequest, request: Request) -> AgentResponse:
     if len(req.text.strip()) < 8:
         raise HTTPException(status_code=400, detail="会议内容过短，请补充会议背景、结论或待办事项。")
-    return _run_generation(
-        request,
-        lambda: agent_response(make_hub(req.config).meeting.run(req.text, req.profile_summary)),
-    )
+    return _run_generation(request, lambda: agent_response(make_hub(req.config).meeting.run(req.text, req.profile_summary)))
 
 
 @app.post("/api/meeting/stream")
 def meeting_stream(req: MeetingRequest, request: Request) -> StreamingResponse:
     if len(req.text.strip()) < 8:
         raise HTTPException(status_code=400, detail="会议内容过短，请补充会议背景、结论或待办事项。")
-    return _start_generation_stream(
-        request,
-        lambda: make_hub(req.config).meeting.stream(req.text, req.profile_summary),
-    )
+    return _start_generation_stream(request, lambda: make_hub(req.config).meeting.stream(req.text, req.profile_summary))
 
 
 @app.post("/api/contract", response_model=AgentResponse)
 def contract(req: ContractRequest, request: Request) -> AgentResponse:
     if len(req.text.strip()) < 12:
         raise HTTPException(status_code=400, detail="合同文本过短，请粘贴关键条款后再生成风险提示。")
-    return _run_generation(
-        request,
-        lambda: agent_response(make_hub(req.config).contract.run(req.text, req.profile_summary)),
-    )
+    return _run_generation(request, lambda: agent_response(make_hub(req.config).contract.run(req.text, req.profile_summary)))
 
 
 @app.post("/api/contract/stream")
 def contract_stream(req: ContractRequest, request: Request) -> StreamingResponse:
     if len(req.text.strip()) < 12:
         raise HTTPException(status_code=400, detail="合同文本过短，请粘贴关键条款后再生成风险提示。")
-    return _start_generation_stream(
-        request,
-        lambda: make_hub(req.config).contract.stream(req.text, req.profile_summary),
-    )
+    return _start_generation_stream(request, lambda: make_hub(req.config).contract.stream(req.text, req.profile_summary))
 
 
 @app.post("/api/policy", response_model=AgentResponse)
 def policy(req: PolicyRequest, request: Request) -> AgentResponse:
-    return _run_generation(
-        request,
-        lambda: agent_response(make_hub(req.config).policy.run(profile_to_dict(req.profile), req.demand)),
-    )
+    return _run_generation(request, lambda: agent_response(make_hub(req.config).policy.run(profile_to_dict(req.profile), req.demand)))
 
 
 @app.post("/api/policy/stream")
 def policy_stream(req: PolicyRequest, request: Request) -> StreamingResponse:
-    return _start_generation_stream(
-        request,
-        lambda: make_hub(req.config).policy.stream(profile_to_dict(req.profile), req.demand),
-    )
+    return _start_generation_stream(request, lambda: make_hub(req.config).policy.stream(profile_to_dict(req.profile), req.demand))
 
 
 @app.post("/api/match", response_model=AgentResponse)
@@ -443,11 +375,7 @@ def match(req: MatchRequest, request: Request) -> AgentResponse:
         raise HTTPException(status_code=400, detail="请至少填写供给、需求、目标对象或业务场景中的一项。")
     return _run_generation(
         request,
-        lambda: agent_response(
-            make_hub(req.config).match.run(
-                profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario
-            )
-        ),
+        lambda: agent_response(make_hub(req.config).match.run(profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario)),
     )
 
 
@@ -457,9 +385,7 @@ def match_stream(req: MatchRequest, request: Request) -> StreamingResponse:
         raise HTTPException(status_code=400, detail="请至少填写供给、需求、目标对象或业务场景中的一项。")
     return _start_generation_stream(
         request,
-        lambda: make_hub(req.config).match.stream(
-            profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario
-        ),
+        lambda: make_hub(req.config).match.stream(profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario),
     )
 
 
@@ -467,11 +393,7 @@ def match_stream(req: MatchRequest, request: Request) -> StreamingResponse:
 def landing(req: LandingRequest, request: Request) -> AgentResponse:
     return _run_generation(
         request,
-        lambda: agent_response(
-            make_hub(req.config).landing.run(
-                profile_to_dict(req.profile), req.landing_info, req.existing_results
-            )
-        ),
+        lambda: agent_response(make_hub(req.config).landing.run(profile_to_dict(req.profile), req.landing_info, req.existing_results)),
     )
 
 
@@ -479,29 +401,21 @@ def landing(req: LandingRequest, request: Request) -> AgentResponse:
 def landing_stream(req: LandingRequest, request: Request) -> StreamingResponse:
     return _start_generation_stream(
         request,
-        lambda: make_hub(req.config).landing.stream(
-            profile_to_dict(req.profile), req.landing_info, req.existing_results
-        ),
+        lambda: make_hub(req.config).landing.stream(profile_to_dict(req.profile), req.landing_info, req.existing_results),
     )
 
 
 @app.post("/api/report", response_model=AgentResponse)
 def report(req: ReportRequest, request: Request) -> AgentResponse:
     if req.use_ai_summary:
-        return _run_generation(
-            request,
-            lambda: agent_response(make_hub(req.config).report.run(req.results)),
-        )
+        return _run_generation(request, lambda: agent_response(make_hub(req.config).report.run(req.results)))
     return AgentResponse(ok=True, content=build_markdown(req.results), mode="本地报告模式")
 
 
 @app.post("/api/report/stream")
 def report_stream(req: ReportRequest, request: Request) -> StreamingResponse:
     if req.use_ai_summary:
-        return _start_generation_stream(
-            request,
-            lambda: make_hub(req.config).report.stream(req.results),
-        )
+        return _start_generation_stream(request, lambda: make_hub(req.config).report.stream(req.results))
     return _stream_response(iter([build_markdown(req.results)]))
 
 
@@ -528,7 +442,7 @@ def report_docx(req: ReportRequest) -> Response:
     try:
         data = build_docx(req.results)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Word 报告生成失败，请稍后重试。") from exc
     return Response(
         content=data,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

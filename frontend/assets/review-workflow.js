@@ -1,8 +1,12 @@
 /* Human editing, confirmation, and organization review workflow. */
 (() => {
-  const CURRENT_PROJECT = "zhilian_current_project_v1";
-  const WORKSPACE_KEY = "zhilian_workspace_key_v1";
-  const MODULES = ["profile", "meeting", "contract", "policy", "match", "landing", "report"];
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  if (!contracts) throw new Error("Workspace contracts must load before review workflow.");
+
+  const CURRENT_PROJECT = contracts.storage.currentProject;
+  const WORKSPACE_KEY = contracts.storage.workspaceKey;
+  const MODULES = contracts.schemaResultKeys;
+  const TITLES = contracts.resultTitles;
   const STATUS = {
     ai_draft: "AI 初稿",
     edited: "人工已编辑",
@@ -88,7 +92,7 @@
   const statusClass = status => `review-status-${String(status || "ai_draft").replaceAll("_", "-")}`;
 
   async function decorate(module) {
-    if (!MODULES.includes(module) || !state.results[module]) return;
+    if (!MODULES.includes(module) || typeof state === "undefined" || !state.results[module]) return;
     const panel = document.getElementById(`${module}Result`);
     if (!panel) return;
     panel.querySelector(".review-workflow-bar")?.remove();
@@ -108,6 +112,7 @@
     bar.innerHTML = `<div class="review-workflow-state"><span class="review-state-dot"></span><div><strong>${safe(label)}</strong><small>${current ? `项目 v${current.lock_version}` : "当前仅为浏览器会话内容"}</small></div></div><button class="inline-action" data-open-review="${safe(module)}" type="button" ${current ? "" : "disabled"}>人工复核</button>`;
     const meta = panel.querySelector(".result-meta");
     if (meta) meta.insertAdjacentElement("afterend", bar); else panel.prepend(bar);
+    window.dispatchEvent(new CustomEvent(contracts.events.reviewUpdated, { detail: { module } }));
   }
 
   async function decorateAll() {
@@ -139,7 +144,7 @@
   function renderModal(detail, events, mismatch) {
     const review = detail.review;
     const role = context().role;
-    const title = resultTitles[activeModule] || "模块结果";
+    const title = TITLES[activeModule] || "模块结果";
     document.getElementById("reviewDialogTitle").textContent = `${title} · 人工复核`;
     document.getElementById("reviewContentInput").value = detail.working_content || "";
     document.getElementById("reviewNoteInput").value = review.note || "";
@@ -216,8 +221,8 @@
       const data = await request(`/api/projects/${encodeURIComponent(current.id)}/reviews/${encodeURIComponent(activeModule)}/actions`, { method: "POST", body: JSON.stringify(payload) });
       const updated = data.project;
       localStorage.setItem(CURRENT_PROJECT, JSON.stringify({ id: updated.id, name: updated.name, description: updated.description || "", status: updated.status || "active", lock_version: updated.lock_version, updated_at: updated.updated_at || "" }));
-      sessionStorage.setItem("zhilian_results", JSON.stringify(updated.snapshot?.results || {}));
-      sessionStorage.setItem("zhilian_meta", JSON.stringify(updated.snapshot?.meta || {}));
+      sessionStorage.setItem(contracts.storage.results, JSON.stringify(updated.snapshot?.results || {}));
+      sessionStorage.setItem(contracts.storage.meta, JSON.stringify(updated.snapshot?.meta || {}));
       toast(`${ACTION[action] || "审核操作"}已保存为项目 v${updated.lock_version}。`);
       location.reload();
     } catch (error) {
@@ -232,12 +237,10 @@
     }
   }
 
-  const originalShowResult = showResult;
-  showResult = function reviewAwareShowResult(key, result) {
-    originalShowResult(key, result);
-    Promise.resolve().then(() => decorate(key));
-  };
-
+  window.addEventListener(contracts.events.resultUpdated, event => {
+    const module = event.detail?.key;
+    if (MODULES.includes(module)) Promise.resolve().then(() => decorate(module));
+  });
   document.addEventListener("click", event => {
     const open = event.target.closest("[data-open-review]");
     if (open) { openReview(open.dataset.openReview); return; }
@@ -250,7 +253,8 @@
   });
 
   injectUi();
-  document.addEventListener("zhilink:account-ready", loadSummaries, { once: true });
-  setTimeout(loadSummaries, 300);
+  document.addEventListener(contracts.events.accountReady, loadSummaries, { once: true });
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", loadSummaries, { once: true });
+  else loadSummaries();
   window.REVIEW_WORKFLOW_READY = true;
 })();

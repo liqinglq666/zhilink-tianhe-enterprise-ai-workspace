@@ -72,6 +72,12 @@ def test_catalog_cannot_escape_official_allowlist(monkeypatch):
     assert all("evil.example" not in item.official_url for item in result.sources)
 
 
+def test_official_sources_require_https():
+    service = retriever()
+    assert service._is_allowed_url("https://www.thnet.gov.cn/policy") is True
+    assert service._is_allowed_url("http://www.thnet.gov.cn/policy") is False
+
+
 def test_no_results_is_explicit(monkeypatch):
     monkeypatch.setenv("POLICY_MAX_CATALOG_PAGES", "1")
     empty = retriever({CATALOG: "<html><body><a href='/about'>联系我们</a></body></html>"})
@@ -100,6 +106,15 @@ def test_same_query_uses_deterministic_cache(monkeypatch):
     second = service.search({"industry": "软件"}, "转型升级", limit=2)
     assert first == second
     assert len(calls) == count
+
+
+def test_cache_is_bounded(monkeypatch):
+    monkeypatch.setenv("POLICY_MAX_CATALOG_PAGES", "1")
+    monkeypatch.setenv("POLICY_CACHE_MAX_ENTRIES", "16")
+    service = retriever({CATALOG: "<html><body><a href='/about'>联系我们</a></body></html>"})
+    for index in range(24):
+        service.search({}, f"不存在的政策 {index}", limit=1)
+    assert len(service._cache) <= 16
 
 
 def test_markdown_contains_official_links_and_boundaries(monkeypatch):

@@ -5,25 +5,31 @@ from fastapi.testclient import TestClient
 from backend.main import app
 
 
-def test_v4_states_loads_result_reading_layer_after_forms() -> None:
+def test_v4_states_forms_and_results_are_direct_ordered_bundle_layers() -> None:
     with TestClient(app) as client:
-        states = client.get("/assets/ui-v4-states.js?v=20260810.1")
+        bundle = client.get("/assets/app.js")
+        states = client.get("/assets/ui-v4-states.js?v=20260811.1")
+        results = client.get("/assets/ui-v4-results.js?v=20260811.1")
 
+    assert bundle.status_code == 200
     assert states.status_code == 200
-    text = states.text
-    assert 'function ensureForms()' in text
-    assert 'function ensureResults()' in text
-    assert '/assets/ui-v4-results.js?v=${VERSION}' in text
-    assert 'script.dataset.uiV4Results = "true"' in text
-    assert 'ensureForms();' in text
-    assert 'ensureResults();' in text
-    assert text.index('ensureForms();') < text.index('ensureResults();')
+    assert results.status_code == 200
+    positions = [
+        bundle.text.index("ZHILINK_UI_V4_STATES_READY"),
+        bundle.text.index("ZHILINK_UI_V4_FORMS_READY"),
+        bundle.text.index("ZHILINK_UI_V4_RESULTS_READY"),
+    ]
+    assert positions == sorted(positions)
+    assert "ensureForms" not in states.text
+    assert "ensureResults" not in states.text
+    assert "document.createElement(\"script\")" not in states.text
+    assert "ZHILINK_UI_V4_RESULTS_READY" in results.text
 
 
 def test_v4_result_assets_present_business_document_hierarchy() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-results.js?v=20260810.1")
-        stylesheet = client.get("/assets/ui-v4-results.css?v=20260810.1")
+        script = client.get("/assets/ui-v4-results.js?v=20260811.1")
+        stylesheet = client.get("/assets/ui-v4-results.css?v=20260811.1")
 
     assert script.status_code == 200
     assert stylesheet.status_code == 200
@@ -48,7 +54,7 @@ def test_v4_result_assets_present_business_document_hierarchy() -> None:
 
 def test_v4_results_classify_business_sections_without_rewriting_generated_content() -> None:
     with TestClient(app) as client:
-        script = client.get("/assets/ui-v4-results.js?v=20260810.1")
+        script = client.get("/assets/ui-v4-results.js?v=20260811.1")
 
     text = script.text
     assert '["pending", /(待确认|待补充|需确认|未确认|信息缺口|未知事项|待核实)/]' in text
@@ -60,25 +66,16 @@ def test_v4_results_classify_business_sections_without_rewriting_generated_conte
     assert 'table.setAttribute("aria-label", `${sectionTitle || "结果"}表格`)' in text
     assert 'cell.setAttribute("scope", "col")' in text
 
-    # The reading layer may decorate rendered DOM, but generated business content and persistence
-    # remain owned by the existing result/review/export layers.
     for forbidden in (
-        "fetch(",
-        "localStorage",
-        "sessionStorage",
-        "state.results",
-        "setResult(",
-        "showResult =",
-        "apiStream(",
-        "saveConfig(",
-        "downloadModuleFile(",
+        "fetch(", "localStorage", "sessionStorage", "state.results", "setResult(", "showResult =", "apiStream(",
+        "saveConfig(", "downloadModuleFile(", "MutationObserver",
     ):
         assert forbidden not in text
 
 
 def test_v4_results_reduce_plugin_chrome_and_keep_mobile_readability() -> None:
     with TestClient(app) as client:
-        stylesheet = client.get("/assets/ui-v4-results.css?v=20260810.1")
+        stylesheet = client.get("/assets/ui-v4-results.css?v=20260811.1")
 
     text = stylesheet.text
     assert "grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))" in text

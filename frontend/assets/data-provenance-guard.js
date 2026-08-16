@@ -1,10 +1,13 @@
 /* Keep example and legacy session data out of the formal enterprise workspace. */
 (() => {
-  const RESULT_KEYS = ["profile", "meeting", "contract", "policy", "match", "landing"];
-  const RESULT_TITLES = {
-    profile: "企业档案", meeting: "会议纪要", contract: "合同审阅", policy: "政策准备",
-    match: "供需协作", landing: "实施计划", report: "运营报告",
-  };
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
+  if (!contracts || !hooks) throw new Error("Workspace runtime must load before data provenance.");
+
+  const BUSINESS_KEYS = contracts.resultKeys;
+  const SCHEMA_KEYS = contracts.schemaResultKeys;
+  const RESULT_TITLES = contracts.resultTitles;
+  const EVENTS = contracts.events;
   const INPUT_MODULES = {
     profileName: "profile", profileIndustry: "profile", profileLocation: "profile", profileScale: "profile",
     profileStage: "profile", profileRole: "profile", profileDemands: "profile",
@@ -13,15 +16,22 @@
     pilotScene: "landing", userRoles: "landing", dataScope: "landing", deployment: "landing",
     pilotPeriod: "landing", reviewMode: "landing",
   };
-  const EXAMPLE_CONTEXT_STORAGE = "zhilian_example_contexts_v1";
-  const RESULTS_STORAGE = "zhilian_results";
-  const META_STORAGE = "zhilian_meta";
-  const CURRENT_PROJECT_STORAGE = "zhilian_current_project_v1";
-  const FORMAL_ORIGINS = new Set(["user", "project", "imported"]);
 
+  const BASE_RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2";
+  const RESULT_SCHEMA_VERSIONS = {
+    contract: "20260807-contract-grounded-v3",
+    policy: "20260807-policy-grounded-v3",
+  };
+  const EXAMPLE_CONTEXT_STORAGE = contracts.storage.exampleContexts;
+  const RESULTS_STORAGE = contracts.storage.results;
+  const META_STORAGE = contracts.storage.meta;
+  const STRUCTURED_STORAGE = contracts.storage.structuredResults;
+  const QUARANTINE_STORAGE = contracts.storage.legacyQuarantine;
+  const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
+  const FORMAL_ORIGINS = new Set(contracts.formalOrigins);
+  const STYLE_URL = "/assets/data-provenance-guard.css?v=20260806.1";
   let started = false;
-  let bootstrapObserver = null;
-  let refreshTimer = null;
+  let eventsBound = false;
 
   function readJson(raw, fallback) {
     try { return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; }
@@ -32,15 +42,35 @@
   function examples() {
     return typeof exampleScenarios !== "undefined" ? exampleScenarios : {};
   }
+  function expectedVersion(key) {
+    return RESULT_SCHEMA_VERSIONS[key] || BASE_RESULT_SCHEMA_VERSION;
+  }
   function contexts() {
     return readJson(sessionStorage.getItem(EXAMPLE_CONTEXT_STORAGE), {});
   }
   function saveContexts(value) {
     sessionStorage.setItem(EXAMPLE_CONTEXT_STORAGE, JSON.stringify(value || {}));
   }
+  function persistMeta() {
+    const current = appState();
+    if (current) sessionStorage.setItem(META_STORAGE, JSON.stringify(current.meta || {}));
+  }
+  function persistActiveResults(results, meta) {
+    sessionStorage.setItem(RESULTS_STORAGE, JSON.stringify(results || {}));
+    sessionStorage.setItem(META_STORAGE, JSON.stringify(meta || {}));
+  }
+  function ensureStyles() {
+    if (document.querySelector("link[data-zhilink-data-provenance]")) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = STYLE_URL;
+    link.dataset.zhilinkDataProvenance = "true";
+    document.head.appendChild(link);
+  }
+
   function moduleFromExampleKey(key) {
     const module = String(key || "").split("-", 1)[0];
-    return RESULT_KEYS.includes(module) ? module : "";
+    return BUSINESS_KEYS.includes(module) ? module : "";
   }
   function exampleMatchesCurrentInput(exampleKey) {
     const example = examples()[exampleKey];
@@ -77,22 +107,7 @@
       : [];
   }
   function formalCount() {
-    return RESULT_KEYS.filter(isFormalResult).length;
-  }
-  function persistMeta() {
-    const current = appState();
-    if (current) sessionStorage.setItem(META_STORAGE, JSON.stringify(current.meta || {}));
-  }
-  function migrateExistingResults() {
-    const current = appState();
-    if (!current) return;
-    current.meta ||= {};
-    Object.keys(current.results || {}).forEach(key => {
-      if (!current.results[key]) return;
-      current.meta[key] ||= {};
-      if (!current.meta[key].origin) current.meta[key].origin = inferLegacyOrigin(key);
-    });
-    persistMeta();
+    return BUSINESS_KEYS.filter(isFormalResult).length;
   }
   function markExample(exampleKey) {
     const module = moduleFromExampleKey(exampleKey);
@@ -112,89 +127,87 @@
     return marker?.exampleKey && exampleMatchesCurrentInput(marker.exampleKey) ? "example" : "user";
   }
 
-  function installFunctionGuards() {
-    if (window.__ZHILINK_DATA_PROVENANCE_FUNCTIONS) return;
-    window.__ZHILINK_DATA_PROVENANCE_FUNCTIONS = true;
+  function quarantineLegacyResults() {
+    const results = readJson(sessionStorage.getItem(RESULTS_STORAGE), {});
+    const meta = readJson(sessionStorage.getItem(META_STORAGE), {});
+    const keys = SCHEMA_KEYS.filter(key => (
+      Boolean(results?.[key]) && String(meta?.[key]?.result_schema_version || "") !== expectedVersion(key)
+    ));
+    if (!keys.length) return [];
 
-    if (typeof window.applyExample === "function") {
-      const original = window.applyExample;
-      window.applyExample = function provenanceAwareApplyExample(exampleKey) {
-        const value = original.apply(this, arguments);
-        markExample(exampleKey);
-        refreshFormalWorkspace();
-        return value;
-      };
-    }
-
-    if (typeof window.setResult === "function") {
-      const original = window.setResult;
-      window.setResult = function provenanceAwareSetResult(key, result) {
-        const value = original.apply(this, arguments);
-        const current = appState();
-        if (current?.meta?.[key]) {
-          const origin = generationOrigin(key);
-          current.meta[key].origin = origin;
-          const marker = contexts()[key];
-          if (origin === "example" && marker?.exampleKey) current.meta[key].example_key = marker.exampleKey;
-          else delete current.meta[key].example_key;
-          persistMeta();
-          if (origin === "example" && typeof toast === "function") {
-            toast("已生成示例结果；不会计入正式工作台、待核对事项或运营报告。");
-          }
-        }
-        renderFormalProgress();
-        return value;
-      };
-    }
-
-    window.updateRecentMaterials = renderFormalRecentMaterials;
-
-    if (typeof window.updateProgress === "function") {
-      const original = window.updateProgress;
-      window.updateProgress = function provenanceAwareUpdateProgress() {
-        const value = original.apply(this, arguments);
-        renderFormalProgress();
-        return value;
-      };
-    }
-
-    window.collectBaseResults = function collectFormalBaseResults() {
-      const current = appState();
-      return {
-        "企业档案": isFormalResult("profile") ? current.results.profile : "",
-        "会议纪要": isFormalResult("meeting") ? current.results.meeting : "",
-        "合同审阅": isFormalResult("contract") ? current.results.contract : "",
-        "政策准备": isFormalResult("policy") ? current.results.policy : "",
-        "供需协作": isFormalResult("match") ? current.results.match : "",
-        "实施计划": isFormalResult("landing") ? current.results.landing : "",
-      };
+    const snapshot = {
+      quarantined_at: new Date().toISOString(),
+      expected_versions: Object.fromEntries(keys.map(key => [key, expectedVersion(key)])),
+      keys,
+      results: Object.fromEntries(keys.map(key => [key, results[key]])),
+      meta: Object.fromEntries(keys.map(key => [key, meta?.[key] || {}])),
     };
+    const history = readJson(sessionStorage.getItem(QUARANTINE_STORAGE), []);
+    sessionStorage.setItem(
+      QUARANTINE_STORAGE,
+      JSON.stringify([snapshot, ...(Array.isArray(history) ? history : [])].slice(0, 3)),
+    );
+    keys.forEach(key => {
+      delete results[key];
+      delete meta[key];
+    });
+    persistActiveResults(results, meta);
+    sessionStorage.removeItem(STRUCTURED_STORAGE);
 
-    window.collectResultsForReport = function collectFormalResultsForReport(includeAiSummary = false) {
-      const base = window.collectBaseResults();
-      if (includeAiSummary && isFormalResult("report")) return { "AI整合报告": appState().results.report, ...base };
-      return base;
-    };
+    const current = appState();
+    if (current) {
+      current.results = results;
+      current.meta = meta;
+      keys.forEach(key => window.showResult?.(key, {}));
+      window.updateProgress?.();
+    }
+    return keys;
   }
 
-  function renderFormalProgress() {
+  function migrateExistingOrigins() {
     const current = appState();
     if (!current) return;
-    const count = formalCount();
-    const setText = (id, value) => {
-      const element = document.getElementById(id);
-      if (element && element.textContent !== value) element.textContent = value;
-    };
-    setText("generatedCount", `${count} 项`);
-    setText("homeGeneratedCount", `${count} 项`);
-    setText("reportDoneCount", `${count}/${RESULT_KEYS.length}`);
-    document.querySelectorAll(".nav button").forEach(button => {
-      const key = button.dataset.section;
-      button.classList.toggle("done", key === "report" ? isFormalResult("report") : isFormalResult(key));
+    current.meta ||= {};
+    Object.keys(current.results || {}).forEach(key => {
+      if (!current.results[key]) return;
+      current.meta[key] ||= {};
+      if (!current.meta[key].origin) current.meta[key].origin = inferLegacyOrigin(key);
     });
-    document.querySelectorAll("[data-tool-key]").forEach(card => card.classList.toggle("done", isFormalResult(card.dataset.toolKey)));
-    renderFormalRecentMaterials();
-    refreshFormalWorkspace();
+    persistMeta();
+  }
+
+  function stampCommittedResult(key) {
+    const current = appState();
+    if (!SCHEMA_KEYS.includes(key) || !current?.results?.[key]) return;
+    current.meta ||= {};
+    current.meta[key] ||= {};
+    current.meta[key].result_schema_version = expectedVersion(key);
+
+    const origin = generationOrigin(key);
+    current.meta[key].origin = origin;
+    const marker = contexts()[key];
+    if (origin === "example" && marker?.exampleKey) current.meta[key].example_key = marker.exampleKey;
+    else delete current.meta[key].example_key;
+    persistMeta();
+
+    window.dispatchEvent(new CustomEvent(EVENTS.resultSchemaStamped, {
+      detail: { key, version: expectedVersion(key) },
+    }));
+    if (origin === "example" && typeof toast === "function") {
+      toast("已生成示例结果；不会计入正式工作台、待核对事项或运营报告。");
+    }
+  }
+
+  function collectFormalResults(context) {
+    if (context.scope !== "report") return context;
+    const base = Object.fromEntries(BUSINESS_KEYS.map(key => [
+      RESULT_TITLES[key],
+      isFormalResult(key) ? context.results?.[RESULT_TITLES[key]] || "" : "",
+    ]));
+    const results = context.includeAiSummary && isFormalResult("report")
+      ? { "AI整合报告": context.results?.["AI整合报告"] || "", ...base }
+      : base;
+    return { ...context, results };
   }
 
   function renderFormalRecentMaterials() {
@@ -238,9 +251,7 @@
       notice = document.createElement("section");
       notice.id = "dataIsolationNotice";
       notice.className = "data-isolation-notice";
-      const grid = document.getElementById("uiV4HomeGrid");
-      const governance = home.querySelector(".governance-card");
-      const anchor = grid || governance;
+      const anchor = document.getElementById("uiV4HomeGrid") || home.querySelector(".governance-card");
       if (anchor?.parentNode) anchor.parentNode.insertBefore(notice, anchor);
       else home.appendChild(notice);
     }
@@ -252,13 +263,17 @@
   function decorateResultOrigins() {
     const current = appState();
     if (!current) return;
-    Object.keys(current.results || {}).forEach(key => {
-      if (!current.results[key]) return;
+    SCHEMA_KEYS.forEach(key => {
       const panel = document.getElementById(`${key}Result`);
       if (!panel) return;
+      const existing = panel.querySelector(".data-origin-pill");
+      if (!current.results?.[key]) {
+        delete panel.dataset.resultOrigin;
+        existing?.remove();
+        return;
+      }
       const origin = originFor(key);
       panel.dataset.resultOrigin = origin;
-      const existing = panel.querySelector(".data-origin-pill");
       if (FORMAL_ORIGINS.has(origin)) {
         existing?.remove();
         return;
@@ -282,6 +297,28 @@
     window.ZHILINK_UI_V4_SHELL?.refresh?.();
   }
 
+  function renderFormalProgress() {
+    const current = appState();
+    if (!current) return;
+    const count = formalCount();
+    const setText = (id, value) => {
+      const element = document.getElementById(id);
+      if (element && element.textContent !== value) element.textContent = value;
+    };
+    setText("generatedCount", `${count} 项`);
+    setText("homeGeneratedCount", `${count} 项`);
+    setText("reportDoneCount", `${count}/${BUSINESS_KEYS.length}`);
+    document.querySelectorAll(".nav button").forEach(button => {
+      const key = button.dataset.section;
+      button.classList.toggle("done", key === "report" ? isFormalResult("report") : isFormalResult(key));
+    });
+    document.querySelectorAll("[data-tool-key]").forEach(card => {
+      card.classList.toggle("done", isFormalResult(card.dataset.toolKey));
+    });
+    renderFormalRecentMaterials();
+    refreshFormalWorkspace();
+  }
+
   function clearIsolatedResults() {
     const current = appState();
     if (!current) return;
@@ -289,65 +326,74 @@
     keys.forEach(key => {
       delete current.results[key];
       delete current.meta[key];
-      if (typeof window.showResult === "function") window.showResult(key, {});
+      window.showResult?.(key, {});
     });
-    sessionStorage.setItem(RESULTS_STORAGE, JSON.stringify(current.results || {}));
-    sessionStorage.setItem(META_STORAGE, JSON.stringify(current.meta || {}));
+    persistActiveResults(current.results, current.meta);
     saveContexts({});
     if (typeof toast === "function") toast(`已清除 ${keys.length} 项示例或旧会话材料。`);
-    renderFormalProgress();
+    window.updateProgress?.();
   }
 
   function bindEvents() {
+    if (eventsBound) return;
+    eventsBound = true;
     document.addEventListener("input", event => {
       const module = INPUT_MODULES[event.target?.id];
       if (module && event.isTrusted) clearExampleMarker(module);
     }, true);
     document.addEventListener("click", event => {
-      if (event.target.closest("#clearIsolatedResults")) clearIsolatedResults();
-      const projectSave = event.target.closest("#createProjectButton, #saveProjectButton");
+      const exampleButton = event.target.closest?.("[data-example]");
+      if (exampleButton?.dataset.example) markExample(exampleButton.dataset.example);
+      if (event.target.closest?.("#clearIsolatedResults")) clearIsolatedResults();
+      const projectSave = event.target.closest?.("#createProjectButton, #saveProjectButton");
       if (projectSave && isolatedKeys().length) {
         event.preventDefault();
         event.stopImmediatePropagation();
         if (typeof toast === "function") toast("当前包含示例或旧会话材料。请先清除隔离材料，再保存正式项目。");
       }
     }, true);
-    ["zhilink:account-ready", "zhilink:workspace-state-change"].forEach(name => {
+    window.addEventListener(EVENTS.resultUpdated, event => {
+      const key = event.detail?.key;
+      if (event.detail?.source === "commit" && key) stampCommittedResult(key);
+      refreshFormalWorkspace();
+    });
+    window.addEventListener(EVENTS.progressUpdated, renderFormalProgress);
+    [EVENTS.accountReady, EVENTS.workspaceStateChange].forEach(name => {
       window.addEventListener(name, refreshFormalWorkspace);
       document.addEventListener(name, refreshFormalWorkspace);
     });
     window.addEventListener("storage", refreshFormalWorkspace);
   }
 
-  function waitForV4Home() {
-    if (document.getElementById("uiV4HomeGrid")) {
-      refreshFormalWorkspace();
-      return;
-    }
-    if (bootstrapObserver || !document.body) return;
-    bootstrapObserver = new MutationObserver(() => {
-      if (!document.getElementById("uiV4HomeGrid")) return;
-      bootstrapObserver?.disconnect();
-      bootstrapObserver = null;
-      refreshFormalWorkspace();
-    });
-    bootstrapObserver.observe(document.body, { childList: true, subtree: true });
+  function notifyMigration(keys) {
+    if (!keys.length) return;
+    const labels = keys.map(key => RESULT_TITLES[key] || key).join("、");
+    const message = `检测到旧版本生成结果，已隔离 ${keys.length} 项（${labels}）。输入内容已保留，请重新生成。`;
+    window.setTimeout(() => {
+      if (typeof toast === "function") toast(message);
+      else console.info(message);
+    }, 120);
   }
 
   function start() {
     if (started) return;
-    if (typeof window.setResult !== "function" || !appState()) {
-      window.setTimeout(start, 40);
-      return;
-    }
     started = true;
-    installFunctionGuards();
-    migrateExistingResults();
-    bindEvents();
+    ensureStyles();
+    const migrated = quarantineLegacyResults();
+    migrateExistingOrigins();
+    hooks.register("results:collect", collectFormalResults);
     renderFormalProgress();
-    waitForV4Home();
-    refreshTimer = window.setInterval(refreshFormalWorkspace, 30000);
-    window.addEventListener("beforeunload", () => window.clearInterval(refreshTimer), { once: true });
+    notifyMigration(migrated);
+
+    window.ZHILINK_RESULT_SCHEMA_VERSION = BASE_RESULT_SCHEMA_VERSION;
+    window.ZHILINK_RESULT_SCHEMA_VERSIONS = { base: BASE_RESULT_SCHEMA_VERSION, ...RESULT_SCHEMA_VERSIONS };
+    window.ZHILINK_RESULT_CACHE_GUARD = {
+      version: BASE_RESULT_SCHEMA_VERSION,
+      versions: window.ZHILINK_RESULT_SCHEMA_VERSIONS,
+      quarantineKey: QUARANTINE_STORAGE,
+      getQuarantine: () => readJson(sessionStorage.getItem(QUARANTINE_STORAGE), []),
+      rerunMigration: quarantineLegacyResults,
+    };
     window.ZHILINK_DATA_PROVENANCE = {
       originFor,
       isFormalResult,
@@ -356,9 +402,10 @@
       refresh: refreshFormalWorkspace,
     };
     window.ZHILINK_DATA_PROVENANCE_READY = true;
-    window.dispatchEvent(new CustomEvent("zhilink:data-provenance-ready"));
+    window.dispatchEvent(new CustomEvent(EVENTS.dataProvenanceReady));
   }
 
+  bindEvents();
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
-  else window.setTimeout(start, 0);
+  else start();
 })();
