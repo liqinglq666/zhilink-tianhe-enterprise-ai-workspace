@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable
 
 from fastapi import APIRouter, FastAPI, Query, Request
 from fastapi.responses import JSONResponse, Response
@@ -33,12 +32,39 @@ from .project_store import (
 )
 from .review_routes import register_review_routes
 from .review_store import prepare_created_snapshot, prepare_updated_snapshot
-from .structured_routes import register_structured_routes
 from .service_workflow_routes import register_service_workflow_routes
+from .structured_routes import register_structured_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
-UI_BUNDLE_VERSION = "2026-08-11-ui-v4-fetch-hooks-v11"
+UI_BUNDLE_VERSION = "2026-08-16-ui-v4-release-v12"
+UI_SCRIPTS = (
+    "app.js",
+    "ui-v4-runtime.js",
+    "example-loader.js",
+    "generation-controls.js",
+    "account-access.js",
+    "project-storage.js",
+    "project-result-meta.js",
+    "review-workflow.js",
+    "structured-results.js",
+    "policy-sources.js",
+    "knowledge-base.js",
+    "service-workflow.js",
+    "data-provenance-guard.js",
+    "ui-v4-shell.js",
+    "api-drawer-v4.js",
+    "model-config-save-v4.js",
+    "meeting-user-view.js",
+    "ui-v4-foundation.js",
+    "ui-v4-dashboard.js",
+    "ui-v4-workspace.js",
+    "ui-v4-overlays.js",
+    "ui-v4-states.js",
+    "ui-v4-forms.js",
+    "ui-v4-results.js",
+    "ui-v4-final-qa.js",
+)
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
@@ -81,23 +107,16 @@ def _store_error(exc: Exception) -> ProjectAPIError:
     return ProjectAPIError(503, "PROJECT_STORAGE_UNAVAILABLE", "项目存储暂时不可用，请稍后重试。")
 
 
-def _deduplicate_workspace_bundle_routes(app: FastAPI, preferred_endpoint: Callable[..., object]) -> None:
-    """Keep one authoritative /assets/app.js route after the app finishes registering routes."""
-    retained = []
-    preferred_kept = False
-    for route in app.router.routes:
-        if getattr(route, "path", None) != "/assets/app.js":
-            retained.append(route)
-            continue
-        if getattr(route, "endpoint", None) is preferred_endpoint and not preferred_kept:
-            retained.append(route)
-            preferred_kept = True
-    if not preferred_kept:
-        raise RuntimeError("The authoritative workspace bundle route is missing.")
-    app.router.routes[:] = retained
-
-
 _STORE_EXCEPTIONS = (ProjectNotFound, ProjectHistoryNotFound, ProjectVersionConflict, ProjectStoreUnavailable)
+
+
+def _workspace_bundle() -> str:
+    """Read the immutable source bundle once per process, not once per HTTP request."""
+    if not hasattr(_workspace_bundle, "content"):
+        _workspace_bundle.content = "\n\n".join(
+            (ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in UI_SCRIPTS
+        ) + "\n"
+    return _workspace_bundle.content
 
 
 @router.get("", response_model=ProjectListResponse)
@@ -231,47 +250,14 @@ def register_project_routes(app: FastAPI) -> None:
 
     @app.get("/assets/app.js", include_in_schema=False)
     def workspace_app_bundle() -> Response:
-        scripts = [
-            "app.js",
-            "ui-v4-runtime.js",
-            "example-loader.js",
-            "generation-controls.js",
-            "account-access.js",
-            "project-storage.js",
-            "project-result-meta.js",
-            "review-workflow.js",
-            "structured-results.js",
-            "policy-sources.js",
-            "knowledge-base.js",
-            "service-workflow.js",
-            "data-provenance-guard.js",
-            "ui-v4-shell.js",
-            "api-drawer-v4.js",
-            "model-config-save-v4.js",
-            "meeting-user-view.js",
-            "ui-v4-foundation.js",
-            "ui-v4-dashboard.js",
-            "ui-v4-workspace.js",
-            "ui-v4-overlays.js",
-            "ui-v4-states.js",
-            "ui-v4-forms.js",
-            "ui-v4-results.js",
-            "ui-v4-final-qa.js",
-        ]
-        content = "\n\n".join((ASSETS_DIR / filename).read_text(encoding="utf-8") for filename in scripts)
         return Response(
-            content=f"{content}\n",
+            content=_workspace_bundle(),
             media_type="application/javascript",
             headers={
                 "Cache-Control": "no-store, max-age=0",
                 "X-Zhilink-UI-Bundle": UI_BUNDLE_VERSION,
             },
         )
-
-    def prefer_complete_workspace_bundle() -> None:
-        _deduplicate_workspace_bundle_routes(app, workspace_app_bundle)
-
-    app.router.on_startup.append(prefer_complete_workspace_bundle)
 
     @app.exception_handler(ProjectAPIError)
     async def project_api_error_handler(request: Request, exc: ProjectAPIError) -> JSONResponse:  # noqa: ARG001
