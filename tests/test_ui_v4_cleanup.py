@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.project_routes import UI_BUNDLE_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
@@ -44,7 +45,7 @@ def test_final_bundle_exposes_core_runtime_and_overlay_after_meeting_view() -> N
         old_hook_bridge = client.get("/assets/workspace-hooks.js")
 
     assert response.status_code == 200
-    assert response.headers["x-zhilink-ui-bundle"] == "2026-08-11-ui-v4-fetch-hooks-v11"
+    assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
     assert response.text.rfind('key: "meeting-sources"') > response.text.rfind("ZHILINK_MEETING_USER_VIEW_READY")
     assert "ZHILINK_WORKSPACE_CONTRACTS_READY" in response.text
     assert "ZHILINK_EXAMPLE_LOADER_READY" in response.text
