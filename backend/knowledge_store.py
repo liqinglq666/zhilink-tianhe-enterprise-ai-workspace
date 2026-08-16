@@ -14,8 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .auth_store import AccountStoreError, get_account_store
-from .project_store import Base
 from .knowledge_schemas import KnowledgeSearchRequest, KnowledgeVersionInput
+from .project_store import Base
 
 EDITOR_ROLES = {"owner", "admin", "editor"}
 REVIEWER_ROLES = {"owner", "admin"}
@@ -26,7 +26,6 @@ MAX_SEARCH_TEXT = 60000
 class KnowledgeArticleRecord(Base):
     __tablename__ = "knowledge_articles"
     __table_args__ = (UniqueConstraint("organization_id", "citation_code", name="uq_knowledge_org_citation"),)
-
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     organization_id: Mapped[str] = mapped_column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), index=True, nullable=False)
     citation_code: Mapped[str] = mapped_column(String(13), nullable=False)
@@ -43,7 +42,6 @@ class KnowledgeArticleRecord(Base):
 class KnowledgeVersionRecord(Base):
     __tablename__ = "knowledge_versions"
     __table_args__ = (UniqueConstraint("article_id", "version_number", name="uq_knowledge_article_version"),)
-
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     article_id: Mapped[str] = mapped_column(String(36), ForeignKey("knowledge_articles.id", ondelete="CASCADE"), index=True, nullable=False)
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -65,7 +63,6 @@ class KnowledgeVersionRecord(Base):
 
 class KnowledgeReviewEventRecord(Base):
     __tablename__ = "knowledge_review_events"
-
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     article_id: Mapped[str] = mapped_column(String(36), ForeignKey("knowledge_articles.id", ondelete="CASCADE"), index=True, nullable=False)
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -158,15 +155,15 @@ def _version_dict(article: KnowledgeArticleRecord, version: KnowledgeVersionReco
 
 
 def _summary_dict(article: KnowledgeArticleRecord, version: KnowledgeVersionRecord, *, role: str) -> dict[str, Any]:
-    viewer_mode = role not in EDITOR_ROLES
-    visible_version = article.published_version if viewer_mode else article.current_version
+    viewer = role not in EDITOR_ROLES
+    visible_version = article.published_version if viewer else article.current_version
     return {
         "id": article.id,
         "organization_id": article.organization_id,
         "citation_code": article.citation_code,
         "title": version.title,
         "category": version.category,
-        "review_status": "approved" if viewer_mode else article.review_status,
+        "review_status": "approved" if viewer else article.review_status,
         "lifecycle_status": article.lifecycle_status,
         "current_version": int(visible_version or version.version_number),
         "published_version": article.published_version,
@@ -209,26 +206,28 @@ def _scope_matches(profile_value: str, allowed_values: list[str]) -> bool:
     if not profile_value or not allowed_values:
         return True
     profile = " ".join(profile_value.split()).lower()
-    for raw in allowed_values:
-        candidate = " ".join(str(raw or "").split()).lower()
-        if candidate and (candidate in profile or profile in candidate):
-            return True
-    return False
+    return any(
+        candidate and (candidate in profile or profile in candidate)
+        for candidate in (" ".join(str(raw or "").split()).lower() for raw in allowed_values)
+    )
 
 
 class KnowledgeStore:
     def __init__(self) -> None:
+        """Attach to the Alembic-managed shared database without runtime DDL."""
         try:
             account = get_account_store()
             self.sessions = account.sessions
             self.engine = account.projects.engine
-            Base.metadata.create_all(self.engine)
-        except (SQLAlchemyError, AccountStoreError) as exc:
+        except AccountStoreError as exc:
             raise AccountStoreError(503, "KNOWLEDGE_STORAGE_UNAVAILABLE", "知识库存储暂时不可用，请稍后重试。", retryable=True) from exc
 
     @staticmethod
     def _article(session, organization_id: str, article_id: str, *, lock: bool = False) -> KnowledgeArticleRecord:
-        query = select(KnowledgeArticleRecord).where(KnowledgeArticleRecord.id == article_id, KnowledgeArticleRecord.organization_id == organization_id)
+        query = select(KnowledgeArticleRecord).where(
+            KnowledgeArticleRecord.id == article_id,
+            KnowledgeArticleRecord.organization_id == organization_id,
+        )
         if lock:
             query = query.with_for_update()
         record = session.scalar(query)
@@ -238,7 +237,10 @@ class KnowledgeStore:
 
     @staticmethod
     def _version(session, article_id: str, version_number: int) -> KnowledgeVersionRecord:
-        version = session.scalar(select(KnowledgeVersionRecord).where(KnowledgeVersionRecord.article_id == article_id, KnowledgeVersionRecord.version_number == version_number))
+        version = session.scalar(select(KnowledgeVersionRecord).where(
+            KnowledgeVersionRecord.article_id == article_id,
+            KnowledgeVersionRecord.version_number == version_number,
+        ))
         if version is None:
             raise AccountStoreError(404, "KNOWLEDGE_VERSION_NOT_FOUND", "知识条目版本不存在。")
         return version
@@ -258,8 +260,7 @@ class KnowledgeStore:
         _require_role(actor_role, EDITOR_ROLES, "只有编辑者、管理员或所有者可以创建知识条目。")
         article = KnowledgeArticleRecord(
             id=str(uuid4()), organization_id=organization_id, citation_code=_citation(), review_status="draft",
-            lifecycle_status="active", current_version=1, created_by_user_id=actor_user_id,
-            updated_by_user_id=actor_user_id,
+            lifecycle_status="active", current_version=1, created_by_user_id=actor_user_id, updated_by_user_id=actor_user_id,
         )
         version = self._new_version(article, payload, version_number=1, actor_user_id=actor_user_id)
         try:
@@ -284,13 +285,11 @@ class KnowledgeStore:
                     query = query.where(KnowledgeArticleRecord.lifecycle_status == "active", KnowledgeArticleRecord.published_version.is_not(None))
                 total = int(session.scalar(select(func.count()).select_from(query.subquery())) or 0)
                 articles = session.scalars(query.order_by(KnowledgeArticleRecord.updated_at.desc()).limit(limit).offset(offset)).all()
-                items: list[dict[str, Any]] = []
+                items = []
                 for article in articles:
-                    selected_version = article.current_version if actor_role in EDITOR_ROLES else article.published_version
-                    if selected_version is None:
-                        continue
-                    version = self._version(session, article.id, selected_version)
-                    items.append(_summary_dict(article, version, role=actor_role))
+                    selected = article.current_version if actor_role in EDITOR_ROLES else article.published_version
+                    if selected is not None:
+                        items.append(_summary_dict(article, self._version(session, article.id, selected), role=actor_role))
                 return items, total
         except AccountStoreError:
             raise
@@ -328,12 +327,9 @@ class KnowledgeStore:
                 _, source_hash = _source_payload(payload)
                 if current.content_sha256 != new_hash or current.source_sha256 != source_hash:
                     next_version = article.current_version + 1
-                    version = self._new_version(article, payload, version_number=next_version, actor_user_id=actor_user_id)
-                    article.current_version = next_version
-                    article.review_status = "draft"
-                    article.updated_by_user_id = actor_user_id
-                    article.updated_at = _now()
-                    session.add(version)
+                    session.add(self._new_version(article, payload, version_number=next_version, actor_user_id=actor_user_id))
+                    article.current_version, article.review_status = next_version, "draft"
+                    article.updated_by_user_id, article.updated_at = actor_user_id, _now()
                     session.flush()
             return self.get(organization_id=organization_id, article_id=article_id, actor_role=actor_role)
         except AccountStoreError:
@@ -342,10 +338,8 @@ class KnowledgeStore:
             raise AccountStoreError(503, "KNOWLEDGE_STORAGE_UNAVAILABLE", "知识条目更新失败。", retryable=True) from exc
 
     def action(self, *, organization_id: str, article_id: str, actor_user_id: str, actor_name: str, actor_role: str, action: str, expected_version: int, note: str, version_number: int | None) -> dict[str, Any]:
-        if action in {"submit", "restore"}:
-            _require_role(actor_role, EDITOR_ROLES, "当前角色不能提交或恢复知识条目。")
-        else:
-            _require_role(actor_role, REVIEWER_ROLES, "只有管理员或所有者可以审核或归档知识条目。")
+        _require_role(actor_role, EDITOR_ROLES if action in {"submit", "restore"} else REVIEWER_ROLES,
+                      "当前角色不能执行该知识库操作。" if action in {"submit", "restore"} else "只有管理员或所有者可以审核或归档知识条目。")
         try:
             with self.sessions.begin() as session:
                 article = self._article(session, organization_id, article_id, lock=True)
@@ -360,8 +354,7 @@ class KnowledgeStore:
                 elif action == "approve":
                     if article.lifecycle_status != "active" or article.review_status != "in_review":
                         raise AccountStoreError(409, "KNOWLEDGE_ACTION_INVALID", "只有待审核版本可以批准。")
-                    article.review_status = "approved"
-                    article.published_version = article.current_version
+                    article.review_status, article.published_version = "approved", article.current_version
                 elif action == "reject":
                     if article.lifecycle_status != "active" or article.review_status != "in_review":
                         raise AccountStoreError(409, "KNOWLEDGE_ACTION_INVALID", "只有待审核版本可以退回。")
@@ -379,23 +372,19 @@ class KnowledgeStore:
                         raise AccountStoreError(422, "KNOWLEDGE_VERSION_REQUIRED", "请指定需要恢复的版本。")
                     source = self._version(session, article.id, version_number)
                     next_version = article.current_version + 1
-                    restored = KnowledgeVersionRecord(
+                    session.add(KnowledgeVersionRecord(
                         id=str(uuid4()), article_id=article.id, version_number=next_version, title=source.title,
                         category=source.category, summary=source.summary, content=source.content, tags=list(source.tags or []),
                         applicability=dict(source.applicability or {}), source=dict(source.source or {}),
                         source_sha256=source.source_sha256, content_sha256=source.content_sha256,
                         valid_from=source.valid_from, valid_until=source.valid_until,
                         change_note=(note or f"恢复自 v{version_number}")[:500], created_by_user_id=actor_user_id,
-                    )
-                    session.add(restored)
-                    article.current_version = next_version
-                    article.review_status = "draft"
-                    article.lifecycle_status = "active"
+                    ))
+                    article.current_version, article.review_status, article.lifecycle_status = next_version, "draft", "active"
                     event_version = next_version
                 else:
                     raise AccountStoreError(422, "KNOWLEDGE_ACTION_INVALID", "不支持的知识库操作。")
-                article.updated_by_user_id = actor_user_id
-                article.updated_at = _now()
+                article.updated_by_user_id, article.updated_at = actor_user_id, _now()
                 after = article.review_status if article.lifecycle_status == "active" else "archived"
                 session.add(KnowledgeReviewEventRecord(
                     id=str(uuid4()), article_id=article.id, version_number=event_version, action=action,
@@ -418,8 +407,7 @@ class KnowledgeStore:
                     if article.published_version is None:
                         return []
                     query = query.where(KnowledgeVersionRecord.version_number == article.published_version)
-                rows = session.scalars(query.order_by(KnowledgeVersionRecord.version_number.desc())).all()
-                return [_version_dict(article, row) for row in rows]
+                return [_version_dict(article, row) for row in session.scalars(query.order_by(KnowledgeVersionRecord.version_number.desc())).all()]
         except AccountStoreError:
             raise
         except SQLAlchemyError as exc:
@@ -449,7 +437,10 @@ class KnowledgeStore:
     def search(self, *, organization_id: str, payload: KnowledgeSearchRequest) -> dict[str, Any]:
         today = date.today()
         profile = payload.profile.model_dump()
-        query_text = " ".join(value for value in (payload.query, profile.get("industry", ""), profile.get("location", ""), profile.get("scale", ""), profile.get("stage", ""), profile.get("demands", "")) if value)
+        query_text = " ".join(value for value in (
+            payload.query, profile.get("industry", ""), profile.get("location", ""), profile.get("scale", ""),
+            profile.get("stage", ""), profile.get("demands", ""),
+        ) if value)
         tokens = _tokens(query_text)
         try:
             with self.sessions() as session:
@@ -463,7 +454,6 @@ class KnowledgeStore:
                     version = self._version(session, article.id, int(article.published_version or 0))
                     if payload.category and version.category != payload.category:
                         continue
-                    warnings: list[str] = []
                     if version.valid_from and version.valid_from > today:
                         continue
                     if version.valid_until and version.valid_until < today:
@@ -476,18 +466,19 @@ class KnowledgeStore:
                     if not _scope_matches(profile.get("scale", ""), list(applicability.get("entity_types") or [])):
                         continue
                     title, summary, content = version.title.lower(), version.summary.lower(), version.content[:MAX_SEARCH_TEXT].lower()
-                    category = version.category.lower()
-                    tags = " ".join(version.tags or []).lower()
+                    category, tags = version.category.lower(), " ".join(version.tags or []).lower()
                     app_text = " ".join(str(item) for values in applicability.values() for item in (values if isinstance(values, list) else [])).lower()
                     score = 0.0
                     for token in tokens:
-                        if token in title: score += 8
-                        if token in tags: score += 5
-                        if token in category: score += 4
-                        if token in summary: score += 3
-                        if token in app_text: score += 4
-                        if token in content: score += 1
-                    if not tokens: score = 1.0
+                        score += 8 if token in title else 0
+                        score += 5 if token in tags else 0
+                        score += 4 if token in category else 0
+                        score += 3 if token in summary else 0
+                        score += 4 if token in app_text else 0
+                        score += 1 if token in content else 0
+                    if not tokens:
+                        score = 1.0
+                    warnings = []
                     if profile.get("location") and not applicability.get("regions"):
                         warnings.append("该条目未限定适用区域，需要人工确认是否适用于当前主体。")
                     if profile.get("industry") and not applicability.get("industries"):
@@ -495,7 +486,7 @@ class KnowledgeStore:
                     if score > 0:
                         ranked.append((score, article, version, warnings))
                 ranked.sort(key=lambda item: (item[0], item[1].updated_at), reverse=True)
-                items: list[dict[str, Any]] = []
+                items = []
                 for score, article, version, warnings in ranked[: payload.limit]:
                     source = dict(version.source or {})
                     source["source_sha256"] = version.source_sha256
