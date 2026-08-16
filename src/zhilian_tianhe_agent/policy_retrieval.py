@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Allowlisted official-policy retrieval with exact excerpts and stable citations."""
+"""Allowlisted HTTPS policy retrieval with bounded TTL caching and stable citations."""
 from __future__ import annotations
 
 import hashlib
@@ -7,6 +7,7 @@ import os
 import re
 import threading
 import time
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timezone
 from html.parser import HTMLParser
@@ -73,62 +74,46 @@ class OfficialPolicyRetrieval(StrictModel):
 
     def to_markdown(self) -> str:
         lines = [
-            "## 官方政策来源与原文引用",
-            "",
-            f"> 检索状态：{self.status}；检索时间：{self.retrieved_at}。仅下列 allowlist 官方域名页面可作为政策来源。",
-            "",
+            "## 官方政策来源与原文引用", "",
+            f"> 检索状态：{self.status}；检索时间：{self.retrieved_at}。仅下列 allowlist 官方域名页面可作为政策来源。", "",
         ]
         if not self.sources:
-            lines.extend(
-                [
-                    "- 本次未获得可验证的官方政策原文。结果只能作为政策方向准备建议，不能据此判断资格、金额、期限或申报成功率。",
-                    "- 请前往天河区人民政府、广州市人民政府或相应主管部门官网人工核验。",
-                ]
-            )
+            lines.extend([
+                "- 本次未获得可验证的官方政策原文。结果只能作为政策方向准备建议，不能据此判断资格、金额、期限或申报成功率。",
+                "- 请前往天河区人民政府、广州市人民政府或相应主管部门官网人工核验。",
+            ])
         else:
-            lines.extend(
-                [
-                    "| 引用编号 | 政策文件 | 发布机关 | 文号 | 日期与状态 | 官方原文 |",
-                    "|---|---|---|---|---|---|",
-                ]
-            )
+            lines.extend([
+                "| 引用编号 | 政策文件 | 发布机关 | 文号 | 日期与状态 | 官方原文 |",
+                "|---|---|---|---|---|---|",
+            ])
             for source in self.sources:
-                dates = "；".join(
-                    item for item in (
-                        f"发布 {source.published_at}" if source.published_at else "",
-                        f"实施 {source.effective_at}" if source.effective_at else "",
-                        f"失效 {source.expires_at}" if source.expires_at else "",
-                        f"状态 {source.status}",
-                    ) if item
-                )
+                dates = "；".join(item for item in (
+                    f"发布 {source.published_at}" if source.published_at else "",
+                    f"实施 {source.effective_at}" if source.effective_at else "",
+                    f"失效 {source.expires_at}" if source.expires_at else "",
+                    f"状态 {source.status}",
+                ) if item)
                 lines.append(
                     f"| {source.citation_id} | {_cell(source.title)} | {_cell(source.issuer or '未从页面稳定识别')} | "
-                    f"{_cell(source.document_number or '未从页面稳定识别')} | {_cell(dates)} | "
-                    f"[打开官方原文]({source.official_url}) |"
+                    f"{_cell(source.document_number or '未从页面稳定识别')} | {_cell(dates)} | [打开官方原文]({source.official_url}) |"
                 )
             lines.extend(["", "### 官方原文摘录", ""])
             for source in self.sources:
                 lines.append(f"- **[{source.citation_id}] {source.title}**：{source.excerpt or '未提取到稳定摘录，请打开官方原文核对。'}")
         if self.warnings:
-            lines.extend(["", "### 检索告警", ""])
-            lines.extend(f"- {warning}" for warning in self.warnings)
-        lines.extend(
-            [
-                "",
-                "## 政策检索边界",
-                "",
-                "- 官方页面摘录只能证明页面在检索时包含相应文字，不代表企业自动符合申报条件。",
-                "- 文件可能被修订、废止、暂缓实施或由后续申报指南补充；正式使用前必须打开官方原文再次核验。",
-                "- 金额、期限、适用区域、申报窗口和材料要求必须逐项引用对应官方文件，不得由 AI 补全。",
-            ]
-        )
+            lines.extend(["", "### 检索告警", "", *(f"- {warning}" for warning in self.warnings)])
+        lines.extend([
+            "", "## 政策检索边界", "",
+            "- 官方页面摘录只能证明页面在检索时包含相应文字，不代表企业自动符合申报条件。",
+            "- 文件可能被修订、废止、暂缓实施或由后续申报指南补充；正式使用前必须打开官方原文再次核验。",
+            "- 金额、期限、适用区域、申报窗口和材料要求必须逐项引用对应官方文件，不得由 AI 补全。",
+        ])
         return "\n".join(lines).strip()
 
 
 class _PageParser(HTMLParser):
-    BLOCK_TAGS = {
-        "p", "div", "li", "br", "h1", "h2", "h3", "h4", "tr", "td", "th", "section", "article",
-    }
+    BLOCK_TAGS = {"p", "div", "li", "br", "h1", "h2", "h3", "h4", "tr", "td", "th", "section", "article"}
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -170,8 +155,7 @@ class _PageParser(HTMLParser):
             text = _space("".join(self._anchor_text))
             if text:
                 self.links.append((self._anchor_href, text))
-            self._anchor_href = ""
-            self._anchor_text = []
+            self._anchor_href, self._anchor_text = "", []
         elif tag == "title":
             self._in_title = False
         elif tag == "h1":
@@ -226,9 +210,10 @@ class OfficialPolicyRetriever:
         self.enabled = _env_bool("POLICY_RETRIEVAL_ENABLED", True)
         self.timeout = _env_float("POLICY_FETCH_TIMEOUT_SECONDS", 6.0, 2.0, 20.0)
         self.cache_ttl = _env_int("POLICY_CACHE_TTL_SECONDS", 900, 30, 86400)
+        self.cache_max_entries = _env_int("POLICY_CACHE_MAX_ENTRIES", 256, 16, 4096)
         self.max_catalog_pages = _env_int("POLICY_MAX_CATALOG_PAGES", 4, 1, 10)
         self.max_results = _env_int("POLICY_MAX_RESULTS", 6, 1, 12)
-        self._cache: dict[str, _CacheEntry] = {}
+        self._cache: OrderedDict[str, _CacheEntry] = OrderedDict()
         self._lock = threading.Lock()
         self._session = requests.Session()
         self._session.headers.update({
@@ -236,29 +221,26 @@ class OfficialPolicyRetriever:
             "Accept": "text/html,application/xhtml+xml,text/plain;q=0.8",
         })
 
-    def search(
-        self,
-        profile: Mapping[str, Any] | None,
-        demand: str = "",
-        *,
-        query: str = "",
-        limit: int | None = None,
-    ) -> OfficialPolicyRetrieval:
-        now = datetime.now(timezone.utc).isoformat()
+    def _prune_cache(self, now: float) -> None:
+        expired = [key for key, entry in self._cache.items() if entry.expires_at <= now]
+        for key in expired:
+            self._cache.pop(key, None)
+        while len(self._cache) > self.cache_max_entries:
+            self._cache.popitem(last=False)
+
+    def search(self, profile: Mapping[str, Any] | None, demand: str = "", *, query: str = "", limit: int | None = None) -> OfficialPolicyRetrieval:
+        retrieved_at = datetime.now(timezone.utc).isoformat()
         combined_query = _build_query(profile or {}, demand, query)
         if not self.enabled:
-            return OfficialPolicyRetrieval(
-                query=combined_query,
-                status="disabled",
-                retrieved_at=now,
-                warnings=["官方政策检索已由部署配置关闭。"],
-            )
-        cache_key = hashlib.sha256(
-            (combined_query + "\n" + "\n".join(self.catalog_urls)).encode("utf-8")
-        ).hexdigest()
+            return OfficialPolicyRetrieval(query=combined_query, status="disabled", retrieved_at=retrieved_at, warnings=["官方政策检索已由部署配置关闭。"])
+
+        cache_key = hashlib.sha256((combined_query + "\n" + "\n".join(self.catalog_urls)).encode("utf-8")).hexdigest()
+        now = time.time()
         with self._lock:
+            self._prune_cache(now)
             cached = self._cache.get(cache_key)
-            if cached and cached.expires_at > time.time():
+            if cached:
+                self._cache.move_to_end(cache_key)
                 return cached.value.model_copy(deep=True)
 
         result_limit = max(1, min(int(limit or self.max_results), 12))
@@ -269,16 +251,14 @@ class OfficialPolicyRetriever:
         for start_url in self.catalog_urls:
             try:
                 self._validate_url(start_url)
-                queue = [start_url]
-                visited: set[str] = set()
+                queue, visited = [start_url], set()
                 while queue and len(visited) < self.max_catalog_pages:
                     catalog_url = queue.pop(0)
                     if catalog_url in visited:
                         continue
                     visited.add(catalog_url)
-                    html = self.fetcher(catalog_url)
+                    parser = _parse(self.fetcher(catalog_url))
                     searched_catalogs.append(catalog_url)
-                    parser = _parse(html)
                     for href, title in parser.links:
                         url = urljoin(catalog_url, href)
                         if not self._is_allowed_url(url):
@@ -286,26 +266,18 @@ class OfficialPolicyRetriever:
                         if _looks_like_pagination(title, url, start_url):
                             if url not in visited and url not in queue:
                                 queue.append(url)
-                            continue
-                        if _looks_like_policy_link(title, url):
+                        elif _looks_like_policy_link(title, url):
                             candidates.setdefault(url, title[:500])
             except Exception as exc:  # noqa: BLE001
                 catalog_failures += 1
                 warnings.append(f"官方目录读取失败：{_safe_error(exc)}")
 
-        ranked = sorted(
-            candidates.items(),
-            key=lambda item: (_rank(item[1], combined_query), item[1]),
-            reverse=True,
-        )
+        ranked = sorted(candidates.items(), key=lambda item: (_rank(item[1], combined_query), item[1]), reverse=True)
         candidate_limit = min(max(result_limit * 4, 12), 36)
         sources: list[OfficialPolicySource] = []
         failures = 0
         with ThreadPoolExecutor(max_workers=min(6, candidate_limit or 1)) as executor:
-            future_map = {
-                executor.submit(self._read_document, url, title, combined_query): (url, title)
-                for url, title in ranked[:candidate_limit]
-            }
+            future_map = {executor.submit(self._read_document, url, title, combined_query): url for url, title in ranked[:candidate_limit]}
             for future in as_completed(future_map):
                 try:
                     source, score = future.result()
@@ -316,18 +288,8 @@ class OfficialPolicyRetriever:
                     if failures <= 3:
                         warnings.append(f"部分官方原文读取失败：{_safe_error(exc)}")
 
-        sources.sort(
-            key=lambda item: (
-                _rank(item.title + " " + item.excerpt, combined_query),
-                item.published_at,
-                item.title,
-            ),
-            reverse=True,
-        )
-        selected: list[OfficialPolicySource] = []
-        for index, source in enumerate(sources[:result_limit], start=1):
-            selected.append(source.model_copy(update={"citation_id": f"POL-{index:03d}"}))
-
+        sources.sort(key=lambda item: (_rank(item.title + " " + item.excerpt, combined_query), item.published_at, item.title), reverse=True)
+        selected = [source.model_copy(update={"citation_id": f"POL-{index:03d}"}) for index, source in enumerate(sources[:result_limit], 1)]
         if selected:
             status: RetrievalStatus = "partial" if warnings else "ok"
         elif catalog_failures >= len(self.catalog_urls) and self.catalog_urls:
@@ -338,20 +300,19 @@ class OfficialPolicyRetriever:
         result = OfficialPolicyRetrieval(
             query=combined_query,
             status=status,
-            retrieved_at=now,
+            retrieved_at=retrieved_at,
             searched_catalogs=list(dict.fromkeys(searched_catalogs))[:20],
             warnings=list(dict.fromkeys(warnings))[:30],
             sources=selected,
         )
         with self._lock:
             self._cache[cache_key] = _CacheEntry(time.time() + self.cache_ttl, result)
+            self._cache.move_to_end(cache_key)
+            self._prune_cache(time.time())
         return result.model_copy(deep=True)
 
-    def _read_document(
-        self, url: str, catalog_title: str, query: str
-    ) -> tuple[OfficialPolicySource | None, int]:
-        html = self.fetcher(url)
-        parser = _parse(html)
+    def _read_document(self, url: str, catalog_title: str, query: str) -> tuple[OfficialPolicySource | None, int]:
+        parser = _parse(self.fetcher(url))
         text = parser.text
         title = _clean_title(parser.title or catalog_title)
         if not title or len(text) < 80:
@@ -364,24 +325,21 @@ class OfficialPolicyRetriever:
         published_at = _match_date(text, ("发布时间", "发布日期", "印发日期"))
         effective_at = _match_date(text, ("实施日期", "施行日期", "自"))
         expires_at = _match_date(text, ("失效日期", "有效期至", "有效期截止"))
-        status = _document_status(title, text, expires_at)
-        excerpt = _select_excerpt(text, query, title)
         normalized = _space(text)
         domain = (urlparse(url).hostname or "").lower()
-        source_kind = "政策解读" if "解读" in title or "zcjd" in url else "政策文件"
         return OfficialPolicySource(
             citation_id="POL-000",
             title=title,
             official_url=url,
             official_domain=domain,
-            source_kind=source_kind,
+            source_kind="政策解读" if "解读" in title or "zcjd" in url else "政策文件",
             issuer=issuer,
             document_number=document_number,
             published_at=published_at,
             effective_at=effective_at,
             expires_at=expires_at,
-            status=status,
-            excerpt=excerpt,
+            status=_document_status(title, text, expires_at),
+            excerpt=_select_excerpt(text, query, title),
             content_sha256=hashlib.sha256(normalized.encode("utf-8")).hexdigest(),
             retrieved_at=datetime.now(timezone.utc).isoformat(),
         ), score
@@ -395,11 +353,11 @@ class OfficialPolicyRetriever:
 
     def _validate_url(self, url: str) -> None:
         parsed = urlparse(url)
-        if parsed.scheme not in {"https", "http"}:
-            raise ValueError("政策来源 URL 必须使用 HTTP(S)。")
+        if parsed.scheme != "https":
+            raise ValueError("政策来源 URL 必须使用 HTTPS。")
         if parsed.username or parsed.password:
             raise ValueError("政策来源 URL 不允许包含认证信息。")
-        if parsed.port not in {None, 80, 443}:
+        if parsed.port not in {None, 443}:
             raise ValueError("政策来源 URL 不允许使用非标准端口。")
         host = (parsed.hostname or "").lower().rstrip(".")
         if not host or not any(host == suffix or host.endswith("." + suffix) for suffix in self.allowed_domain_suffixes):
@@ -409,12 +367,7 @@ class OfficialPolicyRetriever:
         current = url
         for _ in range(4):
             self._validate_url(current)
-            response = self._session.get(
-                current,
-                timeout=(min(self.timeout, 5.0), self.timeout),
-                allow_redirects=False,
-                stream=True,
-            )
+            response = self._session.get(current, timeout=(min(self.timeout, 5.0), self.timeout), allow_redirects=False, stream=True)
             if response.status_code in {301, 302, 303, 307, 308}:
                 location = response.headers.get("Location", "")
                 response.close()
@@ -470,16 +423,12 @@ def _parse(html: str) -> _PageParser:
 
 def _env_csv(name: str) -> tuple[str, ...]:
     raw = os.getenv(name, "").strip()
-    if not raw:
-        return ()
-    return tuple(item.strip() for item in re.split(r"[;,\n]", raw) if item.strip())
+    return tuple(item.strip() for item in re.split(r"[;,\n]", raw) if item.strip()) if raw else ()
 
 
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name, "").strip().lower()
-    if not raw:
-        return default
-    return raw in {"1", "true", "yes", "on"}
+    return default if not raw else raw in {"1", "true", "yes", "on"}
 
 
 def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
@@ -516,11 +465,7 @@ def _clean_title(value: str) -> str:
 
 def _looks_like_policy_link(title: str, url: str) -> bool:
     clean = _space(title)
-    if len(clean) < 8 or clean in {"首页", "上一页", "下一页", "第一页", "最后一页"}:
-        return False
-    if url.lower().startswith(("javascript:", "mailto:")):
-        return False
-    return any(word in clean for word in POLICY_LINK_WORDS)
+    return len(clean) >= 8 and clean not in {"首页", "上一页", "下一页", "第一页", "最后一页"} and any(word in clean for word in POLICY_LINK_WORDS)
 
 
 def _looks_like_pagination(title: str, url: str, start_url: str) -> bool:
@@ -533,10 +478,7 @@ def _looks_like_pagination(title: str, url: str, start_url: str) -> bool:
 
 def _query_tokens(query: str) -> list[str]:
     normalized = _space(query)
-    tokens: list[str] = []
-    for word in COMMON_QUERY_WORDS:
-        if word in normalized:
-            tokens.append(word)
+    tokens = [word for word in COMMON_QUERY_WORDS if word in normalized]
     for item in re.findall(r"[A-Za-z0-9]{2,}|[\u4e00-\u9fff]{2,12}", normalized):
         if len(item) <= 6:
             tokens.append(item)
@@ -550,11 +492,7 @@ def _rank(text: str, query: str) -> int:
     tokens = _query_tokens(query)
     if not tokens:
         return sum(1 for word in POLICY_LINK_WORDS if word in haystack)
-    score = 0
-    for token in tokens:
-        count = haystack.count(token.lower())
-        if count:
-            score += min(count, 5) * (4 if len(token) >= 4 else 2)
+    score = sum(min(haystack.count(token.lower()), 5) * (4 if len(token) >= 4 else 2) for token in tokens)
     if "天河" in haystack:
         score += 3
     if any(word in haystack for word in ("废止", "暂缓实施", "失效")):
@@ -564,10 +502,7 @@ def _rank(text: str, query: str) -> int:
 
 def _build_query(profile: Mapping[str, Any], demand: str, query: str) -> str:
     parts = [query, demand]
-    for key in ("industry", "location", "stage", "demands", "name"):
-        value = _space(profile.get(key))
-        if value:
-            parts.append(value)
+    parts.extend(_space(profile.get(key)) for key in ("industry", "location", "stage", "demands", "name") if _space(profile.get(key)))
     return _space(" ".join(part for part in parts if _space(part)))[:2000]
 
 
@@ -591,17 +526,15 @@ def _normalize_date(raw: str) -> str:
     match = re.search(r"(20\d{2})[年./-](\d{1,2})[月./-](\d{1,2})日?", raw)
     if not match:
         return ""
-    year, month, day = map(int, match.groups())
     try:
-        return date(year, month, day).isoformat()
+        return date(*map(int, match.groups())).isoformat()
     except ValueError:
         return ""
 
 
 def _match_date(text: str, labels: Iterable[str]) -> str:
     for label in labels:
-        pattern = rf"{re.escape(label)}[^\d]{{0,12}}(20\d{{2}}[年./-]\d{{1,2}}[月./-]\d{{1,2}}日?)"
-        match = re.search(pattern, text)
+        match = re.search(rf"{re.escape(label)}[^\d]{{0,12}}(20\d{{2}}[年./-]\d{{1,2}}[月./-]\d{{1,2}}日?)", text)
         if match:
             normalized = _normalize_date(match.group(1))
             if normalized:
@@ -617,9 +550,7 @@ def _document_status(title: str, text: str, expires_at: str) -> PolicyDocumentSt
         return "suspended"
     if expires_at:
         try:
-            if date.fromisoformat(expires_at) < datetime.now(timezone.utc).date():
-                return "expired"
-            return "active"
+            return "expired" if date.fromisoformat(expires_at) < datetime.now(timezone.utc).date() else "active"
         except ValueError:
             pass
     return "unknown"
@@ -627,11 +558,7 @@ def _document_status(title: str, text: str, expires_at: str) -> PolicyDocumentSt
 
 def _select_excerpt(text: str, query: str, title: str) -> str:
     tokens = _query_tokens(query)
-    chunks = [
-        _space(item)
-        for item in re.split(r"(?<=[。！？；])|\n+", text)
-        if 20 <= len(_space(item)) <= 1200
-    ]
+    chunks = [_space(item) for item in re.split(r"(?<=[。！？；])|\n+", text) if 20 <= len(_space(item)) <= 1200]
     scored: list[tuple[int, str]] = []
     for chunk in chunks:
         if chunk == title or chunk.startswith("您当前所在的位置") or ("人民政府门户网站" in chunk and len(chunk) < 120):
@@ -641,9 +568,7 @@ def _select_excerpt(text: str, query: str, title: str) -> str:
             score += 8
         scored.append((score, chunk))
     scored.sort(key=lambda item: (item[0], len(item[1])), reverse=True)
-    chosen = next((chunk for score, chunk in scored if score > 0), "")
-    if not chosen:
-        chosen = next((chunk for _, chunk in scored if not chunk.startswith(("首页", "搜索热词"))), "")
+    chosen = next((chunk for score, chunk in scored if score > 0), "") or next((chunk for _, chunk in scored if not chunk.startswith(("首页", "搜索热词"))), "")
     return chosen[:MAX_EXCERPT_CHARS]
 
 
