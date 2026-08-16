@@ -38,7 +38,7 @@ def test_native_index_loads_v4_styles_at_first_paint_without_runtime_preload() -
     assert "ZHILINK_UI_V4_FOUNDATION_READY" in foundation
 
 
-def test_final_bundle_exposes_core_runtime_and_overlay_after_meeting_view() -> None:
+def test_final_bundle_recovers_storage_before_core_and_exposes_v4_runtime() -> None:
     with TestClient(app) as client:
         response = client.get("/assets/app.js")
         old_result_bridge = client.get("/assets/result-events.js")
@@ -46,6 +46,7 @@ def test_final_bundle_exposes_core_runtime_and_overlay_after_meeting_view() -> N
 
     assert response.status_code == 200
     assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
+    assert response.text.index("ZHILINK_STORAGE_RECOVERY") < response.text.index("function loadResultsFromSession")
     assert response.text.rfind('key: "meeting-sources"') > response.text.rfind("ZHILINK_MEETING_USER_VIEW_READY")
     assert "ZHILINK_WORKSPACE_CONTRACTS_READY" in response.text
     assert "ZHILINK_EXAMPLE_LOADER_READY" in response.text
