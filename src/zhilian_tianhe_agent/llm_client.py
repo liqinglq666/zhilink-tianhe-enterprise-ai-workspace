@@ -8,6 +8,7 @@ import json
 import os
 import socket
 import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, Iterator, List, Optional
@@ -243,6 +244,15 @@ def _output_limit_error() -> ModelGatewayError:
     )
 
 
+def _response_limit_error() -> ModelGatewayError:
+    return ModelGatewayError(
+        code="MODEL_RESPONSE_LIMIT_EXCEEDED",
+        user_message="模型网关返回的数据超过服务端安全上限，请缩小任务范围或更换接口后重试。",
+        status_code=502,
+        retryable=True,
+    )
+
+
 class LLMClient:
     def __init__(self, config: Optional[LLMConfig] = None):
         self.config = config or LLMConfig.from_env()
@@ -250,6 +260,9 @@ class LLMClient:
         self._base_url = _validate_base_url(self.config.base_url) if complete else self.config.base_url.strip().rstrip("/")
         self._max_output_chars = _env_int("MODEL_MAX_OUTPUT_CHARS", 120000, 1000, 500000)
         self._max_completion_tokens = _env_int("MODEL_MAX_COMPLETION_TOKENS", 8192, 256, 32768)
+        default_response_bytes = max(262144, self._max_output_chars * 8)
+        self._max_response_bytes = _env_int("MODEL_MAX_RESPONSE_BYTES", default_response_bytes, 1024, 8_000_000)
+        self._max_stream_seconds = _env_int("MODEL_MAX_STREAM_SECONDS", max(self.config.timeout, 180), 10, 1800)
 
     @property
     def enabled(self) -> bool:
@@ -284,12 +297,14 @@ class LLMClient:
         # Re-check DNS immediately before connecting to narrow rebinding/TOCTOU exposure.
         _validate_base_url(self._base_url)
         try:
+            # Always stream the HTTP body so a non-streaming model response cannot be
+            # buffered without bounds by requests before our byte cap is enforced.
             response = requests.post(
                 self._url(),
                 headers=self._headers(),
                 json=self._payload(system_prompt, user_prompt, stream=stream),
                 timeout=self.config.timeout,
-                stream=stream,
+                stream=True,
                 allow_redirects=False,
             )
         except requests.RequestException as exc:
@@ -304,10 +319,38 @@ class LLMClient:
             raise error
 
         content_length = response.headers.get("Content-Length", "").strip()
-        if content_length.isdigit() and int(content_length) > self._max_output_chars * 6:
+        if content_length.isdigit() and int(content_length) > self._max_response_bytes:
             response.close()
-            raise _output_limit_error()
+            raise _response_limit_error()
         return response
+
+    def _read_json_body(self, response: requests.Response) -> object:
+        chunks: list[bytes] = []
+        total = 0
+        try:
+            for chunk in response.iter_content(chunk_size=65536):
+                if not chunk:
+                    continue
+                total += len(chunk)
+                if total > self._max_response_bytes:
+                    raise _response_limit_error()
+                chunks.append(chunk)
+        except ModelGatewayError:
+            raise
+        except requests.RequestException as exc:
+            raise _request_error(exc) from exc
+
+        raw = b"".join(chunks)
+        encoding = getattr(response, "encoding", None) or "utf-8"
+        try:
+            return json.loads(raw.decode(encoding, errors="replace"))
+        except (LookupError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ModelGatewayError(
+                "MODEL_BAD_RESPONSE",
+                "模型返回了无法解析的数据，请更换模型或接口后重试。",
+                502,
+                False,
+            ) from exc
 
     def _require_enabled(self) -> None:
         if not self.enabled:
@@ -317,12 +360,9 @@ class LLMClient:
         self._require_enabled()
         response = self._post(system_prompt, user_prompt, stream=False)
         try:
+            data = self._read_json_body(response)
             try:
-                data = response.json()
-            except ValueError as exc:
-                raise ModelGatewayError("MODEL_BAD_RESPONSE", "模型返回了无法解析的数据，请更换模型或接口后重试。", 502, False) from exc
-            try:
-                content = str(data["choices"][0]["message"]["content"]).strip()
+                content = str(data["choices"][0]["message"]["content"]).strip()  # type: ignore[index]
             except (KeyError, IndexError, TypeError) as exc:
                 raise ModelGatewayError("MODEL_BAD_RESPONSE", "模型返回格式不兼容，请检查模型接口。", 502, False) from exc
             if not content:
@@ -338,14 +378,19 @@ class LLMClient:
         response = self._post(system_prompt, user_prompt, stream=True)
         yielded = False
         total_chars = 0
+        deadline = time.monotonic() + self._max_stream_seconds
         try:
             try:
                 for raw_line in response.iter_lines(chunk_size=1, decode_unicode=True):
+                    if time.monotonic() > deadline:
+                        raise ModelGatewayError("MODEL_TIMEOUT", "模型生成时间超过服务端上限，请缩小任务范围后重试。", 504, True)
                     if not raw_line:
                         continue
                     if isinstance(raw_line, bytes):
                         raw_line = raw_line.decode("utf-8", errors="replace")
                     line = raw_line.strip()
+                    if len(line.encode("utf-8", errors="replace")) > self._max_response_bytes:
+                        raise _response_limit_error()
                     if line.startswith("data:"):
                         line = line[5:].strip()
                     if not line or line == "[DONE]":
