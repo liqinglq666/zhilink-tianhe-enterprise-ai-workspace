@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from backend.main import MAX_BODY_BYTES, app
+from backend.main import APP_VERSION, MAX_BODY_BYTES, app
 
 client = TestClient(app)
 
@@ -11,7 +11,7 @@ def test_health():
     data = resp.json()
     assert data["ok"] is True
     assert data["app"]
-    assert "release-hardening" in data["version"]
+    assert data["version"] == APP_VERSION
 
 
 def test_defaults():
