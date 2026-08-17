@@ -253,6 +253,15 @@ def _response_limit_error() -> ModelGatewayError:
     )
 
 
+def _stream_timeout_error() -> ModelGatewayError:
+    return ModelGatewayError(
+        code="MODEL_TIMEOUT",
+        user_message="模型生成时间超过服务端上限，请缩小任务范围后重试。",
+        status_code=504,
+        retryable=True,
+    )
+
+
 class LLMClient:
     def __init__(self, config: Optional[LLMConfig] = None):
         self.config = config or LLMConfig.from_env()
@@ -352,6 +361,36 @@ class LLMClient:
                 False,
             ) from exc
 
+    def _iter_bounded_lines(self, response: requests.Response, *, deadline: float) -> Iterator[str]:
+        """Split a streamed HTTP body into lines without unbounded ``iter_lines`` buffering."""
+        buffer = bytearray()
+        total = 0
+        try:
+            for chunk in response.iter_content(chunk_size=8192):
+                if time.monotonic() > deadline:
+                    raise _stream_timeout_error()
+                if not chunk:
+                    continue
+                total += len(chunk)
+                if total > self._max_response_bytes:
+                    raise _response_limit_error()
+                buffer.extend(chunk)
+                while True:
+                    newline = buffer.find(b"\n")
+                    if newline < 0:
+                        break
+                    raw_line = bytes(buffer[:newline])
+                    del buffer[: newline + 1]
+                    yield raw_line.rstrip(b"\r").decode("utf-8", errors="replace")
+            if time.monotonic() > deadline:
+                raise _stream_timeout_error()
+            if buffer:
+                yield bytes(buffer).rstrip(b"\r").decode("utf-8", errors="replace")
+        except ModelGatewayError:
+            raise
+        except requests.RequestException as exc:
+            raise _request_error(exc) from exc
+
     def _require_enabled(self) -> None:
         if not self.enabled:
             raise ModelGatewayError("MODEL_NOT_CONFIGURED", "公共模型尚未配置，请填写自己的 API Key、Base URL 和模型名称。", 400, False)
@@ -380,43 +419,32 @@ class LLMClient:
         total_chars = 0
         deadline = time.monotonic() + self._max_stream_seconds
         try:
-            try:
-                for raw_line in response.iter_lines(chunk_size=1, decode_unicode=True):
-                    if time.monotonic() > deadline:
-                        raise ModelGatewayError("MODEL_TIMEOUT", "模型生成时间超过服务端上限，请缩小任务范围后重试。", 504, True)
-                    if not raw_line:
-                        continue
-                    if isinstance(raw_line, bytes):
-                        raw_line = raw_line.decode("utf-8", errors="replace")
-                    line = raw_line.strip()
-                    if len(line.encode("utf-8", errors="replace")) > self._max_response_bytes:
-                        raise _response_limit_error()
-                    if line.startswith("data:"):
-                        line = line[5:].strip()
-                    if not line or line == "[DONE]":
-                        if line == "[DONE]":
-                            break
-                        continue
-                    try:
-                        data = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    if data.get("error"):
-                        raise ModelGatewayError("MODEL_GATEWAY_ERROR", "模型网关在生成过程中返回异常，请稍后重试。", 502, True)
-                    choices = data.get("choices") or []
-                    if not choices:
-                        continue
-                    choice = choices[0] or {}
-                    content = (choice.get("delta") or {}).get("content") or (choice.get("message") or {}).get("content") or choice.get("text") or ""
-                    if content:
-                        text = str(content)
-                        total_chars += len(text)
-                        if total_chars > self._max_output_chars:
-                            raise _output_limit_error()
-                        yielded = True
-                        yield text
-            except requests.RequestException as exc:
-                raise _request_error(exc) from exc
+            for raw_line in self._iter_bounded_lines(response, deadline=deadline):
+                line = raw_line.strip()
+                if line.startswith("data:"):
+                    line = line[5:].strip()
+                if not line or line == "[DONE]":
+                    if line == "[DONE]":
+                        break
+                    continue
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if data.get("error"):
+                    raise ModelGatewayError("MODEL_GATEWAY_ERROR", "模型网关在生成过程中返回异常，请稍后重试。", 502, True)
+                choices = data.get("choices") or []
+                if not choices:
+                    continue
+                choice = choices[0] or {}
+                content = (choice.get("delta") or {}).get("content") or (choice.get("message") or {}).get("content") or choice.get("text") or ""
+                if content:
+                    text = str(content)
+                    total_chars += len(text)
+                    if total_chars > self._max_output_chars:
+                        raise _output_limit_error()
+                    yielded = True
+                    yield text
             if not yielded:
                 raise ModelGatewayError("MODEL_EMPTY_RESPONSE", "模型没有返回有效内容，请重新生成或更换模型。", 502, True)
         finally:
