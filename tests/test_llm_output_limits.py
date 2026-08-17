@@ -21,14 +21,16 @@ class FakeResponse:
         self._lines = lines or []
         self.headers = headers or {}
         self.closed = False
-        self._raw_body = raw_body if raw_body is not None else json.dumps(payload or {}).encode("utf-8")
+        if raw_body is not None:
+            self._raw_body = raw_body
+        elif self._lines:
+            self._raw_body = ("\n".join(self._lines) + "\n").encode("utf-8")
+        else:
+            self._raw_body = json.dumps(payload or {}).encode("utf-8")
 
     def iter_content(self, chunk_size=65536):
         for start in range(0, len(self._raw_body), chunk_size):
             yield self._raw_body[start : start + chunk_size]
-
-    def iter_lines(self, **kwargs):  # noqa: ARG002
-        yield from self._lines
 
     def close(self):
         self.closed = True
@@ -113,13 +115,23 @@ def test_stream_output_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_stream_single_line_wire_response_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MODEL_MAX_RESPONSE_BYTES", "1024")
     current = client(monkeypatch)
-    response = FakeResponse(lines=["data: " + "x" * 2048])
+    response = FakeResponse(raw_body=b"data: " + b"x" * 2048)
     monkeypatch.setattr(requests, "post", lambda *args, **kwargs: response)
 
     with pytest.raises(ModelGatewayError) as caught:
         list(current.chat_stream("system", "user"))
 
     assert caught.value.code == "MODEL_RESPONSE_LIMIT_EXCEEDED"
+    assert response.closed is True
+
+
+def test_stream_parser_handles_sse_lines_split_across_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
+    current = client(monkeypatch)
+    line = f"data: {json.dumps({'choices': [{'delta': {'content': 'hello'}}]})}\n"
+    response = FakeResponse(raw_body=line.encode("utf-8"))
+    monkeypatch.setattr(requests, "post", lambda *args, **kwargs: response)
+
+    assert list(current.chat_stream("system", "user")) == ["hello"]
     assert response.closed is True
 
 
