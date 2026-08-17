@@ -182,11 +182,8 @@ def _event(record: ProjectReviewEventRecord) -> dict[str, Any]:
 
 class ReviewStore:
     def __init__(self) -> None:
+        """Attach to the already-migrated shared database without runtime DDL."""
         self.accounts = get_account_store()
-        try:
-            Base.metadata.create_all(self.accounts.projects.engine)
-        except SQLAlchemyError as exc:
-            raise ProjectStoreUnavailable("人工审核数据表初始化失败。") from exc
 
     def _actor(self, session, scope: ProjectScope) -> tuple[str | None, str, str]:
         if scope.kind == "anonymous":

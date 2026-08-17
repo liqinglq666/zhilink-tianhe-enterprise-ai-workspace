@@ -20,9 +20,7 @@ from .service_workflow_schemas import (
     WorkflowUpdateRequest,
 )
 from . import service_workflow_store as workflow_store
-from .service_workflow_guards import ensure_active_organization_project, safe_official_references
-
-workflow_store.official = safe_official_references
+from .service_workflow_guards import ensure_active_organization_project
 
 router = APIRouter(prefix="/api/service-cases", tags=["enterprise-service-workflows"])
 

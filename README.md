@@ -24,7 +24,7 @@
 - API Key 不写入项目快照；浏览器自定义 Key 只保存在当前 `sessionStorage`。
 - 服务端公共模型必须由部署方显式启用；`OPENAI_API_KEY` 不会自动暴露为公共 Key。
 - 模型 Base URL 默认要求 HTTPS，并拒绝本机、内网、保留地址；企业部署可强制 `LLM_ALLOWED_HOSTS`。
-- 模型请求设置 completion token 上限，并对最终输出字符数做服务端硬限制。
+- 模型请求设置 completion token、最终输出字符、原始响应字节和流式总时长上限；非流式响应也先受限读取再解析 JSON。
 - 官方政策检索只允许 allowlist HTTPS 政府域名，限制单页响应大小、重定向、并发和 TTL cache 数量。
 - 项目、账号、组织、知识库 Schema 由 Alembic 管理；Web 运行时不执行 `create_all` 或 legacy backfill。
 - Docker build context 排除 `.env`、`runtime/`、SQLite 数据库和日志文件。
@@ -47,11 +47,13 @@
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # Windows PowerShell: .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 cp .env.example .env             # Windows 可手动复制
 python scripts/migrate.py
 uvicorn backend.main:app --reload
 ```
+
+`requirements.txt` 只包含生产运行依赖；`requirements-dev.txt` 在此基础上增加测试依赖。
 
 打开：<http://127.0.0.1:8000>
 
@@ -98,6 +100,8 @@ LLM_ALLOWED_HOSTS=dashscope.aliyuncs.com
 LLM_REQUIRE_HOST_ALLOWLIST=true
 MODEL_MAX_COMPLETION_TOKENS=8192
 MODEL_MAX_OUTPUT_CHARS=120000
+MODEL_MAX_RESPONSE_BYTES=960000
+MODEL_MAX_STREAM_SECONDS=180
 
 AUTH_COOKIE_SECURE=true
 ENABLE_HSTS=true
