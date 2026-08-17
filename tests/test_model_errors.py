@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import socket
 
 import pytest
@@ -10,6 +11,8 @@ from zhilian_tianhe_agent.llm_client import LLMClient, LLMConfig
 
 
 class FakeResponse:
+    encoding = "utf-8"
+
     def __init__(self, status_code=200, payload=None, headers=None, lines=None):
         self.status_code = status_code
         self._payload = payload
@@ -18,17 +21,20 @@ class FakeResponse:
         self.is_redirect = 300 <= status_code < 400
         self.ok = 200 <= status_code < 300
         self.closed = False
+        if self._lines:
+            encoded = [line if isinstance(line, bytes) else str(line).encode("utf-8") for line in self._lines]
+            self._raw_body = b"\n".join(encoded) + b"\n"
+        elif isinstance(payload, Exception):
+            self._raw_body = b"{invalid-json"
+        else:
+            self._raw_body = json.dumps(payload or {}).encode("utf-8")
 
     def close(self):
         self.closed = True
 
-    def json(self):
-        if isinstance(self._payload, Exception):
-            raise self._payload
-        return self._payload
-
-    def iter_lines(self, **kwargs):  # noqa: ARG002
-        yield from self._lines
+    def iter_content(self, chunk_size=65536):
+        for start in range(0, len(self._raw_body), chunk_size):
+            yield self._raw_body[start : start + chunk_size]
 
 
 def make_client(monkeypatch):
