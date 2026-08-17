@@ -47,11 +47,13 @@
 ```bash
 python -m venv .venv
 source .venv/bin/activate        # Windows PowerShell: .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 cp .env.example .env             # Windows 可手动复制
 python scripts/migrate.py
 uvicorn backend.main:app --reload
 ```
+
+`requirements.txt` 只包含生产运行依赖；`requirements-dev.txt` 在此基础上增加测试依赖。
 
 打开：<http://127.0.0.1:8000>
 
