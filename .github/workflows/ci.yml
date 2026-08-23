@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pip check
+
+      - name: Compile Python sources
+        run: python -m compileall -q backend src tests scripts alembic
+
+      - name: Check browser scripts
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do
+            echo "Checking ${file}"
+            node --check "${file}"
+          done < <(find frontend/assets -type f -name '*.js' -print0 | sort -z)
+
+      - name: Upgrade and verify a clean SQLite database
+        env:
+          DATABASE_URL: sqlite:///${{ runner.temp }}/zhilink-${{ matrix.python-version }}.db
+        run: |
+          python scripts/migrate.py
+          python scripts/migrate.py
+          python scripts/check_schema.py
+
+      - name: Run complete test suite
+        env:
+          DATABASE_URL: sqlite:///${{ runner.temp }}/pytest-${{ matrix.python-version }}.db
+          PYTHONPATH: .
+        run: pytest -q
+
+  postgres-migration:
+    name: PostgreSQL migration smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: zhilink_ci
+          POSTGRES_USER: zhilink
+          POSTGRES_PASSWORD: zhilink
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zhilink -d zhilink_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Upgrade and verify PostgreSQL schema
+        env:
+          DATABASE_URL: postgresql+psycopg://zhilink:zhilink@127.0.0.1:5432/zhilink_ci
+        run: |
+          python scripts/migrate.py
+          python scripts/migrate.py
+          python scripts/check_schema.py
+
+  container:
+    name: Container build and runtime smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [test, postgres-migration]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build production image
+        run: docker build --tag zhilink-tianhe:ci .
+
+      - name: Start production container and verify runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name zhilink-tianhe-ci \
+            --publish 127.0.0.1:8000:8000 \
+            --env DATABASE_URL=sqlite:////tmp/zhilink-ci.db \
+            zhilink-tianhe:ci
+
+          cleanup() {
+            docker logs zhilink-tianhe-ci || true
+            docker rm --force zhilink-tianhe-ci >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent --show-error http://127.0.0.1:8000/health >/tmp/health.json; then
+              ready=1
+              break
+            fi
+            if ! docker inspect zhilink-tianhe-ci >/dev/null 2>&1; then
+              echo "Container exited before becoming ready."
+              exit 1
+            fi
+            sleep 1
+          done
+
+          test "$ready" -eq 1
+          grep -q '"ok":true' /tmp/health.json
+          curl --fail --silent --show-error http://127.0.0.1:8000/ >/tmp/index.html
+          grep -q '智链天河' /tmp/index.html
+          docker exec zhilink-tianhe-ci python scripts/check_schema.py

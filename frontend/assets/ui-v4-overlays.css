@@ -1,0 +1,237 @@
+/* UI V4 overlays: shared enterprise dialog/drawer visual contract. */
+body.ui-v4-overlay-active { overflow: hidden; }
+body.ui-v4-overlay-active > .shell[data-ui-v4-overlay-inert="true"] { user-select: none; }
+[data-ui-v4-overlay-active="true"] { z-index: 1600 !important; }
+
+[data-ui-v4-overlay-active="true"] .account-modal-backdrop,
+[data-ui-v4-overlay-active="true"] .project-modal-backdrop,
+[data-ui-v4-overlay-active="true"] .knowledge-backdrop,
+[data-ui-v4-overlay-active="true"] .meeting-source-backdrop,
+#identityModal[data-ui-v4-overlay-active="true"],
+body[data-ui-v4-overlay="api"] #uiV4ApiBackdrop {
+  background: rgba(15,23,42,.48) !important;
+  backdrop-filter: blur(4px);
+}
+
+[data-ui-v4-dialog] {
+  color: var(--ui4-text,#172033);
+  border-color: var(--ui4-line,#dbe3ec) !important;
+  background: #fff !important;
+  box-shadow: 0 26px 80px rgba(15,23,42,.18) !important;
+}
+[data-ui-v4-dialog]:focus { outline: none; }
+[data-ui-v4-dialog] .track {
+  color: #64748b !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: .04em !important;
+  text-transform: none !important;
+}
+[data-ui-v4-dialog] h2 { color: #172033; font-size: 20px; line-height: 1.3; font-weight: 760; letter-spacing: -.015em; }
+[data-ui-v4-dialog] h3 { color: #243149; font-size: 15px; line-height: 1.45; font-weight: 720; }
+[data-ui-v4-dialog] p,
+[data-ui-v4-dialog] small { color: #64748b; }
+[data-ui-v4-dialog] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+[data-ui-v4-dialog] textarea,
+[data-ui-v4-dialog] select {
+  min-height: 44px;
+  border-color: #d7e0ea !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+[data-ui-v4-dialog] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+[data-ui-v4-dialog] textarea:focus,
+[data-ui-v4-dialog] select:focus { border-color: #8bb7f4 !important; box-shadow: 0 0 0 3px rgba(37,99,235,.10) !important; }
+[data-ui-v4-dialog] .icon-btn,
+[data-ui-v4-dialog] .ui-v4-api-close {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
+}
+[data-ui-v4-dialog] .icon-btn:hover,
+[data-ui-v4-dialog] .ui-v4-api-close:hover { color: #172033; border-color: #cbd5e1; background: #f8fafc; }
+
+#accountManagerModal .account-dialog {
+  width: min(880px,calc(100vw - 40px));
+  max-height: calc(100dvh - 40px);
+  margin: 20px auto;
+  padding: 0 20px 22px;
+  border-radius: 14px;
+}
+#accountManagerModal .account-dialog-header,
+#projectManagerModal .project-dialog-header,
+#knowledgeBaseModal .knowledge-dialog-header {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: 0 -20px 18px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #e5eaf0;
+  background: rgba(255,255,255,.98);
+  backdrop-filter: blur(10px);
+}
+#accountManagerModal .account-panel,
+#accountManagerModal .account-profile-card,
+#projectManagerModal .project-editor,
+#knowledgeBaseModal .knowledge-toolbar { border-color: #e1e7ee; border-radius: 10px; background: #fafbfc; }
+#accountManagerModal .account-member-item,
+#projectManagerModal .project-current-card,
+#projectManagerModal .project-list-item,
+#knowledgeBaseModal .knowledge-layout > aside,
+#knowledgeBaseModal .knowledge-editor,
+#knowledgeBaseModal .knowledge-list-item,
+#knowledgeBaseModal .knowledge-version-item,
+#knowledgeBaseModal .knowledge-event-item,
+#knowledgeBaseModal .knowledge-search-items article {
+  border-color: #e1e7ee;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+#projectManagerModal { padding: 20px; }
+#projectManagerModal .project-dialog {
+  width: min(900px,100%);
+  max-height: calc(100dvh - 40px);
+  padding: 0 20px 22px;
+  border-radius: 14px;
+}
+#projectManagerModal .project-list-item.active { border-color: #bfd6f5; background: #f8fbff; }
+#projectManagerModal .project-privacy-note { border: 1px solid #e5eaf0; border-radius: 9px; background: #f8fafc; }
+
+#knowledgeBaseModal .knowledge-dialog {
+  width: min(1240px,calc(100vw - 32px));
+  height: auto;
+  max-height: calc(100dvh - 32px);
+  margin: 16px auto;
+  padding: 0 20px 22px;
+  border-radius: 14px;
+}
+#knowledgeBaseModal .knowledge-dialog-header { z-index: 12; margin-bottom: 16px; }
+#knowledgeBaseModal .knowledge-toolbar { margin-top: 14px; padding: 12px; }
+
+#identityModal[data-ui-v4-overlay="identity"] { align-items: center; justify-content: center; padding: 20px; }
+#identityModal .modal-card[data-ui-v4-dialog="identity"] {
+  width: min(660px,100%);
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  padding: 0 20px 20px;
+  border-radius: 14px;
+}
+#identityModal .modal-card[data-ui-v4-dialog="identity"] .modal-head {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: 0 -20px 18px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #e5eaf0;
+  background: rgba(255,255,255,.98);
+  backdrop-filter: blur(10px);
+}
+#identityModal .modal-card[data-ui-v4-dialog="identity"] .sticky-actions {
+  position: static;
+  margin: 18px 0 0;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid #e5eaf0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#meetingSourceDialog[data-ui-v4-overlay="meeting-sources"] { padding: 0; }
+#meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"] {
+  width: min(620px,calc(100vw - 40px));
+  max-width: 620px;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding: 0 20px 22px;
+  overflow: auto;
+  border-left: 1px solid #dbe3ec !important;
+  border-radius: 0 !important;
+}
+#meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"] > header {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: 0 -20px 18px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #e5eaf0;
+  background: rgba(255,255,255,.98);
+  backdrop-filter: blur(10px);
+}
+#meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"] > header > div > span { color: #64748b; font-size: 11px; font-weight: 700; }
+#meetingSourceDialog .meeting-source-item { border-color: #e1e7ee; border-radius: 10px; background: #fafbfc; }
+
+#apiPanel[data-ui-v4-dialog="api"] {
+  border-left: 1px solid #dbe3ec !important;
+  border-radius: 0 !important;
+  box-shadow: -18px 0 48px rgba(15,23,42,.14) !important;
+}
+#apiPanel[data-ui-v4-dialog="api"] .panel-title {
+  min-height: 68px;
+  border-bottom: 1px solid #e5eaf0;
+  background: rgba(255,255,255,.98);
+  backdrop-filter: blur(10px);
+}
+#apiPanel[data-ui-v4-dialog="api"] .api-drawer-footer { padding-bottom: max(16px,env(safe-area-inset-bottom)); }
+[data-ui-v4-dialog] :focus-visible { outline: 2px solid rgba(37,99,235,.65); outline-offset: 2px; }
+
+@media (max-width: 720px) {
+  #accountManagerModal,
+  #projectManagerModal,
+  #knowledgeBaseModal,
+  #identityModal[data-ui-v4-overlay="identity"],
+  #meetingSourceDialog[data-ui-v4-overlay="meeting-sources"] { padding: 0 !important; align-items: stretch; }
+  #accountManagerModal .account-dialog,
+  #projectManagerModal .project-dialog,
+  #knowledgeBaseModal .knowledge-dialog,
+  #identityModal .modal-card[data-ui-v4-dialog="identity"],
+  #meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"] {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    padding: 0 14px max(16px,env(safe-area-inset-bottom));
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  #accountManagerModal .account-dialog-header,
+  #projectManagerModal .project-dialog-header,
+  #knowledgeBaseModal .knowledge-dialog-header,
+  #identityModal .modal-card[data-ui-v4-dialog="identity"] .modal-head,
+  #meetingSourceDialog .meeting-source-dialog[data-ui-v4-dialog="meeting-sources"] > header {
+    margin: 0 -14px 16px;
+    padding: calc(14px + env(safe-area-inset-top)) 14px 12px;
+  }
+  #knowledgeBaseModal .knowledge-toolbar { margin-top: 10px; }
+  #apiPanel[data-ui-v4-dialog="api"] {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-v4-overlay],
+  [data-ui-v4-dialog],
+  [data-ui-v4-dialog] * {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}

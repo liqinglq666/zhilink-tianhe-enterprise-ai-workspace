@@ -1,0 +1,31 @@
+{
+  "project_name": "智链天河：企业运营 AI 助手",
+  "subtitle": "面向企业日常运营的政策助手、合同审阅与供需协作工具",
+  "product_track": "企业运营 AI 工作台",
+  "positioning": "面向天河区园区企业、商圈商户、商务团队、青年创业团队和中小经营主体的轻量化AI商业服务工具。",
+  "tianhe_context": [
+    "天河区产业基础适合商业服务类AI工具落地，重点可围绕软件与互联网、人工智能、现代金融、科技服务、专业服务、现代商贸、文化创意等方向展开。",
+    "天河路商圈具有高密度商户、消费活动、品牌联动、合同合作、营销协同等运营需求，适合做商圈AI企服工具。",
+    "天河CBD商务楼宇、总部企业、数字服务企业、专业服务机构集聚，适合做会议协同、合同审阅、政策助手和企业供需协作。",
+    "天河区已推动人工智能行业大模型产业相关政策，适合把公开政策文本转化为企业看得懂的政策方向、材料清单和申报准备建议。",
+    "本项目不定位为重型政务平台或法律服务平台，而是帮助园区、商圈和企业服务窗口把高频运营问题做轻、做快、做准。"
+  ],
+  "official_reference_links": [
+    {
+      "name": "天河区投资动态与产业体系介绍",
+      "url": "https://www.thnet.gov.cn/zjth/tzth/tzdt/content/post_10121212.html"
+    },
+    {
+      "name": "天河路商圈介绍",
+      "url": "https://www.thnet.gov.cn/zjth/tzth/zlpt/content/post_9126462.html"
+    },
+    {
+      "name": "天河中央商务区介绍",
+      "url": "https://www.thnet.gov.cn/zjth/tzth/zlpt/content/post_8795050.html"
+    },
+    {
+      "name": "广州市天河区促进人工智能行业大模型产业高质量发展若干政策措施",
+      "url": "https://www.gz.gov.cn/gfxwj/qjgfxwj/thq/qbm/content/post_9961289.html"
+    }
+  ]
+}

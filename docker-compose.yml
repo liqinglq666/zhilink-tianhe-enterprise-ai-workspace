@@ -1,0 +1,32 @@
+services:
+  zhilian-tianhe-agent:
+    build: .
+    container_name: zhilian-tianhe-agent
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=Asia/Shanghai
+      - DATABASE_URL=sqlite:////app/runtime/zhilink.db
+      - AUTH_ALLOW_REGISTRATION=true
+      - PASSWORD_MIN_LENGTH=10
+      - SESSION_TTL_HOURS=168
+      - AUTH_COOKIE_SECURE=false
+      - SESSION_COOKIE_NAME=zhilink_session
+      - CSRF_COOKIE_NAME=zhilink_csrf
+      - MAX_BODY_BYTES=1500000
+      - RATE_LIMIT_REQUESTS=30
+      - RATE_LIMIT_WINDOW_SECONDS=60
+      - MAX_CONCURRENT_GENERATIONS_PER_CLIENT=1
+      - MODEL_REQUEST_TIMEOUT_SECONDS=120
+      - MODEL_TEST_TIMEOUT_SECONDS=20
+      - TRUST_PROXY_HEADERS=false
+      - CORS_ALLOW_ORIGINS=
+      - ALLOW_WILDCARD_CORS=false
+      - ENABLE_HSTS=false
+      - HSTS_MAX_AGE=31536000
+    volumes:
+      - zhilink_project_data:/app/runtime
+    restart: unless-stopped
+
+volumes:
+  zhilink_project_data:

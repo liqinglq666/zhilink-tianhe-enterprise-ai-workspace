@@ -1,0 +1,169 @@
+/* UI V4 foundation: typography, spacing and surface discipline. */
+body.ui-v4-shell.ui-v4-foundation {
+  --ui4-bg: #f5f7fa;
+  --ui4-surface: #ffffff;
+  --ui4-surface-subtle: #f8fafc;
+  --ui4-line: #e2e8f0;
+  --ui4-line-strong: #cbd5e1;
+  --ui4-text: #172033;
+  --ui4-text-secondary: #52637a;
+  --ui4-text-muted: #718096;
+  --ui4-primary: #2563eb;
+  --ui4-primary-hover: #1d4ed8;
+  --ui4-success: #047857;
+  --ui4-warning: #b45309;
+  --ui4-danger: #b91c1c;
+  --ui4-radius-xs: 6px;
+  --ui4-radius-sm: 8px;
+  --ui4-radius: 12px;
+  --ui4-radius-lg: 16px;
+  --ui4-shadow-xs: 0 1px 2px rgba(15, 23, 42, .04);
+  --ui4-shadow-sm: 0 4px 14px rgba(15, 23, 42, .055);
+  --ui4-shadow-md: 0 12px 32px rgba(15, 23, 42, .09);
+  color: var(--ui4-text);
+  background: var(--ui4-bg);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.ui-v4-foundation #home .section-toolbar p,
+.ui-v4-foundation .section-head p,
+.ui-v4-foundation .notice,
+.ui-v4-foundation .ui-v4-module-meta span,
+.ui-v4-foundation #home .module-card > p,
+.ui-v4-foundation #home .principle-grid span,
+.ui-v4-foundation .ui-v4-usage-note,
+.ui-v4-foundation .ui-v4-panel-empty,
+.ui-v4-foundation .ui-v4-pending-item small,
+.ui-v4-foundation #home .recent-item p,
+.ui-v4-foundation .report-card p,
+.ui-v4-foundation .api-drawer-intro p,
+.ui-v4-foundation .api-drawer-v4 .api-drawer-security-note,
+.ui-v4-foundation .api-drawer-field-footer small,
+.ui-v4-foundation .api-drawer-v4 .connection-msg {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ui-v4-foundation .ui-v4-top-nav > button,
+.ui-v4-foundation .ui-v4-account-toggle,
+.ui-v4-foundation label,
+.ui-v4-foundation .api-drawer-field-head label,
+.ui-v4-foundation button.primary,
+.ui-v4-foundation button.secondary,
+.ui-v4-foundation button.ghost,
+.ui-v4-foundation button.danger-light,
+.ui-v4-foundation .quick-fill-btn { font-size: 13px; }
+
+.ui-v4-foundation input,
+.ui-v4-foundation textarea,
+.ui-v4-foundation select,
+.ui-v4-foundation .api-drawer-v4 input:not([type="range"]),
+.ui-v4-foundation .api-drawer-v4 select {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.ui-v4-foundation #home .module-card h4,
+.ui-v4-foundation .ui-v4-home-panel h3,
+.ui-v4-foundation #home .recent-card .section-toolbar h3 { font-size: 15px; }
+
+.ui-v4-foundation .section-head h3,
+.ui-v4-foundation #home .section-toolbar h3 { font-size: 18px; }
+
+.ui-v4-foundation .result-panel { font-size: 14px; line-height: 1.72; }
+.ui-v4-foundation .result-panel h2 { font-size: 18px; }
+.ui-v4-foundation .result-panel h3 { font-size: 16px; }
+
+.ui-v4-foundation input:not([type="range"]),
+.ui-v4-foundation select {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--ui4-radius-sm);
+}
+.ui-v4-foundation textarea { padding: 11px 12px; border-radius: var(--ui4-radius-sm); }
+.ui-v4-foundation button.primary,
+.ui-v4-foundation button.secondary,
+.ui-v4-foundation button.ghost,
+.ui-v4-foundation button.danger-light {
+  min-height: 42px;
+  padding: 9px 15px;
+  border-radius: var(--ui4-radius-sm);
+}
+
+.ui-v4-foundation button:focus-visible,
+.ui-v4-foundation input:focus-visible,
+.ui-v4-foundation textarea:focus-visible,
+.ui-v4-foundation select:focus-visible,
+.ui-v4-foundation [role="button"]:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, .18);
+  outline-offset: 2px;
+}
+
+.ui-v4-foundation #home .hero-card,
+.ui-v4-foundation #home .recent-card,
+.ui-v4-foundation #home .ui-v4-home-panel,
+.ui-v4-foundation #home .module-card,
+.ui-v4-foundation .ui-v4-business-page > .content-card,
+.ui-v4-foundation .ui-v4-business-page > .result-panel {
+  border-color: var(--ui4-line);
+  box-shadow: var(--ui4-shadow-xs);
+}
+
+.ui-v4-foundation #home .module-card,
+.ui-v4-foundation .ui-v4-business-page > .content-card,
+.ui-v4-foundation .ui-v4-business-page > .result-panel { border-radius: var(--ui4-radius-lg); }
+
+.ui-v4-foundation #home .module-card:hover,
+.ui-v4-foundation #home .module-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: #bfdbfe;
+  box-shadow: var(--ui4-shadow-sm);
+}
+
+.ui-v4-foundation .sticky-actions { border-radius: var(--ui4-radius); box-shadow: var(--ui4-shadow-sm); }
+.ui-v4-foundation .topbar { background: rgba(248, 250, 252, .94); box-shadow: none; }
+.ui-v4-foundation .brand-icon,
+.ui-v4-foundation .nav button.active .ui-v4-nav-icon,
+.ui-v4-foundation .ui-v4-account-avatar { background: var(--ui4-primary); box-shadow: none; }
+.ui-v4-foundation .nav button { min-height: 44px; border-radius: var(--ui4-radius-sm); }
+.ui-v4-foundation .nav button.active { background: rgba(37, 99, 235, .24); box-shadow: none; }
+
+.ui-v4-foundation .ui-v4-metric {
+  border: 1px solid #edf1f5;
+  background: var(--ui4-surface-subtle);
+  border-radius: var(--ui4-radius-sm);
+}
+.ui-v4-foundation .ui-v4-metric strong { font-size: 22px; }
+.ui-v4-foundation .ui-v4-metric span,
+.ui-v4-foundation .ui-v4-panel-head span { font-size: 12px; }
+.ui-v4-foundation .ui-v4-pending-item strong,
+.ui-v4-foundation #home .recent-item h4,
+.ui-v4-foundation .report-card b { font-size: 13px; }
+
+.ui-v4-foundation .api-drawer-v4 .panel-title > span { font-size: 19px; }
+.ui-v4-foundation .api-drawer-v4 .panel-title,
+.ui-v4-foundation .api-drawer-v4 .api-body,
+.ui-v4-foundation .api-drawer-footer { border-color: var(--ui4-line); }
+.ui-v4-foundation .api-drawer-v4 .status-badge,
+.ui-v4-foundation .api-temperature-value,
+.ui-v4-foundation .api-drawer-text-action { font-size: 12px !important; }
+.ui-v4-foundation .api-drawer-v4 .ui-v4-api-close {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ui4-radius-sm);
+}
+
+.ui-v4-foundation .result-panel table { border-color: var(--ui4-line); border-radius: var(--ui4-radius); }
+.ui-v4-foundation .result-panel th,
+.ui-v4-foundation .result-panel td { padding: 10px 12px; }
+.ui-v4-foundation .result-panel th { font-size: 13px; background: #f8fafc; }
+.ui-v4-foundation .result-panel td { font-size: 13px; }
+
+@media (max-width: 720px) {
+  body.ui-v4-shell.ui-v4-foundation { font-size: 14px; }
+  .ui-v4-foundation .topbar h2 { font-size: 18px; }
+  .ui-v4-foundation #home .hero-content h3 { font-size: 26px; }
+  .ui-v4-foundation .ui-v4-business-page > .content-card { padding: 17px; }
+  .ui-v4-foundation .ui-v4-business-page > .result-panel { padding-left: 16px; padding-right: 16px; }
+}
