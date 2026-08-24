@@ -52,11 +52,12 @@
     byId("uiV4AccountToggle")?.setAttribute("aria-expanded", "false");
   }
   function openModelConfig() {
-    const panel = byId("apiPanel");
-    if (!panel) return false;
-    panel.classList.remove("collapsed");
-    document.body.classList.add("ui-v4-api-open");
-    window.ZHILINK_UI_V4_RUNTIME?.schedule?.("model-open");
+    const drawer = window.ZHILINK_API_DRAWER_V4;
+    if (!drawer || typeof drawer.open !== "function") {
+      notify("AI 服务设置仍在初始化，请稍后重试。");
+      return false;
+    }
+    drawer.open();
     return true;
   }
 
