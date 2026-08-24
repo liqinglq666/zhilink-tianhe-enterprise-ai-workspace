@@ -28,6 +28,7 @@ def test_api_drawer_is_loaded_from_native_v4_shell_before_model_controller() -> 
 
 def test_api_drawer_is_native_markup_and_controller_only_manages_open_state() -> None:
     script = (ASSETS / "api-drawer-v4.js").read_text(encoding="utf-8")
+    shell = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "api-drawer-v4.css").read_text(encoding="utf-8")
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
@@ -51,6 +52,13 @@ def test_api_drawer_is_native_markup_and_controller_only_manages_open_state() ->
     assert 'panel.setAttribute("role", "dialog")' not in script
     assert 'panel.setAttribute("aria-modal", "true")' not in script
     assert 'panel.setAttribute("aria-labelledby", "apiDrawerTitle")' not in script
+
+    assert "window.ZHILINK_API_DRAWER_V4" in shell
+    assert "drawer.open()" in shell
+    assert 'document.body.classList.add("ui-v4-api-open")' not in shell
+    assert 'document.body.classList.remove("ui-v4-api-open")' not in shell
+    assert 'panel.classList.remove("collapsed")' not in shell
+    assert 'byId("apiPanel")' not in shell
 
     assert "body.ui-v4-shell .api-panel.api-drawer-v4" in stylesheet
     assert "body.ui-v4-shell.ui-v4-api-open .api-panel.api-drawer-v4" in stylesheet
