@@ -1,6 +1,5 @@
-/* Enterprise customer presentation layer: translate technical implementation details into business-facing UI copy. */
+/* Enterprise customer presentation layer: business-facing copy and UI hygiene. */
 (() => {
-  const STYLE_URL = "/assets/enterprise-user-view.css?v=20260824.1";
   const STATUS_LABELS = {
     draft: "草稿",
     active: "处理中",
@@ -38,6 +37,14 @@
     update_assignment: "调整责任人",
   };
   const ROLE_LABELS = { owner: "所有者", admin: "管理员", editor: "编辑者", viewer: "只读成员", anonymous: "本机用户" };
+  const TOAST_REWRITES = [
+    [/模型配置已保存/g, "AI 服务设置已保存"],
+    [/已切换当前编辑内容为公共模型，保存后生效/g, "已选择平台 AI 服务，保存后生效"],
+    [/已从当前编辑内容中清空 API Key，保存后生效/g, "已清除访问密钥，保存后生效"],
+    [/已生成示例结果；不会计入正式工作台、待核对事项或运营报告/g, "示例内容仅供体验，不会加入当前项目、待处理事项或报告"],
+    [/当前包含示例或旧会话材料。请先清除隔离材料，再保存正式项目/g, "当前包含示例或历史会话内容。请先清除这些内容，再保存项目"],
+    [/已清除 (\d+) 项示例或旧会话材料/g, "已清除 $1 项示例或历史会话内容"],
+  ];
   const TECH_CODE_RE = /^(?:THKB-[A-Z0-9-]+@v\d+|POL-[A-Z0-9-]+|[A-Z]{2,}-[A-Z0-9-]+@v\d+)$/i;
   let queued = false;
   let advancedInitialized = false;
@@ -45,14 +52,6 @@
   function byId(id) { return document.getElementById(id); }
   function setText(element, value) {
     if (element && element.textContent !== String(value)) element.textContent = String(value);
-  }
-  function ensureStyles() {
-    if (document.querySelector("link[data-enterprise-user-view]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = STYLE_URL;
-    link.dataset.enterpriseUserView = "true";
-    document.head.appendChild(link);
   }
   function setPlaceholder(id, value) {
     const element = byId(id);
@@ -76,6 +75,31 @@
     });
   }
 
+  function fixServiceDialogTitleId() {
+    const dialog = document.querySelector("#serviceWorkflowModal .service-workflow-dialog");
+    const title = dialog?.querySelector(":scope > header h2");
+    if (!dialog || !title) return;
+    if (title.id === "swTitle") title.id = "swDialogTitle";
+    if (dialog.getAttribute("aria-labelledby") === "swTitle") dialog.setAttribute("aria-labelledby", "swDialogTitle");
+  }
+
+  function rewriteToastMessage(message) {
+    let value = String(message || "");
+    TOAST_REWRITES.forEach(([pattern, replacement]) => { value = value.replace(pattern, replacement); });
+    return value;
+  }
+
+  function wrapToast() {
+    const original = window.toast;
+    if (typeof original !== "function" || original.__enterpriseWrapped) return;
+    const wrapped = function enterpriseToast(message) {
+      return original.call(this, rewriteToastMessage(message));
+    };
+    wrapped.__enterpriseWrapped = true;
+    wrapped.__enterpriseOriginal = original;
+    window.toast = wrapped;
+  }
+
   function decorateStaticShell() {
     setText(document.querySelector('[data-ui-v4-account="api"]'), "AI 服务设置");
     setText(byId("openApiSettings"), "AI 服务设置");
@@ -89,9 +113,7 @@
     const reportCards = document.querySelectorAll("#report .report-card");
     reportCards.forEach(card => {
       const label = card.querySelector("b")?.textContent?.trim();
-      if (label === "导出格式") {
-        setText(card.querySelector("strong"), "Word / Markdown / 文本");
-      }
+      if (label === "导出格式") setText(card.querySelector("strong"), "Word / Markdown / 文本");
       if (label === "安全边界" || label === "导出范围") {
         setText(card.querySelector("b"), "导出范围");
         setText(card.querySelector("strong"), "仅导出业务内容");
@@ -284,11 +306,11 @@
     });
     return next;
   }
+
   function decorateServiceWorkflow() {
     const modal = byId("serviceWorkflowModal");
     if (!modal) return;
     setText(modal.querySelector(".service-workflow-dialog > header .track"), "服务跟进");
-    setText(byId("swTitle"), byId("swTitle")?.tagName === "H2" ? "事项进度与责任协作" : byId("swTitle")?.textContent || "");
     const modalTitle = modal.querySelector(".service-workflow-dialog > header h2");
     setText(modalTitle, "事项进度与责任协作");
     setText(modal.querySelector(".service-workflow-dialog > header p"), "围绕当前项目推进负责人、关键节点、复核和结项。项目内容更新后请同步更新办理依据。");
@@ -352,7 +374,8 @@
 
   function apply() {
     queued = false;
-    ensureStyles();
+    fixServiceDialogTitleId();
+    wrapToast();
     decorateStaticShell();
     decorateModelSettings();
     decorateAccount();
@@ -361,11 +384,13 @@
     decorateServiceWorkflow();
     window.ZHILINK_ENTERPRISE_USER_VIEW_READY = true;
   }
+
   function schedule() {
     if (queued) return;
     queued = true;
     requestAnimationFrame(apply);
   }
+
   function start() {
     apply();
     document.addEventListener("click", interceptServiceContextPrompt, true);
