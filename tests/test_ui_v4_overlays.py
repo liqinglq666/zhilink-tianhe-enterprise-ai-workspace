@@ -37,6 +37,18 @@ def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     assert 'window.ZHILINK_UI_V4_OVERLAYS_READY = true' in script
 
 
+def test_policy_source_modal_delegates_keyboard_and_focus_to_overlay_controller() -> None:
+    policy = (ASSETS / "policy-sources.js").read_text(encoding="utf-8")
+    overlays = (ASSETS / "ui-v4-overlays.js").read_text(encoding="utf-8")
+
+    assert 'window.ZHILINK_UI_V4_RUNTIME?.schedule?.("policy-sources-open")' in policy
+    assert 'window.ZHILINK_UI_V4_RUNTIME?.schedule?.("policy-sources-close")' in policy
+    assert 'event.key === "Escape"' not in policy
+    assert 'key: "policy-sources"' in overlays
+    assert '#officialPolicyModal .policy-source-dialog' in overlays
+    assert '[data-close-policy-sources]' in overlays
+
+
 def test_overlay_controller_does_not_own_business_or_persistence_logic() -> None:
     script = (ASSETS / "ui-v4-overlays.js").read_text(encoding="utf-8")
 
