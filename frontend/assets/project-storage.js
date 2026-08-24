@@ -7,6 +7,7 @@
   const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
   const RESTORE_SECTION_STORAGE = contracts.storage.restoreSection;
   const PROJECT_TIMEOUT_MS = 20000;
+  const PERSISTED_META_FIELDS = ["origin", "example_key", "result_schema_version"];
   const MODULE_LABELS = {
     project: "项目信息",
     identity: "使用身份",
@@ -99,11 +100,16 @@
   function cleanMeta(meta) {
     const result = {};
     Object.entries(meta || {}).slice(0, 12).forEach(([key, value]) => {
-      result[key] = {
+      const cleaned = {
         mode: String(value?.mode || "").slice(0, 200),
         error: String(value?.error || "").slice(0, 1000),
         time: String(value?.time || "").slice(0, 100),
       };
+      PERSISTED_META_FIELDS.forEach(field => {
+        const current = value?.[field];
+        if (typeof current === "string" && current) cleaned[field] = current.slice(0, 200);
+      });
+      result[key] = cleaned;
     });
     return result;
   }
