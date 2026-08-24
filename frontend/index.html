@@ -17,7 +17,6 @@
   <link rel="stylesheet" href="/assets/ui-v4-forms.css?v=20260811.1" data-ui-v4-forms="true" />
   <link rel="stylesheet" href="/assets/ui-v4-results.css?v=20260811.1" data-ui-v4-results="true" />
   <link rel="stylesheet" href="/assets/ui-v4-final-qa.css?v=20260811.1" data-ui-v4-final-qa="true" />
-  <link rel="stylesheet" href="/assets/enterprise-user-view.css?v=20260824.1" data-enterprise-user-view="true" />
 </head>
 <body class="ui-v4-shell ui-v4-foundation ui-v4-dashboard ui-v4-workspace ui-v4-states ui-v4-forms ui-v4-results ui-v4-final-qa">
   <div class="shell">
@@ -79,7 +78,7 @@
               <div id="uiV4AccountMenu" class="ui-v4-account-menu" hidden>
                 <button type="button" data-ui-v4-account="account">账户与组织</button>
                 <button type="button" data-ui-v4-account="identity">使用身份</button>
-                <button type="button" data-ui-v4-account="api">模型配置</button>
+                <button type="button" data-ui-v4-account="api">AI 服务设置</button>
                 <button type="button" data-ui-v4-account="service">服务跟进</button>
                 <hr />
                 <button type="button" class="ui-v4-danger" data-ui-v4-account="clear">清空本次会话</button>
@@ -89,9 +88,9 @@
 
           <!-- Business feature scripts still own these source controls; V4 presents one authoritative top navigation. -->
           <div class="identity-chip" id="identityChip" title="当前使用身份"><span>当前身份</span><strong id="identityDisplay">未设置</strong></div>
-          <span id="topApiStatus" class="top-status pending">正在检查模型</span>
+          <span id="topApiStatus" class="top-status pending">正在检查服务</span>
           <button id="openIdentity" class="secondary" type="button">设置身份</button>
-          <button id="openApiSettings" class="secondary" type="button">配置模型</button>
+          <button id="openApiSettings" class="secondary" type="button">AI 服务设置</button>
           <button id="clearAll" class="danger-light" type="button">清空会话</button>
         </div>
       </header>
@@ -111,7 +110,7 @@
           </div>
           <section id="uiV4PendingPanel" class="ui-v4-home-panel ui-v4-attention-panel">
             <div class="ui-v4-panel-head"><h3>需要你处理</h3><span id="uiV4PendingCount">0 项</span></div>
-            <div id="uiV4PendingList" class="ui-v4-pending-list"><p class="ui-v4-panel-empty">当前正式材料中没有识别到待确认事项。</p></div>
+            <div id="uiV4PendingList" class="ui-v4-pending-list"><p class="ui-v4-panel-empty">当前没有待你确认的事项。新结果需要复核时会显示在这里。</p></div>
           </section>
         </div>
 
@@ -158,19 +157,19 @@
               <div><h3>最近材料</h3><p>展示当前正式业务材料，可快速返回对应模块查看或复制。</p></div>
               <button data-goto="report" class="secondary small" type="button">进入报告归档</button>
             </div>
-            <div id="recentMaterials" class="recent-list empty">暂无正式材料。输入真实业务内容并生成后，这里会显示最近材料。</div>
+            <div id="recentMaterials" class="recent-list empty">还没有最近结果。完成一次业务任务后，这里会显示你的最新材料。</div>
           </div>
           <section id="uiV4UsagePanel" class="ui-v4-home-panel ui-v4-usage-panel">
-            <div class="ui-v4-panel-head"><h3>工作状态</h3><span>正式材料</span></div>
+            <div class="ui-v4-panel-head"><h3>工作状态</h3><span>工作概览</span></div>
             <div id="uiV4Metrics" class="ui-v4-metrics"></div>
             <p id="uiV4UsageNote" class="ui-v4-usage-note">正在读取工作区状态…</p>
           </section>
         </div>
 
         <div class="governance-card ui-v4-safety-strip" aria-label="使用边界">
-          <div><h3>使用原则</h3><p>系统定位为企业运营辅助工具，生成内容需由业务负责人或专业人员复核后使用。</p></div>
+          <div><h3>使用与复核</h3><p>系统定位为企业运营辅助工具，生成内容需由业务负责人或专业人员复核后使用。</p></div>
           <div class="principle-grid">
-            <div><b>模型调用</b><span>可使用平台公共模型，或由使用者配置企业批准的自定义接口。</span></div>
+            <div><b>AI 服务</b><span>默认使用平台提供的 AI 服务；如企业有专属模型，可由管理员在设置中接入。</span></div>
             <div><b>业务材料</b><span>建议脱敏输入合同、客户、会员和经营数据。</span></div>
             <div><b>结果复核</b><span>AI 输出作为初稿和辅助判断，不替代专业意见。</span></div>
           </div>
@@ -250,9 +249,9 @@
             <label>试点场景<input id="pilotScene" placeholder="如：天河路商圈/园区企业服务窗口" /></label>
             <label>使用角色<input id="userRoles" placeholder="如：商圈运营人员、企业服务人员、企业负责人" /></label>
             <label>数据范围<input id="dataScope" placeholder="如：会议记录、合同条款、政策需求、供需信息" /></label>
-            <label>部署方式<input id="deployment" placeholder="如：FastAPI网页应用，用户自填API Key，不持久化业务原文" /></label>
+            <label>部署方式<input id="deployment" placeholder="如：企业网页工作台，按组织权限使用，敏感业务原文按需脱敏" /></label>
             <label>试点周期<input id="pilotPeriod" placeholder="如：1个月小范围试点" /></label>
-            <label>复核机制<input id="reviewMode" placeholder="如：AI生成结果由业务负责人或专业人员人工复核" /></label>
+            <label>复核机制<input id="reviewMode" placeholder="如：生成结果由业务负责人或专业人员复核确认" /></label>
           </div>
           <div class="button-row sticky-actions"><button id="runLanding" class="primary">生成实施计划</button><button data-goto="report" class="secondary">进入报告归档</button></div>
         </div>
@@ -264,8 +263,8 @@
           <div class="section-head"><span>报</span><div><h3>报告归档</h3><p>按需汇总已生成材料，导出用于内部流转、服务台账或客户沟通的报告。</p></div></div>
           <div class="report-grid">
             <div class="report-card"><b>已生成模块</b><strong id="reportDoneCount">0/6</strong><p>无需全部完成，系统会汇总当前已有结果。</p></div>
-            <div class="report-card"><b>导出格式</b><strong>MD / TXT / DOCX</strong><p>可用于内部流转、服务台账或客户沟通。</p></div>
-            <div class="report-card"><b>安全边界</b><strong>不含 API Key</strong><p>报告只包含生成结果，不导出密钥配置。</p></div>
+            <div class="report-card"><b>导出格式</b><strong>Word / Markdown / 文本</strong><p>可用于内部流转、服务台账或客户沟通。</p></div>
+            <div class="report-card"><b>导出范围</b><strong>仅导出业务内容</strong><p>导出文件仅包含业务材料，不包含 AI 服务设置。</p></div>
           </div>
           <div class="button-row sticky-actions"><button id="runReport" class="primary">AI 整合运营报告</button><button id="downloadMarkdown" class="secondary">下载 Markdown</button><button id="downloadTxt" class="secondary">下载 TXT</button><button id="downloadDocx" class="secondary">下载 Word DOCX</button></div>
         </div>
@@ -278,32 +277,32 @@
 
   <aside id="apiPanel" class="api-panel api-drawer-v4" data-api-drawer-v4="true" role="dialog" aria-modal="true" aria-labelledby="apiDrawerTitle" aria-hidden="true">
     <div class="panel-title">
-      <span id="apiDrawerTitle">模型配置</span>
+      <span id="apiDrawerTitle">AI 服务设置</span>
       <div class="panel-actions">
         <span id="modeBadge" class="status-badge local">检查中</span>
         <button id="toggleApiPanel" class="collapse-btn" type="button" aria-expanded="true" hidden>收起</button>
-        <button id="uiV4ApiClose" class="ui-v4-api-close" type="button" aria-label="关闭模型配置"><span aria-hidden="true">×</span></button>
+        <button id="uiV4ApiClose" class="ui-v4-api-close" type="button" aria-label="关闭 AI 服务设置"><span aria-hidden="true">×</span></button>
       </div>
     </div>
     <div id="apiPanelBody" class="api-body">
-      <div class="api-drawer-intro"><div class="api-drawer-intro-icon" aria-hidden="true">AI</div><div><strong>大模型连接</strong><p>优先使用部署方提供的公共模型；仅在企业需要时配置自定义兼容接口。</p></div></div>
-      <p class="tip api-drawer-security-note">API Key 仅保存在当前浏览器会话；Base URL、模型名称和温度保存在当前浏览器，不会写入业务报告。</p>
+      <div class="api-drawer-intro"><div class="api-drawer-intro-icon" aria-hidden="true">AI</div><div><strong>AI 服务</strong><p>使用平台服务时无需额外设置；企业如需接入自有服务，可在高级连接设置中维护。</p></div></div>
+      <p class="tip api-drawer-security-note">敏感连接信息只用于当前浏览器中的服务设置，不会写入项目或导出的业务材料。</p>
       <div class="api-drawer-fields">
-        <section class="api-drawer-field"><div class="api-drawer-field-head"><label for="providerSelect">接口类型</label></div><select id="providerSelect"></select><div class="api-drawer-field-footer"><small>公共模型可用时无需填写自定义接口。</small></div></section>
-        <section class="api-drawer-field"><div class="api-drawer-field-head"><label for="apiKey">API Key</label></div><div class="key-row"><input id="apiKey" type="password" placeholder="自定义模型时填写" autocomplete="off" /><button id="toggleKey" type="button" class="icon-btn" aria-label="显示或隐藏 API Key">👁</button></div><div class="api-drawer-field-footer"><small>自定义 Key 仅用于当前会话。</small><button id="clearKey" type="button" class="ghost api-drawer-text-action">清空 API Key</button></div></section>
-        <section class="api-drawer-field"><div class="api-drawer-field-head"><label for="baseUrl">Base URL</label></div><input id="baseUrl" type="text" /><div class="api-drawer-field-footer"><small>自定义 API 时填写 OpenAI 兼容接口地址。</small></div></section>
+        <section class="api-drawer-field"><div class="api-drawer-field-head"><label for="providerSelect">服务方式</label></div><select id="providerSelect"></select><div class="api-drawer-field-footer"><small>平台服务可用时无需配置企业自有服务。</small></div></section>
+        <section class="api-drawer-field"><div class="api-drawer-field-head"><label for="apiKey">访问密钥</label></div><div class="key-row"><input id="apiKey" type="password" placeholder="接入企业自有 AI 服务时填写" autocomplete="off" /><button id="toggleKey" type="button" class="icon-btn" aria-label="显示或隐藏访问密钥">👁</button></div><div class="api-drawer-field-footer"><small>访问密钥仅用于当前会话。</small><button id="clearKey" type="button" class="ghost api-drawer-text-action">清除访问密钥</button></div></section>
+        <section class="api-drawer-field"><div class="api-drawer-field-head"><label for="baseUrl">服务地址</label></div><input id="baseUrl" type="text" /><div class="api-drawer-field-footer"><small>接入企业自有 AI 服务时填写兼容接口地址。</small></div></section>
         <section class="api-drawer-field"><div class="api-drawer-field-head"><label for="modelName">模型名称</label></div><input id="modelName" type="text" /><div class="api-drawer-field-footer"><small>填写实际可调用的模型名称。</small></div></section>
-        <section class="api-drawer-field"><div class="api-drawer-field-head"><label for="temperature">生成温度</label><span id="tempValue" class="api-temperature-value">0.35</span></div><input id="temperature" type="range" min="0" max="1" step="0.05" value="0.35" /><div class="api-drawer-field-footer"><small>企业材料建议使用较低到中等温度。</small></div></section>
+        <section class="api-drawer-field"><div class="api-drawer-field-head"><label for="temperature">生成稳定性</label><span id="tempValue" class="api-temperature-value">0.35</span></div><input id="temperature" type="range" min="0" max="1" step="0.05" value="0.35" /><div class="api-drawer-field-footer"><small>企业材料建议使用较低到中等设置。</small></div></section>
       </div>
       <div id="connectionResult" class="connection-msg"></div>
     </div>
-    <footer class="api-drawer-footer"><button id="testConnection" class="secondary api-drawer-test" type="button">测试连接</button><button id="saveApiConfig" class="primary api-drawer-save" type="button">保存配置</button></footer>
+    <footer class="api-drawer-footer"><button id="testConnection" class="secondary api-drawer-test" type="button">检查服务</button><button id="saveApiConfig" class="primary api-drawer-save" type="button">保存设置</button></footer>
   </aside>
   <div id="uiV4ApiBackdrop" class="ui-v4-api-backdrop" aria-hidden="true"></div>
 
   <div id="identityModal" class="modal-backdrop" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="identityTitle">
-      <div class="modal-head"><div><span class="track">使用身份</span><h3 id="identityTitle">设置当前使用身份</h3><p>用于调整报告抬头、首页状态和生成内容中的业务视角；不涉及注册登录。</p></div><button id="closeIdentity" class="icon-btn" type="button" aria-label="关闭身份设置">×</button></div>
+      <div class="modal-head"><div><span class="track">使用身份</span><h3 id="identityTitle">设置当前使用身份</h3><p>用于调整报告抬头、首页状态和生成内容中的业务视角。</p></div><button id="closeIdentity" class="icon-btn" type="button" aria-label="关闭身份设置">×</button></div>
       <div class="form-grid two"><label>单位 / 团队名称<input id="identityOrg" placeholder="如：天河路商圈运营中心" /></label><label>使用角色<select id="identityRole"><option value="企业用户">企业用户</option><option value="园区服务人员">园区服务人员</option><option value="商圈运营人员">商圈运营人员</option><option value="项目管理员">项目管理员</option></select></label></div>
       <label>联系人 / 备注（可选）<input id="identityContact" placeholder="如：运营负责人 / 项目联系人" /></label>
       <div class="button-row sticky-actions"><button id="saveIdentity" class="primary" type="button">保存身份</button><button id="resetIdentity" class="secondary" type="button">清除身份</button></div>
