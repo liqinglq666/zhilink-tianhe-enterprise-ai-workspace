@@ -40,8 +40,10 @@ def test_data_provenance_is_one_self_contained_asset() -> None:
     assert 'contract: "20260807-contract-grounded-v3"' in core.text
     assert 'policy: "20260807-policy-grounded-v3"' in core.text
     assert "QUARANTINE_STORAGE = contracts.storage.legacyQuarantine" in core.text
-    assert 'STYLE_URL = "/assets/data-provenance-guard.css?v=20260806.1"' in core.text
-    assert "function ensureStyles()" in core.text
+    assert "STYLE_URL" not in core.text
+    assert "ensureStyles" not in core.text
+    assert 'link[data-zhilink-data-provenance]' not in core.text
+    assert 'document.createElement("link")' not in core.text
     assert "ZHILINK_DATA_PROVENANCE_READY" in core.text
     assert "CORE_SCRIPT" not in core.text
     assert "document.createElement(\"script\")" not in core.text
