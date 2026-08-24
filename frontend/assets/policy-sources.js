@@ -65,14 +65,6 @@
   }
 
   function injectUi() {
-    if (!document.querySelector("link[data-policy-sources]")) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = "/assets/policy-sources.css";
-      link.dataset.policySources = "true";
-      document.head.appendChild(link);
-    }
-
     const runButton = document.getElementById("runPolicy");
     if (runButton && !document.getElementById("searchOfficialPolicy")) {
       const button = document.createElement("button");
