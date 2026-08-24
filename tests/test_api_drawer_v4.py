@@ -52,6 +52,9 @@ def test_api_drawer_is_native_markup_and_controller_only_manages_open_state() ->
     assert 'panel.setAttribute("role", "dialog")' not in script
     assert 'panel.setAttribute("aria-modal", "true")' not in script
     assert 'panel.setAttribute("aria-labelledby", "apiDrawerTitle")' not in script
+    assert "document.activeElement" not in script
+    assert 'document.getElementById("modelConfigAdvancedSettingsSummary")' not in script
+    assert ".focus(" not in script
 
     assert "window.ZHILINK_API_DRAWER_V4" in shell
     assert "drawer.open()" in shell
@@ -95,7 +98,6 @@ def test_api_drawer_styles_are_owned_by_static_html() -> None:
     assert 'document.createElement("link")' not in script
     assert '.rel = "stylesheet"' not in script
     assert "const VERSION =" not in script
-    assert 'document.getElementById("modelConfigAdvancedSettingsSummary")' in script
 
 
 def test_api_drawer_preserves_customer_security_copy_and_control_ids_in_native_html() -> None:
