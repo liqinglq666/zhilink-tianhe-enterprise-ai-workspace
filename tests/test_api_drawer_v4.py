@@ -60,6 +60,23 @@ def test_api_drawer_is_native_markup_and_controller_only_manages_open_state() ->
     assert "live-api-" not in stylesheet
 
 
+def test_base_app_no_longer_owns_legacy_api_panel_collapse_behavior() -> None:
+    script = (ASSETS / "app.js").read_text(encoding="utf-8")
+
+    for obsolete in (
+        "zhilian_api_panel_collapsed",
+        '$("toggleApiPanel").addEventListener',
+        'panel.classList.contains("collapsed")',
+        'panel.classList.toggle("collapsed"',
+        'panel.classList.add("collapsed")',
+        "请在左侧填写并测试模型 API",
+    ):
+        assert obsolete not in script
+
+    assert 'document.body.classList.add("ui-v4-api-open")' not in script
+    assert 'document.body.classList.remove("ui-v4-api-open")' not in script
+
+
 def test_api_drawer_styles_are_owned_by_static_html() -> None:
     script = (ASSETS / "api-drawer-v4.js").read_text(encoding="utf-8")
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
