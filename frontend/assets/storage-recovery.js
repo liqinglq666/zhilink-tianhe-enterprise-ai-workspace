@@ -15,7 +15,6 @@
     stylesheet.dataset.projectHistory = "true";
     stylesheet.dataset.policySources = "true";
     stylesheet.dataset.knowledgeBase = "true";
-    stylesheet.dataset.serviceWorkflow = "true";
     stylesheet.dataset.zhilinkDataProvenance = "true";
     document.head.appendChild(stylesheet);
   }
