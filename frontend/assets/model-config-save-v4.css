@@ -1,4 +1,4 @@
-/* Explicit save state for the V4 model configuration drawer. */
+/* Explicit save state and advanced controls for the V4 model configuration drawer. */
 .api-drawer-footer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -57,6 +57,52 @@
   font-size: 12px;
   line-height: 1.55;
 }
+
+.model-config-advanced {
+  margin: 4px 0 0;
+  border: 1px solid #dfe7f1;
+  border-radius: 13px;
+  background: #fbfcfe;
+  overflow: hidden;
+}
+
+.model-config-advanced > summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  color: #334b68;
+  font-size: 12px;
+  font-weight: 820;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.model-config-advanced > summary::-webkit-details-marker { display: none; }
+
+.model-config-advanced > summary::after {
+  content: "⌄";
+  color: #8090a4;
+  font-size: 16px;
+  transition: transform .18s ease;
+}
+
+.model-config-advanced[open] > summary::after { transform: rotate(180deg); }
+.model-config-advanced[open] > summary { border-bottom: 1px solid #e5ebf2; background: #fff; }
+
+.model-config-advanced-note {
+  margin: 0;
+  padding: 12px 14px 0;
+  color: #718197;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.model-config-advanced .api-drawer-fields { padding: 12px 14px 15px; }
+.model-config-advanced:focus-within { border-color: #a9c5ed; box-shadow: 0 0 0 3px rgba(37,99,235,.07); }
 
 @media (max-width: 720px) {
   .api-drawer-footer {
