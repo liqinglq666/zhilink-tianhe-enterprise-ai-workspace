@@ -1,18 +1,5 @@
-/* Recover known workspace JSON keys and load shared feature styles before feature modules start. */
+/* Recover known workspace JSON keys before feature modules start. */
 (() => {
-  const FEATURE_STYLES_URL = "/assets/feature-styles.css?v=20260824.2";
-
-  function ensureFeatureStyles() {
-    if (document.querySelector("link[data-zhilink-feature-styles]")) return;
-    const stylesheet = document.createElement("link");
-    stylesheet.rel = "stylesheet";
-    stylesheet.href = FEATURE_STYLES_URL;
-    stylesheet.dataset.zhilinkFeatureStyles = "true";
-    document.head.appendChild(stylesheet);
-  }
-
-  ensureFeatureStyles();
-
   const targets = [
     [localStorage, "zhilian_identity"],
     [localStorage, "zhilian_current_project_v1"],
@@ -34,7 +21,6 @@
     }
   }
 
-  window.ZHILINK_FEATURE_STYLES_READY = true;
   window.ZHILINK_STORAGE_RECOVERY = Object.freeze({ recovered: Object.freeze(recovered) });
   if (recovered.length) console.warn("Recovered invalid workspace storage", recovered);
 })();

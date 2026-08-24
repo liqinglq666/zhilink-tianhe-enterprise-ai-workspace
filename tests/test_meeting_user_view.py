@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
 VIEW_SOURCE = ASSETS / "meeting-user-view.js"
 VIEW_STYLE = ASSETS / "meeting-user-view.css"
+INDEX = ROOT / "frontend" / "index.html"
 ROUTES_SOURCE = ROOT / "backend" / "project_routes.py"
 
 
@@ -37,15 +38,20 @@ def test_meeting_view_preserves_a_source_drawer_without_exposing_internal_ids():
     assert "pendingItems(rawMeeting())" in source
 
 
-def test_meeting_view_styles_are_owned_by_feature_stylesheet_not_runtime_injection():
+def test_meeting_view_styles_are_owned_by_native_html_not_runtime_injection():
     source = VIEW_SOURCE.read_text(encoding="utf-8")
     stylesheet = VIEW_STYLE.read_text(encoding="utf-8")
-    manifest = (ASSETS / "feature-styles.css").read_text(encoding="utf-8")
+    html = INDEX.read_text(encoding="utf-8")
 
-    assert "meeting-user-view.css" in manifest
+    marker = 'href="/assets/meeting-user-view.css"'
+    assert html.count(marker) == 1
+    assert html.index(marker) < html.index('href="/assets/ui-v4-shell.css?v=20260811.1"')
+    assert "feature-styles.css" not in html
     assert ".meeting-source-modal" in stylesheet
     assert ".meeting-source-dialog" in stylesheet
     assert ".meeting-source-pending" in stylesheet
+    assert "meeting-user-view.css" not in source
+    assert 'document.createElement("link")' not in source
     assert 'document.createElement("style")' not in source
     assert "style.dataset.meetingUserView" not in source
     assert "style.textContent" not in source
