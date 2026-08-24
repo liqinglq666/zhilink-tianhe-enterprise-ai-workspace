@@ -61,8 +61,9 @@ def test_example_and_legacy_results_are_not_formal_workspace_data() -> None:
     assert 'hooks.register("results:collect", collectFormalResults)' in script
     assert "collectBaseResults =" not in script
     assert "collectResultsForReport =" not in script
-    assert "示例生成 · 不计入正式工作台" in script
-    assert "旧会话材料 · 已隔离" in script
+    assert 'origin === "example" ? "示例内容" : "历史会话内容"' in script
+    assert "示例生成 · 不计入正式工作台" not in script
+    assert "旧会话材料 · 已隔离" not in script
 
 
 def test_provenance_uses_result_events_without_function_or_dom_observers() -> None:
@@ -100,8 +101,23 @@ def test_provenance_refreshes_v4_shell_without_owning_dashboard_panels() -> None
 def test_example_material_cannot_be_saved_as_formal_project() -> None:
     script = (ASSETS / "data-provenance-guard.js").read_text(encoding="utf-8")
     assert 'event.target.closest?.("#createProjectButton, #saveProjectButton")' in script
-    assert "请先清除隔离材料，再保存正式项目" in script
+    assert "当前包含示例或历史会话内容。请先清除这些内容，再保存项目。" in script
+    assert "请先清除隔离材料，再保存正式项目" not in script
     assert "stopImmediatePropagation" in script
+
+
+def test_provenance_customer_copy_is_native_and_business_facing() -> None:
+    script = (ASSETS / "data-provenance-guard.js").read_text(encoding="utf-8")
+
+    for expected in (
+        "示例内容仅供体验，不会加入当前项目、待处理事项或报告。",
+        "暂无已加入项目的正式材料。示例和历史会话内容不会显示在这里。",
+        "有 ${keys.length} 项示例或历史会话内容未加入当前项目",
+        "示例和历史会话内容不会加入项目、待处理事项或报告",
+        "清除这些内容",
+        "已清除 ${keys.length} 项示例或历史会话内容。",
+    ):
+        assert expected in script
 
 
 def test_v4_dashboard_metrics_and_pending_items_use_formal_results_only() -> None:

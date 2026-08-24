@@ -4,9 +4,6 @@
     [/模型配置已保存/g, "AI 服务设置已保存"],
     [/已切换当前编辑内容为公共模型，保存后生效/g, "已选择平台 AI 服务，保存后生效"],
     [/已从当前编辑内容中清空 API Key，保存后生效/g, "已清除访问密钥，保存后生效"],
-    [/已生成示例结果；不会计入正式工作台、待核对事项或运营报告/g, "示例内容仅供体验，不会加入当前项目、待处理事项或报告"],
-    [/当前包含示例或旧会话材料。请先清除隔离材料，再保存正式项目/g, "当前包含示例或历史会话内容。请先清除这些内容，再保存项目"],
-    [/已清除 (\d+) 项示例或旧会话材料/g, "已清除 $1 项示例或历史会话内容"],
   ];
 
   let queued = false;
@@ -193,27 +190,6 @@
     advancedInitialized = true;
   }
 
-  function decorateProvenance() {
-    const notice = byId("dataIsolationNotice");
-    if (notice) {
-      const strong = notice.querySelector("strong");
-      const count = strong?.textContent.match(/(\d+)\s*项/)?.[1] || "";
-      if (strong) setText(strong, count ? `有 ${count} 项示例或历史会话内容未加入当前项目` : "有示例或历史会话内容未加入当前项目");
-      const paragraph = notice.querySelector("p");
-      if (paragraph) setText(paragraph, "示例和历史会话内容不会加入项目、待处理事项或报告；如需正式使用，请换成真实业务输入后重新生成。");
-      setText(byId("clearIsolatedResults"), "清除这些内容");
-    }
-    document.querySelectorAll(".data-origin-pill").forEach(badge => {
-      const value = badge.textContent;
-      if (value.includes("示例")) setText(badge, "示例内容");
-      else if (value.includes("旧会话") || value.includes("历史会话")) setText(badge, "历史会话内容");
-    });
-    const recent = byId("recentMaterials");
-    if (recent?.classList.contains("empty") && /已隔离|旧会话|示例/.test(recent.textContent)) {
-      setText(recent, "暂无已加入项目的正式材料。示例和历史会话内容不会显示在这里。");
-    }
-  }
-
   function syncAdvancedState() {
     const details = byId("enterpriseAdvancedAiSettings");
     if (!details || !advancedInitialized) return;
@@ -226,7 +202,6 @@
     wrapToast();
     decorateStaticShell();
     decorateModelSettings();
-    decorateProvenance();
     syncAdvancedState();
     window.ZHILINK_ENTERPRISE_USER_VIEW_READY = true;
   }

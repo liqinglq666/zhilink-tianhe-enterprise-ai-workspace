@@ -185,7 +185,7 @@
       detail: { key, version: expectedVersion(key) },
     }));
     if (origin === "example" && typeof toast === "function") {
-      toast("已生成示例结果；不会计入正式工作台、待核对事项或运营报告。");
+      toast("示例内容仅供体验，不会加入当前项目、待处理事项或报告。");
     }
   }
 
@@ -214,8 +214,8 @@
       const isolated = isolatedKeys().length;
       container.className = "recent-list empty";
       container.textContent = isolated
-        ? `暂无正式材料。已隔离 ${isolated} 项示例或旧会话材料，可在下方清除。`
-        : "暂无正式材料。输入真实业务内容并生成后，这里会显示最近材料。";
+        ? "暂无已加入项目的正式材料。示例和历史会话内容不会显示在这里。"
+        : "暂无已加入项目的正式材料。输入真实业务内容并生成后，这里会显示最近材料。";
       return;
     }
     const safe = value => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -246,8 +246,7 @@
       if (anchor?.parentNode) anchor.parentNode.insertBefore(notice, anchor);
       else home.appendChild(notice);
     }
-    const labels = keys.map(key => RESULT_TITLES[key] || key).join("、");
-    const html = `<div><strong>已隔离 ${keys.length} 项示例或旧会话材料</strong><p>${labels} 不计入待核对、统计和正式报告。需要正式使用时，请替换为真实业务输入并重新生成。</p></div><button id="clearIsolatedResults" type="button">清除隔离材料</button>`;
+    const html = `<div><strong>有 ${keys.length} 项示例或历史会话内容未加入当前项目</strong><p>示例和历史会话内容不会加入项目、待处理事项或报告；如需正式使用，请换成真实业务输入后重新生成。</p></div><button id="clearIsolatedResults" type="button">清除这些内容</button>`;
     if (notice.innerHTML !== html) notice.innerHTML = html;
   }
 
@@ -269,7 +268,7 @@
         existing?.remove();
         return;
       }
-      const text = origin === "example" ? "示例生成 · 不计入正式工作台" : "旧会话材料 · 已隔离";
+      const text = origin === "example" ? "示例内容" : "历史会话内容";
       const className = `meta-pill data-origin-pill ${origin === "example" ? "example" : "legacy"}`;
       if (existing && existing.textContent === text && existing.className === className) return;
       existing?.remove();
@@ -321,7 +320,7 @@
     });
     persistActiveResults(current.results, current.meta);
     saveContexts({});
-    if (typeof toast === "function") toast(`已清除 ${keys.length} 项示例或旧会话材料。`);
+    if (typeof toast === "function") toast(`已清除 ${keys.length} 项示例或历史会话内容。`);
     window.updateProgress?.();
   }
 
@@ -340,7 +339,7 @@
       if (projectSave && isolatedKeys().length) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (typeof toast === "function") toast("当前包含示例或旧会话材料。请先清除隔离材料，再保存正式项目。");
+        if (typeof toast === "function") toast("当前包含示例或历史会话内容。请先清除这些内容，再保存项目。");
       }
     }, true);
     window.addEventListener(EVENTS.resultUpdated, event => {
@@ -359,7 +358,7 @@
   function notifyMigration(keys) {
     if (!keys.length) return;
     const labels = keys.map(key => RESULT_TITLES[key] || key).join("、");
-    const message = `检测到旧版本生成结果，已隔离 ${keys.length} 项（${labels}）。输入内容已保留，请重新生成。`;
+    const message = `发现 ${keys.length} 项历史版本内容（${labels}），已暂不加入当前项目。输入内容仍保留，请重新生成。`;
     window.setTimeout(() => {
       if (typeof toast === "function") toast(message);
       else console.info(message);
