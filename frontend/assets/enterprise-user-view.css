@@ -1,44 +1,4 @@
-/* Customer-facing polish for advanced enterprise controls. */
-.enterprise-ai-advanced {
-  margin: 4px 0 0;
-  border: 1px solid #dfe7f1;
-  border-radius: 13px;
-  background: #fbfcfe;
-  overflow: hidden;
-}
-.enterprise-ai-advanced > summary {
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 14px;
-  color: #334b68;
-  font-size: 12px;
-  font-weight: 820;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-.enterprise-ai-advanced > summary::-webkit-details-marker { display: none; }
-.enterprise-ai-advanced > summary::after {
-  content: "⌄";
-  color: #8090a4;
-  font-size: 16px;
-  transition: transform .18s ease;
-}
-.enterprise-ai-advanced[open] > summary::after { transform: rotate(180deg); }
-.enterprise-ai-advanced[open] > summary { border-bottom: 1px solid #e5ebf2; background: #fff; }
-.enterprise-ai-advanced-note {
-  margin: 0;
-  padding: 12px 14px 0;
-  color: #718197;
-  font-size: 11px;
-  line-height: 1.6;
-}
-.enterprise-ai-advanced .api-drawer-fields { padding: 12px 14px 15px; }
-.enterprise-ai-advanced:focus-within { border-color: #a9c5ed; box-shadow: 0 0 0 3px rgba(37,99,235,.07); }
-
+/* Customer-facing polish for cross-module enterprise controls. */
 #serviceWorkflowModal label[aria-hidden="true"] { display: none !important; }
 #serviceWorkflowModal .sw-metrics { grid-template-columns: repeat(4,minmax(0,1fr)); }
 #serviceWorkflowModal .sw-context p b:empty { display: none; }
