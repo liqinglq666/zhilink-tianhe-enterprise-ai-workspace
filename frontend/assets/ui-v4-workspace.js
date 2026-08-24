@@ -7,9 +7,9 @@
   const SHARED_MODULES = contracts.modules;
 
   function moduleMeta(id) {
-    if (id === "report") return ["汇总已有结果", "支持多格式导出", "不导出 API Key"];
-    if (id === "profile") return ["可选上下文", "支持快速示例", "结果可归档"];
-    return ["AI 辅助生成", "人工复核后使用", "结果可归档"];
+    if (id === "report") return ["汇总已有结果", "支持多格式导出", "敏感设置不会导出"];
+    if (id === "profile") return ["补充企业背景", "支持快速填写", "结果可归档"];
+    return ["智能辅助整理", "人工复核后使用", "结果可归档"];
   }
 
   function decoratePage(page) {
