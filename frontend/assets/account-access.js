@@ -131,10 +131,10 @@
     const organization = activeOrganization();
     button.textContent = organization
       ? `${organization.name} · ${roleLabel(organization.role)}`
-      : `${account.user.display_name} · 匿名空间`;
+      : `${account.user.display_name} · 本机工作区`;
     button.title = organization
       ? `当前组织：${organization.name}`
-      : "当前仍在匿名浏览器工作区";
+      : "当前使用本机工作区";
   }
 
   function roleLabel(role) {
@@ -163,11 +163,11 @@
         <section class="account-dialog" role="dialog" aria-modal="true" aria-labelledby="accountManagerTitle">
           <div class="account-dialog-header">
             <div>
-              <span class="track">账号与组织</span>
-              <h2 id="accountManagerTitle">组织空间与角色权限</h2>
-              <p>登录会话使用 HttpOnly Cookie；组织项目按成员角色执行读取、编辑和管理权限。</p>
+              <span class="track">账户与组织</span>
+              <h2 id="accountManagerTitle">账户、组织与成员</h2>
+              <p>登录后可以在组织内共享项目，并按成员角色管理查看和编辑权限。</p>
             </div>
-            <button class="icon-btn" type="button" data-close-account-manager aria-label="关闭账号管理">✕</button>
+            <button class="icon-btn" type="button" data-close-account-manager aria-label="关闭账户管理">✕</button>
           </div>
           <div id="accountManagerContent"></div>
         </section>`;
@@ -200,13 +200,13 @@
             <button class="primary" type="submit">注册</button>
           </form>
         </div>
-        <p class="account-note">当前版本暂未接入邮箱验证、密码找回和邮件邀请。请勿在公开演示环境使用重要生产密码。</p>`;
+        <p class="account-note">当前暂不支持密码找回和邮件邀请，请妥善保管登录信息。</p>`;
       return;
     }
 
     const organization = activeOrganization();
     const options = [
-      '<option value="anonymous">匿名浏览器工作区</option>',
+      '<option value="anonymous">本机工作区</option>',
       ...account.organizations.map(item => `<option value="${safe(item.id)}" ${item.id === activeOrganizationId ? "selected" : ""}>${safe(item.name)} · ${safe(roleLabel(item.role))}</option>`),
     ].join("");
     const canManage = ["owner", "admin"].includes(organization?.role || "");
@@ -218,12 +218,12 @@
       <section class="account-panel">
         <h3>当前工作空间</h3>
         <label>项目范围<select id="activeOrganizationSelect">${options}</select></label>
-        <p>${organization ? `当前角色：${safe(roleLabel(organization.role))}。项目和版本历史归属于该组织。` : "当前使用匿名浏览器工作区；清除网站数据会失去匿名项目访问密钥。"}</p>
+        <p>${organization ? `当前角色：${safe(roleLabel(organization.role))}。项目和历史版本归属于该组织。` : "本机工作区仅适用于当前浏览器。重要项目建议登录并保存到组织空间。"}</p>
         <form id="createOrganizationForm" class="account-inline-form">
           <input name="name" maxlength="120" placeholder="新组织名称" required />
           <button class="secondary" type="submit">创建组织</button>
         </form>
-        ${organization && canManage ? '<button id="claimAnonymousProjectsButton" class="secondary" type="button">迁移本浏览器匿名项目到当前组织</button>' : ""}
+        ${organization && canManage ? '<button id="claimAnonymousProjectsButton" class="secondary" type="button">将本机项目移入当前组织</button>' : ""}
       </section>
       ${organization ? `
         <section class="account-panel">
@@ -310,7 +310,7 @@
       localStorage.removeItem(CURRENT_PROJECT_STORAGE);
       applyRoleState();
       renderAccountManager();
-      notify(path.endsWith("register") ? "账号和组织已创建。" : "登录成功。" );
+      notify(path.endsWith("register") ? "账户和组织已创建。" : "登录成功。" );
     } catch (error) {
       notify(error.message || String(error));
     } finally {
@@ -399,14 +399,14 @@
   async function claimAnonymousProjects() {
     const organization = activeOrganization();
     if (!organization) return;
-    if (!confirm("迁移后，这些项目将只在当前组织空间中可见，匿名工作区将不再拥有访问权限。是否继续？")) return;
+    if (!confirm("迁移后，这些项目将只在当前组织空间中可见，本机工作区将不再拥有访问权限。是否继续？")) return;
     try {
       const data = await request(`/api/organizations/${encodeURIComponent(organization.id)}/claim-workspace-projects`, {
         method: "POST",
         headers: { "X-Workspace-Key": ensureWorkspaceKey() },
       });
       localStorage.removeItem(CURRENT_PROJECT_STORAGE);
-      notify(`已迁移 ${data.claimed} 个匿名项目。`);
+      notify(`已迁移 ${data.claimed} 个本机项目。`);
       location.reload();
     } catch (error) {
       notify(error.message || String(error));
