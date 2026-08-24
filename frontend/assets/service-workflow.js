@@ -154,6 +154,11 @@
     return ROLE_LABELS[value] || String(value || "");
   }
 
+  function eventStatusLabel(action, status) {
+    const nodeEvent = String(action || "").startsWith("node_") || ["assign", "update_assignment"].includes(action);
+    return nodeEvent ? nodeLabel(status) : caseLabel(status);
+  }
+
   async function request(path, options = {}) {
     const org = organization();
     const session = account();
@@ -413,7 +418,7 @@
       <div class="sw-event">
         <strong>${escapeHtml(actionLabel(item.action))}</strong>
         <span>${escapeHtml(item.actor_name)} · ${escapeHtml(roleLabel(item.actor_role))}</span>
-        <p>${escapeHtml(caseLabel(item.before_status) || nodeLabel(item.before_status))} → ${escapeHtml(caseLabel(item.after_status) || nodeLabel(item.after_status))}${item.note ? ` · ${escapeHtml(item.note)}` : ""}</p>
+        <p>${escapeHtml(eventStatusLabel(item.action, item.before_status))} → ${escapeHtml(eventStatusLabel(item.action, item.after_status))}${item.note ? ` · ${escapeHtml(item.note)}` : ""}</p>
       </div>`;
   }
 
