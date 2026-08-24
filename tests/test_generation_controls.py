@@ -70,4 +70,6 @@ def test_browser_stream_requires_explicit_done_before_formalizing_result() -> No
     assert '"STREAM_INCOMPLETE"' in source
     assert "if (!receivedDone)" in source
     assert 'showStoppedResult(key, message, task.full);' in source
-    assert source.index("if (!receivedDone)") < source.index('finishStreamingResult(key, task.full, "AI模型流式模式")')
+    assert "task.requiresVerification && !task.verified" in source
+    fallback_finish = 'finishStreamingResult(key, task.full, task.verified ? "AI模型模式（已校验）" : "AI模型流式模式")'
+    assert source.index("if (!receivedDone)") < source.index(fallback_finish)
