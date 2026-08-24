@@ -47,14 +47,19 @@ def test_feature_style_manifest_preserves_existing_cascade_order() -> None:
     assert manifest.count("@import") == len(FEATURE_STYLES)
 
 
-def test_generation_styles_have_no_module_level_loader() -> None:
+def test_migrated_feature_styles_have_no_module_level_loader() -> None:
     bootstrap = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
-    generation = (ASSETS / "generation-controls.js").read_text(encoding="utf-8")
+    consumers = {
+        "generation-controls.js": ("generationControls", "link[data-generation-controls]", "generation-controls.css"),
+        "structured-results.js": ("structuredResults", "link[data-structured-results]", "structured-results.css"),
+    }
 
-    assert "generationControls" not in bootstrap
-    assert "link[data-generation-controls]" not in generation
-    assert 'document.createElement("link")' not in generation
-    assert 'generation-controls.css' not in generation
+    for filename, (marker, selector, stylesheet) in consumers.items():
+        source = (ASSETS / filename).read_text(encoding="utf-8")
+        assert marker not in bootstrap
+        assert selector not in source
+        assert 'document.createElement("link")' not in source
+        assert stylesheet not in source
 
 
 def test_bootstrap_marks_remaining_legacy_loaders_as_already_satisfied() -> None:
@@ -64,7 +69,6 @@ def test_bootstrap_marks_remaining_legacy_loaders_as_already_satisfied() -> None
         "projectStorage",
         "projectHistory",
         "reviewWorkflow",
-        "structuredResults",
         "policySources",
         "knowledgeBase",
         "serviceWorkflow",
@@ -77,7 +81,6 @@ def test_bootstrap_marks_remaining_legacy_loaders_as_already_satisfied() -> None
         "account-access.js": "link[data-account-access]",
         "project-storage.js": "link[data-project-storage]",
         "review-workflow.js": "link[data-review-workflow]",
-        "structured-results.js": "link[data-structured-results]",
         "policy-sources.js": "link[data-policy-sources]",
         "knowledge-base.js": "link[data-knowledge-base]",
         "service-workflow.js": "link[data-service-workflow]",

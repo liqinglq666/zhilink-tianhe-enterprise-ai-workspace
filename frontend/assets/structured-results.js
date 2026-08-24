@@ -66,13 +66,6 @@
   }
 
   function injectUi() {
-    if (!document.querySelector("link[data-structured-results]")) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = "/assets/structured-results.css";
-      link.dataset.structuredResults = "true";
-      document.head.appendChild(link);
-    }
     if (document.getElementById("structuredResultModal")) return;
     const modal = document.createElement("div");
     modal.id = "structuredResultModal";
