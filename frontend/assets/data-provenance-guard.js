@@ -14,7 +14,7 @@
     meetingInput: "meeting", contractInput: "contract", policyDemand: "policy",
     offerInput: "match", needInput: "match", targetInput: "match", scenarioInput: "match",
     pilotScene: "landing", userRoles: "landing", dataScope: "landing", deployment: "landing",
-    pilotPeriod: "landing", reviewMode: "review",
+    pilotPeriod: "landing", reviewMode: "landing",
   };
 
   const BASE_RESULT_SCHEMA_VERSION = "20260806-grounded-output-v2";
