@@ -21,7 +21,8 @@ def test_frontend_javascript_has_no_orphan_or_duplicate_assets() -> None:
 def test_frontend_css_and_json_assets_are_referenced() -> None:
     html = INDEX.read_text(encoding="utf-8")
     scripts = "\n".join(path.read_text(encoding="utf-8") for path in ASSETS.glob("*.js"))
-    references = html + "\n" + scripts
+    styles = "\n".join(path.read_text(encoding="utf-8") for path in ASSETS.glob("*.css"))
+    references = "\n".join((html, scripts, styles))
 
     for pattern in ("*.css", "*.json"):
         for path in ASSETS.glob(pattern):

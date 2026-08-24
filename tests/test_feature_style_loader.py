@@ -47,10 +47,19 @@ def test_feature_style_manifest_preserves_existing_cascade_order() -> None:
     assert manifest.count("@import") == len(FEATURE_STYLES)
 
 
-def test_bootstrap_marks_legacy_loaders_as_already_satisfied() -> None:
+def test_generation_styles_have_no_module_level_loader() -> None:
+    bootstrap = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
+    generation = (ASSETS / "generation-controls.js").read_text(encoding="utf-8")
+
+    assert "generationControls" not in bootstrap
+    assert "link[data-generation-controls]" not in generation
+    assert 'document.createElement("link")' not in generation
+    assert 'generation-controls.css' not in generation
+
+
+def test_bootstrap_marks_remaining_legacy_loaders_as_already_satisfied() -> None:
     source = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
     markers = (
-        "generationControls",
         "accountAccess",
         "projectStorage",
         "projectHistory",
@@ -65,7 +74,6 @@ def test_bootstrap_marks_legacy_loaders_as_already_satisfied() -> None:
         assert f"stylesheet.dataset.{marker}" in source
 
     legacy_guards = {
-        "generation-controls.js": "link[data-generation-controls]",
         "account-access.js": "link[data-account-access]",
         "project-storage.js": "link[data-project-storage]",
         "review-workflow.js": "link[data-review-workflow]",

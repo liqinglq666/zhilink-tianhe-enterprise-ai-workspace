@@ -9,14 +9,6 @@
   if (!hooks) throw new Error("Workspace hooks must load before generation controls.");
   window.__activeGenerations = activeGenerations;
 
-  if (!document.querySelector('link[data-generation-controls]')) {
-    const stylesheet = document.createElement("link");
-    stylesheet.rel = "stylesheet";
-    stylesheet.href = "/assets/generation-controls.css";
-    stylesheet.dataset.generationControls = "true";
-    document.head.appendChild(stylesheet);
-  }
-
   function createGenerationError(message, code, retryable = false) {
     const error = new Error(message);
     error.code = code;
