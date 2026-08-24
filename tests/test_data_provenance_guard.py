@@ -113,4 +113,4 @@ def test_v4_dashboard_metrics_and_pending_items_use_formal_results_only() -> Non
     assert 'window.ZHILINK_DATA_PROVENANCE?.formalCount' in script
     assert 'window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(apply, { immediate: false })' in script
     assert 'dataProvenanceReady: "zhilink:data-provenance-ready"' in runtime
-    assert "示例和旧会话材料不会进入正式统计" in script
+    assert "当前未打开项目。新建或打开项目后可持续保存工作进度。" in script
