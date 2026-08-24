@@ -53,12 +53,28 @@ from .security import (  # noqa: E402
 )
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
-APP_VERSION = "2.8.0"
+
+def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)).strip())
+    except ValueError:
+        value = default
+    return max(minimum, min(value, maximum))
+
+
+APP_VERSION = "2.8.1"
 MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
 RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "30"))
 RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 MAX_CONCURRENT_GENERATIONS_PER_CLIENT = int(os.getenv("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", "1"))
 MODEL_TEST_TIMEOUT_SECONDS = max(5, min(int(os.getenv("MODEL_TEST_TIMEOUT_SECONDS", "20")), 120))
+MODEL_REQUEST_TIMEOUT_SECONDS = _bounded_env_int("MODEL_REQUEST_TIMEOUT_SECONDS", 120, 10, 600)
+MODEL_MAX_STREAM_SECONDS = _bounded_env_int("MODEL_MAX_STREAM_SECONDS", max(MODEL_REQUEST_TIMEOUT_SECONDS, 180), 10, 1800)
+CLIENT_STREAM_IDLE_TIMEOUT_MS = (MODEL_REQUEST_TIMEOUT_SECONDS + 15) * 1000
+CLIENT_STREAM_HARD_TIMEOUT_MS = max(
+    (MODEL_MAX_STREAM_SECONDS + 15) * 1000,
+    CLIENT_STREAM_IDLE_TIMEOUT_MS + 15_000,
+)
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "").strip().lower() in {"1", "true", "yes", "on"}
 ALLOW_WILDCARD_CORS = os.getenv("ALLOW_WILDCARD_CORS", "").strip().lower() in {"1", "true", "yes", "on"}
 ENABLE_HSTS = os.getenv("ENABLE_HSTS", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -242,6 +258,16 @@ def _sse(data: dict) -> str:
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _stream_meta(*, provisional: bool = False) -> dict:
+    return {
+        "type": "meta",
+        "mode": "AI模型流式模式",
+        "provisional": provisional,
+        "idle_timeout_ms": CLIENT_STREAM_IDLE_TIMEOUT_MS,
+        "hard_timeout_ms": CLIENT_STREAM_HARD_TIMEOUT_MS,
+    }
+
+
 def _stream_error_payload(exc: Exception) -> dict:
     if isinstance(exc, ModelGatewayError):
         payload = {"type": "error", "error": exc.user_message, "code": exc.code, "retryable": exc.retryable}
@@ -251,12 +277,35 @@ def _stream_error_payload(exc: Exception) -> dict:
     return {"type": "error", "error": "生成过程中发生异常，请稍后重试。", "code": "STREAM_INTERNAL_ERROR", "retryable": True}
 
 
-def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResponse:
+def _cleanup_stream(iterator, cancel_callback: Callable[[], None] | None = None) -> None:
+    # Close the upstream socket before closing the Python iterator. This allows a
+    # browser AbortController cancellation to interrupt a requests/urllib3 read that
+    # is currently running in Starlette's worker thread.
+    if cancel_callback is not None:
+        try:
+            cancel_callback()
+        except Exception:  # noqa: BLE001
+            pass
+    close = getattr(iterator, "close", None)
+    if callable(close):
+        try:
+            close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _stream_response(
+    chunks,
+    *,
+    release_key: str | None = None,
+    cancel_callback: Callable[[], None] | None = None,
+) -> StreamingResponse:
     """Forward model deltas without duplicating the completed result in server memory."""
+
     async def event_generator():
         iterator = iter(chunks)
         try:
-            yield _sse({"type": "meta", "mode": "AI模型流式模式"})
+            yield _sse(_stream_meta())
             async for chunk in iterate_in_threadpool(iterator):
                 if chunk:
                     yield _sse({"type": "delta", "content": chunk})
@@ -265,12 +314,7 @@ def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResp
         except Exception as exc:  # noqa: BLE001
             yield _sse(_stream_error_payload(exc))
         finally:
-            close = getattr(iterator, "close", None)
-            if callable(close):
-                try:
-                    close()
-                except Exception:  # noqa: BLE001
-                    pass
+            _cleanup_stream(iterator, cancel_callback)
             if release_key is not None:
                 GENERATION_LIMITER.release(release_key)
 
@@ -281,14 +325,98 @@ def _stream_response(chunks, *, release_key: str | None = None) -> StreamingResp
     )
 
 
-def _start_generation_stream(request: Request, chunks_factory: Callable[[], object]) -> StreamingResponse:
+def _verified_stream_response(
+    events,
+    *,
+    release_key: str | None = None,
+    cancel_callback: Callable[[], None] | None = None,
+) -> StreamingResponse:
+    """Stream provisional model text, then deliver one trusted verified replacement."""
+
+    async def event_generator():
+        iterator = iter(events)
+        verified = False
+        final_mode = "AI模型流式模式（已校验）"
+        try:
+            yield _sse(_stream_meta(provisional=True))
+            async for event in iterate_in_threadpool(iterator):
+                event_type = getattr(event, "type", "")
+                if event_type == "delta":
+                    content = getattr(event, "content", "")
+                    if content:
+                        yield _sse({"type": "delta", "content": content, "provisional": True})
+                elif event_type == "verifying":
+                    yield _sse({"type": "verifying", "message": "AI 草稿已生成，正在进行事实与规则校验。"})
+                elif event_type == "verified":
+                    content = getattr(event, "content", "")
+                    if not content:
+                        raise ModelGatewayError(
+                            "STREAM_VERIFICATION_EMPTY",
+                            "结果校验完成但没有可用内容，请重新生成。",
+                            502,
+                            True,
+                        )
+                    verified = True
+                    final_mode = getattr(event, "mode", "") or final_mode
+                    yield _sse({"type": "verified", "content": content, "mode": final_mode})
+                else:
+                    raise ModelGatewayError(
+                        "STREAM_EVENT_INVALID",
+                        "生成流程返回了无法识别的事件，请稍后重试。",
+                        502,
+                        True,
+                    )
+
+            if not verified:
+                raise ModelGatewayError(
+                    "STREAM_VERIFICATION_MISSING",
+                    "生成已结束，但事实校验未完成；本次草稿不会保存，请重新生成。",
+                    502,
+                    True,
+                )
+            yield _sse({"type": "done", "content": "", "mode": final_mode})
+        except Exception as exc:  # noqa: BLE001
+            yield _sse(_stream_error_payload(exc))
+        finally:
+            _cleanup_stream(iterator, cancel_callback)
+            if release_key is not None:
+                GENERATION_LIMITER.release(release_key)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream; charset=utf-8",
+        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
+    )
+
+
+def _start_generation_stream(
+    request: Request,
+    chunks_factory: Callable[[], object],
+    *,
+    cancel_callback: Callable[[], None] | None = None,
+) -> StreamingResponse:
     key = _acquire_generation(request)
     try:
         chunks = chunks_factory()
     except Exception:
         GENERATION_LIMITER.release(key)
         raise
-    return _stream_response(chunks, release_key=key)
+    return _stream_response(chunks, release_key=key, cancel_callback=cancel_callback)
+
+
+def _start_verified_generation_stream(
+    request: Request,
+    events_factory: Callable[[], object],
+    *,
+    cancel_callback: Callable[[], None] | None = None,
+) -> StreamingResponse:
+    key = _acquire_generation(request)
+    try:
+        events = events_factory()
+    except Exception:
+        GENERATION_LIMITER.release(key)
+        raise
+    return _verified_stream_response(events, release_key=key, cancel_callback=cancel_callback)
 
 
 @app.post("/api/test-connection", response_model=AgentResponse)
@@ -328,7 +456,12 @@ def profile(req: ProfileRequest, request: Request) -> AgentResponse:
 
 @app.post("/api/profile/stream")
 def profile_stream(req: ProfileRequest, request: Request) -> StreamingResponse:
-    return _start_generation_stream(request, lambda: make_hub(req.config).profile.stream(profile_to_dict(req.profile)))
+    hub = make_hub(req.config)
+    return _start_generation_stream(
+        request,
+        lambda: hub.profile.stream(profile_to_dict(req.profile)),
+        cancel_callback=hub.llm.cancel_active_requests,
+    )
 
 
 @app.post("/api/meeting", response_model=AgentResponse)
@@ -342,7 +475,12 @@ def meeting(req: MeetingRequest, request: Request) -> AgentResponse:
 def meeting_stream(req: MeetingRequest, request: Request) -> StreamingResponse:
     if len(req.text.strip()) < 8:
         raise HTTPException(status_code=400, detail="会议内容过短，请补充会议背景、结论或待办事项。")
-    return _start_generation_stream(request, lambda: make_hub(req.config).meeting.stream(req.text, req.profile_summary))
+    hub = make_hub(req.config)
+    return _start_verified_generation_stream(
+        request,
+        lambda: hub.meeting.stream_events(req.text, req.profile_summary),
+        cancel_callback=hub.llm.cancel_active_requests,
+    )
 
 
 @app.post("/api/contract", response_model=AgentResponse)
@@ -356,7 +494,12 @@ def contract(req: ContractRequest, request: Request) -> AgentResponse:
 def contract_stream(req: ContractRequest, request: Request) -> StreamingResponse:
     if len(req.text.strip()) < 12:
         raise HTTPException(status_code=400, detail="合同文本过短，请粘贴关键条款后再生成风险提示。")
-    return _start_generation_stream(request, lambda: make_hub(req.config).contract.stream(req.text, req.profile_summary))
+    hub = make_hub(req.config)
+    return _start_verified_generation_stream(
+        request,
+        lambda: hub.contract.stream_events(req.text, req.profile_summary),
+        cancel_callback=hub.llm.cancel_active_requests,
+    )
 
 
 @app.post("/api/policy", response_model=AgentResponse)
@@ -366,7 +509,12 @@ def policy(req: PolicyRequest, request: Request) -> AgentResponse:
 
 @app.post("/api/policy/stream")
 def policy_stream(req: PolicyRequest, request: Request) -> StreamingResponse:
-    return _start_generation_stream(request, lambda: make_hub(req.config).policy.stream(profile_to_dict(req.profile), req.demand))
+    hub = make_hub(req.config)
+    return _start_generation_stream(
+        request,
+        lambda: hub.policy.stream(profile_to_dict(req.profile), req.demand),
+        cancel_callback=hub.llm.cancel_active_requests,
+    )
 
 
 @app.post("/api/match", response_model=AgentResponse)
@@ -383,9 +531,11 @@ def match(req: MatchRequest, request: Request) -> AgentResponse:
 def match_stream(req: MatchRequest, request: Request) -> StreamingResponse:
     if not any([req.offer.strip(), req.need.strip(), req.target.strip(), req.scenario.strip()]):
         raise HTTPException(status_code=400, detail="请至少填写供给、需求、目标对象或业务场景中的一项。")
+    hub = make_hub(req.config)
     return _start_generation_stream(
         request,
-        lambda: make_hub(req.config).match.stream(profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario),
+        lambda: hub.match.stream(profile_to_dict(req.profile), req.offer, req.need, req.target, req.scenario),
+        cancel_callback=hub.llm.cancel_active_requests,
     )
 
 
@@ -399,9 +549,11 @@ def landing(req: LandingRequest, request: Request) -> AgentResponse:
 
 @app.post("/api/landing/stream")
 def landing_stream(req: LandingRequest, request: Request) -> StreamingResponse:
+    hub = make_hub(req.config)
     return _start_generation_stream(
         request,
-        lambda: make_hub(req.config).landing.stream(profile_to_dict(req.profile), req.landing_info, req.existing_results),
+        lambda: hub.landing.stream(profile_to_dict(req.profile), req.landing_info, req.existing_results),
+        cancel_callback=hub.llm.cancel_active_requests,
     )
 
 
@@ -415,7 +567,12 @@ def report(req: ReportRequest, request: Request) -> AgentResponse:
 @app.post("/api/report/stream")
 def report_stream(req: ReportRequest, request: Request) -> StreamingResponse:
     if req.use_ai_summary:
-        return _start_generation_stream(request, lambda: make_hub(req.config).report.stream(req.results))
+        hub = make_hub(req.config)
+        return _start_generation_stream(
+            request,
+            lambda: hub.report.stream(req.results),
+            cancel_callback=hub.llm.cancel_active_requests,
+        )
     return _stream_response(iter([build_markdown(req.results)]))
 
 

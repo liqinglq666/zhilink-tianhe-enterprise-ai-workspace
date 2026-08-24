@@ -272,6 +272,8 @@ class LLMClient:
         default_response_bytes = max(262144, self._max_output_chars * 8)
         self._max_response_bytes = _env_int("MODEL_MAX_RESPONSE_BYTES", default_response_bytes, 1024, 8_000_000)
         self._max_stream_seconds = _env_int("MODEL_MAX_STREAM_SECONDS", max(self.config.timeout, 180), 10, 1800)
+        self._active_response_lock = threading.Lock()
+        self._active_responses: Dict[int, requests.Response] = {}
 
     @property
     def enabled(self) -> bool:
@@ -298,6 +300,26 @@ class LLMClient:
             "max_tokens": self._max_completion_tokens,
             "stream": stream,
         }
+
+    def _track_response(self, response: requests.Response) -> requests.Response:
+        with self._active_response_lock:
+            self._active_responses[id(response)] = response
+        return response
+
+    def _untrack_response(self, response: requests.Response) -> None:
+        with self._active_response_lock:
+            self._active_responses.pop(id(response), None)
+
+    def cancel_active_requests(self) -> None:
+        """Close in-flight upstream HTTP responses when the browser cancels a generation."""
+        with self._active_response_lock:
+            responses = list(self._active_responses.values())
+            self._active_responses.clear()
+        for response in responses:
+            try:
+                response.close()
+            except Exception:  # noqa: BLE001
+                pass
 
     def _post(self, system_prompt: str, user_prompt: str, *, stream: bool) -> requests.Response:
         if self.config.source == "server":
@@ -331,7 +353,7 @@ class LLMClient:
         if content_length.isdigit() and int(content_length) > self._max_response_bytes:
             response.close()
             raise _response_limit_error()
-        return response
+        return self._track_response(response)
 
     def _read_json_body(self, response: requests.Response) -> object:
         chunks: list[bytes] = []
@@ -410,6 +432,7 @@ class LLMClient:
                 raise _output_limit_error()
             return content
         finally:
+            self._untrack_response(response)
             response.close()
 
     def chat_stream(self, system_prompt: str, user_prompt: str) -> Iterator[str]:
@@ -448,4 +471,5 @@ class LLMClient:
             if not yielded:
                 raise ModelGatewayError("MODEL_EMPTY_RESPONSE", "模型没有返回有效内容，请重新生成或更换模型。", 502, True)
         finally:
+            self._untrack_response(response)
             response.close()

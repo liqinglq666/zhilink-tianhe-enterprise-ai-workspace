@@ -1,6 +1,6 @@
 [project]
 name = "zhilian-tianhe-agent-fastapi"
-version = "2.8.0"
+version = "2.8.1"
 description = "智链天河：企业运营 AI 助手 FastAPI + HTML/CSS/JS 正式网页版"
 requires-python = ">=3.10"
 dependencies = [
