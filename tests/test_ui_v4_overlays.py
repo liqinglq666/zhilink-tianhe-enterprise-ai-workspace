@@ -7,13 +7,18 @@ ASSETS = ROOT / "frontend" / "assets"
 def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     script = (ASSETS / "ui-v4-overlays.js").read_text(encoding="utf-8")
 
-    for key in ("api", "account", "project", "knowledge", "identity", "meeting-sources", "structured", "review", "service"):
+    for key in ("api", "account", "project", "knowledge", "identity", "meeting-sources", "policy-sources", "structured", "review", "service"):
         assert f'key: "{key}"' in script
 
     assert 'document.getElementById("meetingSourceDialog")' in script
     assert '#meetingSourceDialog .meeting-source-dialog' in script
     assert '[data-open-meeting-sources]' in script
     assert 'button[data-close-meeting-sources]' in script
+    assert 'document.getElementById("officialPolicyModal")' in script
+    assert '#officialPolicyModal .policy-source-dialog' in script
+    assert '#searchOfficialPolicy' in script
+    assert '[data-open-policy-sources]' in script
+    assert '[data-close-policy-sources]' in script
     assert 'document.getElementById("uiV4ApiClose")' in script
     assert 'document.getElementById("modelConfigAdvancedSettingsSummary") || document.getElementById("apiKey")' in script
     assert '[data-ui-v4-account]' in script
