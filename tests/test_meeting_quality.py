@@ -99,9 +99,11 @@ def test_audit_preserves_explicit_group_owner_and_deadline() -> None:
     assert "| 各商户 | 7月15日前 | [MT-10] | 原文事实 |" in preserved_row
 
 
-def test_stream_buffers_and_audits_before_returning_result() -> None:
-    output = "".join(MeetingAgent(FakeLlm()).stream(MEETING_TEXT))
+def test_verified_stream_audits_before_emitting_final_result() -> None:
+    events = list(MeetingAgent(FakeLlm()).stream_events(MEETING_TEXT))
 
+    assert events[-1].type == "verified"
+    output = events[-1].content
     assert "T+3" not in output
     assert "AI 建议（未确认）" in output
     assert "## 输入证据与待确认索引" in output
