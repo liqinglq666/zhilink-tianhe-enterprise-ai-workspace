@@ -12,7 +12,7 @@ ROUTES = ROOT / "backend" / "project_routes.py"
 INDEX = ROOT / "frontend" / "index.html"
 
 
-def test_enterprise_customer_view_translates_technical_ui_into_business_copy() -> None:
+def test_enterprise_customer_view_translates_global_technical_ui_into_business_copy() -> None:
     source = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
 
     for expected in (
@@ -22,18 +22,11 @@ def test_enterprise_customer_view_translates_technical_ui_into_business_copy() -
         "账户、组织与成员",
         "本机工作区",
         "项目与历史版本",
-        "事项进度与责任协作",
         "仅导出业务内容",
         "智能辅助整理",
         "清除这些内容",
     ):
         assert expected in source
-
-    assert 'label.hidden = true' in source
-    assert 'if (/SHA-256|上下文\\s*SHA/i.test(item.textContent)) item.remove();' in source
-    assert "TECH_CODE_RE.test(code.textContent.trim())" in source
-    assert 'item.remove();' in source
-    assert "interceptServiceContextPrompt" in source
 
 
 def test_enterprise_view_keeps_advanced_model_controls_but_collapses_them_for_normal_users() -> None:
@@ -47,13 +40,34 @@ def test_enterprise_view_keeps_advanced_model_controls_but_collapses_them_for_no
     assert "普通用户无需修改" in source
 
 
-def test_enterprise_view_owns_dom_guard_and_user_toast_rewrites() -> None:
+def test_enterprise_view_does_not_patch_service_workflow_or_duplicate_runtime_scheduler() -> None:
+    enterprise = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
+    service = (ASSETS / "service-workflow.js").read_text(encoding="utf-8")
+    runtime = (ASSETS / "ui-v4-runtime.js").read_text(encoding="utf-8")
+
+    for obsolete in (
+        "fixServiceDialogTitleId",
+        "decorateServiceWorkflow",
+        "interceptServiceContextPrompt",
+        "TECH_CODE_RE",
+        "STATUS_LABELS",
+        "ACTION_LABELS",
+        "ROLE_LABELS",
+    ):
+        assert obsolete not in enterprise
+
+    assert 'aria-labelledby="swDialogTitle"' in service
+    assert '<h2 id="swDialogTitle">事项进度与责任协作</h2>' in service
+    assert "new MutationObserver" not in enterprise
+    assert "new MutationObserver" in runtime
+    assert "ZHILINK_UI_V4_RUNTIME?.subscribe" in enterprise
+
+
+def test_enterprise_view_owns_user_toast_rewrites_without_extra_guard_file() -> None:
     source = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
 
     assert not (ASSETS / "enterprise-user-view-guards.js").exists()
     assert "enterprise-user-view-guards.js" not in UI_SCRIPTS
-    assert 'title.id = "swDialogTitle"' in source
-    assert 'dialog.setAttribute("aria-labelledby", "swDialogTitle")' in source
     assert "AI 服务设置已保存" in source
     assert "平台 AI 服务" in source
     assert "示例内容仅供体验" in source
