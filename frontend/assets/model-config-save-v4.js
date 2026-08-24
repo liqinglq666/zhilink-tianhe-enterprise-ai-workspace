@@ -30,28 +30,6 @@
 
   function byId(id) { return document.getElementById(id); }
 
-  function applyCustomerCopy() {
-    const panel = byId(IDS.panel);
-    if (!panel) return;
-    const setText = (element, value) => {
-      if (element && element.textContent !== value) element.textContent = value;
-    };
-    setText(byId("apiDrawerTitle"), "AI 服务设置");
-    setText(panel.querySelector(".api-drawer-intro strong"), "AI 服务");
-    setText(panel.querySelector(".api-drawer-intro p"), "使用平台服务时无需额外设置；企业如需接入自有服务，可在高级连接设置中维护。");
-    setText(panel.querySelector(".api-drawer-security-note"), "敏感连接信息只用于当前浏览器中的服务设置，不会写入项目或导出的业务材料。");
-    const labels = new Map([
-      [IDS.provider, "服务方式"],
-      [IDS.apiKey, "访问密钥"],
-      [IDS.baseUrl, "服务地址"],
-      [IDS.model, "模型名称"],
-      [IDS.temperature, "生成稳定性"],
-    ]);
-    labels.forEach((label, id) => setText(panel.querySelector(`label[for="${id}"]`), label));
-    setText(byId(IDS.test), "检查服务");
-    setText(byId(IDS.save), "保存设置");
-  }
-
   function readDraft() {
     return {
       provider: byId(IDS.provider)?.value || "",
@@ -428,7 +406,6 @@
   }
 
   function start() {
-    applyCustomerCopy();
     ensureAdvancedSettings();
     installCompatibilityOverrides();
     document.addEventListener("click", handleClick, true);
