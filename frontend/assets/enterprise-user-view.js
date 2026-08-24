@@ -1,0 +1,382 @@
+/* Enterprise customer presentation layer: translate technical implementation details into business-facing UI copy. */
+(() => {
+  const STYLE_URL = "/assets/enterprise-user-view.css?v=20260824.1";
+  const STATUS_LABELS = {
+    draft: "草稿",
+    active: "处理中",
+    on_hold: "已暂停",
+    pending_review: "待结项审核",
+    completed: "已结项",
+    cancelled: "已取消",
+    pending: "未开始",
+    in_progress: "处理中",
+    blocked: "受阻",
+    skipped: "已跳过",
+    approved: "已批准",
+    rejected: "已退回",
+  };
+  const ACTION_LABELS = {
+    create: "创建",
+    activate: "启动",
+    hold: "暂停",
+    resume: "恢复",
+    submit_review: "提交结项审核",
+    complete: "批准结项",
+    cancel: "取消",
+    reopen: "重新打开",
+    context_refresh: "更新办理依据",
+    refresh_context: "更新办理依据",
+    node_start: "开始处理节点",
+    node_submit: "提交节点审核",
+    node_approve: "批准节点",
+    node_return: "退回节点",
+    node_block: "标记节点受阻",
+    node_resume: "恢复节点",
+    node_skip: "跳过节点",
+    node_reopen: "重新打开节点",
+    assign: "调整责任人",
+    update_assignment: "调整责任人",
+  };
+  const ROLE_LABELS = { owner: "所有者", admin: "管理员", editor: "编辑者", viewer: "只读成员", anonymous: "本机用户" };
+  const TECH_CODE_RE = /^(?:THKB-[A-Z0-9-]+@v\d+|POL-[A-Z0-9-]+|[A-Z]{2,}-[A-Z0-9-]+@v\d+)$/i;
+  let queued = false;
+  let advancedInitialized = false;
+
+  function byId(id) { return document.getElementById(id); }
+  function setText(element, value) {
+    if (element && element.textContent !== String(value)) element.textContent = String(value);
+  }
+  function ensureStyles() {
+    if (document.querySelector("link[data-enterprise-user-view]")) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = STYLE_URL;
+    link.dataset.enterpriseUserView = "true";
+    document.head.appendChild(link);
+  }
+  function setPlaceholder(id, value) {
+    const element = byId(id);
+    if (element && element.getAttribute("placeholder") !== value) element.setAttribute("placeholder", value);
+  }
+  function replaceTextNodes(root, replacements) {
+    if (!root) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const parent = node.parentElement;
+        if (!parent || parent.closest("script,style,textarea,input,option")) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(node => {
+      let next = node.nodeValue || "";
+      replacements.forEach(([from, to]) => { next = next.replace(from, to); });
+      if (next !== node.nodeValue) node.nodeValue = next;
+    });
+  }
+
+  function decorateStaticShell() {
+    setText(document.querySelector('[data-ui-v4-account="api"]'), "AI 服务设置");
+    setText(byId("openApiSettings"), "AI 服务设置");
+
+    const identityIntro = document.querySelector("#identityModal .modal-head p");
+    if (identityIntro) setText(identityIntro, "用于调整报告抬头、首页状态和生成内容中的业务视角。");
+
+    setPlaceholder("deployment", "如：企业网页工作台，按组织权限使用，敏感业务原文按需脱敏");
+    setPlaceholder("reviewMode", "如：生成结果由业务负责人或专业人员复核确认");
+
+    const reportCards = document.querySelectorAll("#report .report-card");
+    reportCards.forEach(card => {
+      const label = card.querySelector("b")?.textContent?.trim();
+      if (label === "导出格式") {
+        setText(card.querySelector("strong"), "Word / Markdown / 文本");
+      }
+      if (label === "安全边界" || label === "导出范围") {
+        setText(card.querySelector("b"), "导出范围");
+        setText(card.querySelector("strong"), "仅导出业务内容");
+        setText(card.querySelector("p"), "导出文件仅包含业务材料，不包含 AI 服务设置。");
+      }
+    });
+
+    document.querySelectorAll("#home .principle-grid > div").forEach(item => {
+      const title = item.querySelector("b")?.textContent?.trim();
+      if (title === "模型调用" || title === "AI 服务") {
+        setText(item.querySelector("b"), "AI 服务");
+        setText(item.querySelector("span"), "默认使用平台提供的 AI 服务；如企业有专属模型，可由管理员在设置中接入。");
+      }
+    });
+
+    replaceTextNodes(byId("uiV4Metrics"), [
+      ["正式材料", "已生成材料"],
+      ["可访问项目", "项目"],
+      ["已确认 / 批准", "已复核"],
+      ["待复核状态", "待复核"],
+    ]);
+    const usageNote = byId("uiV4UsageNote");
+    if (usageNote?.textContent.includes("当前未打开持久化项目")) {
+      setText(usageNote, "当前未打开项目。新建或打开项目后可持续保存工作进度。");
+    }
+    document.querySelectorAll(".ui-v4-module-meta span").forEach(item => {
+      const value = item.textContent.trim();
+      const map = {
+        "不导出 API Key": "敏感设置不会导出",
+        "可选上下文": "补充企业背景",
+        "AI 辅助生成": "智能辅助整理",
+        "支持快速示例": "支持快速填写",
+      };
+      if (map[value]) setText(item, map[value]);
+    });
+  }
+
+  function decorateModelSettings() {
+    const panel = byId("apiPanel");
+    if (!panel) return;
+    setText(byId("apiDrawerTitle"), "AI 服务设置");
+    setText(panel.querySelector(".api-drawer-intro strong"), "AI 服务");
+    setText(panel.querySelector(".api-drawer-intro p"), "使用平台服务时无需额外设置；企业如需接入自有服务，可在高级连接设置中维护。");
+    setText(panel.querySelector(".api-drawer-security-note"), "敏感连接信息只用于当前浏览器中的服务设置，不会写入项目或导出的业务材料。");
+
+    const fieldLabels = new Map([
+      ["providerSelect", "服务方式"],
+      ["apiKey", "访问密钥"],
+      ["baseUrl", "服务地址"],
+      ["modelName", "模型名称"],
+      ["temperature", "生成稳定性"],
+    ]);
+    fieldLabels.forEach((label, id) => setText(panel.querySelector(`label[for="${id}"]`), label));
+    setText(byId("testConnection"), "检查服务");
+    setText(byId("saveApiConfig"), "保存设置");
+
+    const clear = byId("clearKey");
+    if (clear) {
+      const value = clear.textContent.trim();
+      if (value.includes("恢复公共模型")) setText(clear, "使用平台服务");
+      else if (value.includes("API Key") || value.includes("访问密钥")) setText(clear, "清除访问密钥");
+    }
+
+    const notice = byId("publicModelModeNotice");
+    if (notice) {
+      const title = notice.querySelector("[data-public-model-title]");
+      const detail = notice.querySelector("[data-public-model-detail]");
+      const mode = document.body.dataset.modelMode || notice.dataset.mode || "";
+      if (mode === "public") {
+        setText(title, "平台 AI 服务已就绪");
+        setText(detail, "当前服务可直接使用，无需额外设置。");
+      } else if (mode === "custom") {
+        setText(title, "正在使用企业自有 AI 服务");
+        setText(detail, "连接信息仅用于企业自有服务，不会写入业务材料。");
+      } else if (mode === "checking") {
+        setText(title, "正在检查 AI 服务");
+        setText(detail, "请稍候，系统正在确认服务状态。");
+      } else if (mode === "unconfigured") {
+        setText(title, "AI 服务未就绪");
+        setText(detail, "请联系管理员，或在高级连接设置中配置企业自有 AI 服务。");
+      }
+    }
+
+    const topStatus = byId("topApiStatus");
+    if (topStatus) {
+      const value = topStatus.textContent.trim();
+      const map = {
+        "公共模型可用": "AI 服务可用",
+        "自定义 API": "企业 AI 服务",
+        "需配置模型": "AI 服务未就绪",
+        "正在检查模型": "正在检查服务",
+      };
+      if (map[value]) setText(topStatus, map[value]);
+    }
+    const badge = byId("modeBadge");
+    if (badge) {
+      const value = badge.textContent.trim();
+      const map = { "公共模型": "平台服务", "自定义 API": "企业服务", "待配置": "未就绪", "检查中": "检查中" };
+      if (map[value]) setText(badge, map[value]);
+    }
+
+    const fields = panel.querySelector(".api-drawer-fields");
+    if (!fields || fields.closest("#enterpriseAdvancedAiSettings") || !notice) return;
+    const details = document.createElement("details");
+    details.id = "enterpriseAdvancedAiSettings";
+    details.className = "enterprise-ai-advanced";
+    const summary = document.createElement("summary");
+    summary.id = "enterpriseAdvancedAiSettingsSummary";
+    summary.textContent = "高级连接设置";
+    const noteText = document.createElement("p");
+    noteText.className = "enterprise-ai-advanced-note";
+    noteText.textContent = "仅在接入企业自有 AI 服务时需要填写。普通用户无需修改。";
+    fields.before(details);
+    details.append(summary, noteText, fields);
+    const mode = document.body.dataset.modelMode || "";
+    details.open = mode === "custom" || mode === "unconfigured";
+    advancedInitialized = true;
+  }
+
+  function decorateAccount() {
+    const modal = byId("accountManagerModal");
+    if (!modal) return;
+    setText(modal.querySelector(".account-dialog-header .track"), "账户与组织");
+    setText(byId("accountManagerTitle"), "账户、组织与成员");
+    setText(modal.querySelector(".account-dialog-header p"), "登录后可以在组织内共享项目，并按成员角色管理查看和编辑权限。");
+    const note = modal.querySelector(".account-note");
+    if (note) setText(note, "当前暂不支持密码找回和邮件邀请，请妥善保管登录信息。");
+    replaceTextNodes(modal, [
+      [/匿名浏览器工作区/g, "本机工作区"],
+      [/匿名空间/g, "本机工作区"],
+      [/匿名项目/g, "本机项目"],
+      [/本浏览器匿名项目/g, "本机项目"],
+      [/当前仍在匿名浏览器工作区/g, "当前使用本机工作区"],
+    ]);
+    const claim = byId("claimAnonymousProjectsButton");
+    if (claim) setText(claim, "将本机项目移入当前组织");
+    document.querySelectorAll("#accountManagerContent .account-panel p").forEach(p => {
+      if (p.textContent.includes("清除网站数据") || p.textContent.includes("访问密钥")) {
+        setText(p, "本机工作区仅适用于当前浏览器。重要项目建议登录并保存到组织空间。");
+      }
+    });
+  }
+
+  function decorateProjectManager() {
+    const modal = byId("projectManagerModal");
+    if (!modal) return;
+    setText(modal.querySelector(".project-dialog-header .track"), "项目管理");
+    setText(byId("projectManagerTitle"), "项目与历史版本");
+    setText(modal.querySelector(".project-dialog-header p"), "保存项目后会记录当前工作内容和历史版本；AI 服务设置等敏感配置不会写入项目。");
+    const historyCopy = modal.querySelector("#projectHistorySection .project-list-header p");
+    if (historyCopy) setText(historyCopy, "每次保存都会保留一个历史版本；恢复旧版不会删除已有记录。");
+    const headers = Array.from(modal.querySelectorAll(":scope .project-list-header"));
+    const projectListHeader = headers.find(header => header.querySelector("h3")?.textContent.trim() === "我的项目");
+    if (projectListHeader) setText(projectListHeader.querySelector("p"), "项目保存在当前工作空间。");
+    const privacy = modal.querySelector(".project-privacy-note");
+    if (privacy) setText(privacy, "未登录时，项目仅与当前浏览器关联。重要项目建议登录并保存到组织空间，以便长期使用。");
+    replaceTextNodes(modal, [
+      [/当前未打开持久化项目/g, "当前未打开项目"],
+      [/AI 结果/g, "业务结果"],
+      [/业务快照/g, "业务材料"],
+      [/项目存储请求/g, "项目请求"],
+    ]);
+  }
+
+  function decorateProvenance() {
+    const notice = byId("dataIsolationNotice");
+    if (notice) {
+      const strong = notice.querySelector("strong");
+      const count = strong?.textContent.match(/(\d+)\s*项/)?.[1] || "";
+      if (strong) setText(strong, count ? `有 ${count} 项示例或历史会话内容未加入当前项目` : "有示例或历史会话内容未加入当前项目");
+      const paragraph = notice.querySelector("p");
+      if (paragraph) setText(paragraph, "示例和历史会话内容不会加入项目、待处理事项或报告；如需正式使用，请换成真实业务输入后重新生成。");
+      setText(byId("clearIsolatedResults"), "清除这些内容");
+    }
+    document.querySelectorAll(".data-origin-pill").forEach(badge => {
+      const value = badge.textContent;
+      if (value.includes("示例")) setText(badge, "示例内容");
+      else if (value.includes("旧会话") || value.includes("历史会话")) setText(badge, "历史会话内容");
+    });
+    const recent = byId("recentMaterials");
+    if (recent?.classList.contains("empty") && /已隔离|旧会话|示例/.test(recent.textContent)) {
+      setText(recent, "暂无已加入项目的正式材料。示例和历史会话内容不会显示在这里。");
+    }
+  }
+
+  function mapStatusText(value) {
+    let next = String(value || "");
+    Object.entries(STATUS_LABELS).forEach(([key, label]) => {
+      next = next.replace(new RegExp(`\\b${key}\\b`, "g"), label);
+    });
+    return next;
+  }
+  function decorateServiceWorkflow() {
+    const modal = byId("serviceWorkflowModal");
+    if (!modal) return;
+    setText(modal.querySelector(".service-workflow-dialog > header .track"), "服务跟进");
+    setText(byId("swTitle"), byId("swTitle")?.tagName === "H2" ? "事项进度与责任协作" : byId("swTitle")?.textContent || "");
+    const modalTitle = modal.querySelector(".service-workflow-dialog > header h2");
+    setText(modalTitle, "事项进度与责任协作");
+    setText(modal.querySelector(".service-workflow-dialog > header p"), "围绕当前项目推进负责人、关键节点、复核和结项。项目内容更新后请同步更新办理依据。");
+
+    modal.querySelectorAll("label").forEach(label => {
+      if (label.textContent.includes("知识库发布版本")) {
+        label.hidden = true;
+        label.setAttribute("aria-hidden", "true");
+      }
+    });
+    modal.querySelectorAll(".sw-metrics > span").forEach(metric => {
+      const value = metric.childNodes[0]?.textContent?.trim() || metric.textContent.trim();
+      if (["项目依据", "上下文"].some(label => value.startsWith(label))) metric.remove();
+    });
+    modal.querySelectorAll(".sw-card > small").forEach(item => {
+      if (/SHA-256|上下文\s*SHA/i.test(item.textContent)) item.remove();
+    });
+    modal.querySelectorAll(".sw-context article p b").forEach(code => {
+      if (TECH_CODE_RE.test(code.textContent.trim())) code.remove();
+    });
+    modal.querySelectorAll(".sw-event small").forEach(item => item.remove());
+    modal.querySelectorAll(".sw-event strong").forEach(item => {
+      const key = item.textContent.trim();
+      if (ACTION_LABELS[key]) setText(item, ACTION_LABELS[key]);
+    });
+    modal.querySelectorAll(".sw-event span").forEach(item => {
+      let value = item.textContent;
+      Object.entries(ROLE_LABELS).forEach(([key, label]) => {
+        value = value.replace(new RegExp(`\\b${key}\\b`, "g"), label);
+      });
+      if (value !== item.textContent) setText(item, value);
+    });
+    modal.querySelectorAll(".sw-event p").forEach(item => {
+      const next = mapStatusText(item.textContent);
+      if (next !== item.textContent) setText(item, next);
+    });
+    replaceTextNodes(modal, [[/旧快照/g, "旧版本材料"], [/上下文版本/g, "办理依据版本"]]);
+  }
+
+  function interceptServiceContextPrompt(event) {
+    const button = event.target.closest?.("[data-sw-context]");
+    if (!button) return;
+    const originalPrompt = window.prompt;
+    if (typeof originalPrompt !== "function") return;
+    const replacement = function enterprisePrompt(message, defaultValue) {
+      if (/知识库发布版本引用/.test(String(message || ""))) return String(defaultValue || "");
+      return originalPrompt.call(window, message, defaultValue);
+    };
+    window.prompt = replacement;
+    queueMicrotask(() => {
+      if (window.prompt === replacement) window.prompt = originalPrompt;
+    });
+  }
+
+  function syncAdvancedState() {
+    const details = byId("enterpriseAdvancedAiSettings");
+    if (!details || !advancedInitialized) return;
+    const mode = document.body.dataset.modelMode || "";
+    if ((mode === "custom" || mode === "unconfigured") && !details.open) details.open = true;
+  }
+
+  function apply() {
+    queued = false;
+    ensureStyles();
+    decorateStaticShell();
+    decorateModelSettings();
+    decorateAccount();
+    decorateProjectManager();
+    decorateProvenance();
+    decorateServiceWorkflow();
+    window.ZHILINK_ENTERPRISE_USER_VIEW_READY = true;
+  }
+  function schedule() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(apply);
+  }
+  function start() {
+    apply();
+    document.addEventListener("click", interceptServiceContextPrompt, true);
+    const observer = new MutationObserver(schedule);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    window.addEventListener("zhilink:model-mode-change", () => { schedule(); requestAnimationFrame(syncAdvancedState); });
+    window.addEventListener("zhilink:account-ready", schedule);
+    window.addEventListener("zhilink:project-changed", schedule);
+    window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(schedule, { immediate: false });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
+  else start();
+})();
