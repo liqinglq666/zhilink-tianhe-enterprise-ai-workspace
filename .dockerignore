@@ -19,5 +19,8 @@ runtime/
 *.db
 *.sqlite
 *.sqlite3
+.idea/
+.vscode/
+node_modules/
 coverage/
 htmlcov/

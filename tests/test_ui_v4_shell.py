@@ -32,7 +32,6 @@ def test_production_bundle_is_one_consolidated_v4_runtime() -> None:
         "ZHILINK_API_DRAWER_V4_READY",
         "ZHILINK_MODEL_CONFIG_SAVE_V4_READY",
         "ZHILINK_MEETING_USER_VIEW_READY",
-        "ZHILINK_UI_V4_FOUNDATION_READY",
         "ZHILINK_UI_V4_DASHBOARD_READY",
         "ZHILINK_UI_V4_WORKSPACE_READY",
         "ZHILINK_UI_V4_OVERLAYS_READY",
@@ -54,6 +53,7 @@ def test_production_bundle_is_one_consolidated_v4_runtime() -> None:
         "ZHILINK_UI_V2_READY",
         "ZHILINK_SIMPLE_UI_READY",
         "ZHILINK_DATA_PROVENANCE_V2_READY",
+        "ZHILINK_UI_V4_FOUNDATION_READY",
     ):
         assert legacy not in response.text
 
@@ -78,6 +78,11 @@ def test_replaced_ui_layers_and_fake_preview_are_deleted() -> None:
         "ui-preview.html",
         "ui-preview.css",
         "ui-preview.js",
+        "ui-v4-foundation.js",
+        "saas-product-polish-v3.js",
+        "saas-product-polish-v3.css",
+        "release-polish-v4.css",
+        "enterprise-user-view-guards.js",
     )
     assert all(not (ASSETS / filename).exists() for filename in removed)
     with TestClient(app) as client:
