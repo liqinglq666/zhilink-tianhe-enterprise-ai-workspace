@@ -14,9 +14,10 @@ def test_meeting_view_keeps_internal_ids_out_of_default_ui_and_exports():
     assert "输入证据与待确认索引" in source
     assert "自动一致性校验" in source
     assert "AI 建议补充动作" in source
-    assert "AI 生成 · 待人工确认" in source
-    assert "示例数据 · 不会保存为正式材料" in source
-    assert "查看生成依据" in source
+    assert "需人工确认" in source
+    assert "示例数据" in source
+    assert "核对原文" in source
+    assert "AI 生成 · 待人工确认" not in source
     assert "sanitizeMeetingMarkdown(result?.content)" in source
     assert 'hooks.register("results:collect", sanitizeCollectedResults)' in source
     assert "downloadReportFile =" not in source
@@ -28,8 +29,9 @@ def test_meeting_view_preserves_a_source_drawer_without_exposing_internal_ids():
     source = VIEW_SOURCE.read_text(encoding="utf-8")
 
     assert "meetingSourceDialog" in source
-    assert "会议原文来源" in source
-    assert "不向业务用户暴露内部编号" in source
+    assert "会议原文" in source
+    assert "用于核对纪要内容与原始会议记录" in source
+    assert "不向业务用户暴露内部编号" not in source
     assert "sourceItems(rawMeeting())" in source
     assert "pendingItems(rawMeeting())" in source
 
