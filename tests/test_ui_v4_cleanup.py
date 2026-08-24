@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.project_routes import UI_BUNDLE_VERSION
+from backend.project_routes import UI_BUNDLE_VERSION, UI_SCRIPTS
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
@@ -11,7 +11,6 @@ ASSETS = ROOT / "frontend" / "assets"
 
 def test_native_index_loads_v4_styles_at_first_paint_without_runtime_preload() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    foundation = (ASSETS / "ui-v4-foundation.js").read_text(encoding="utf-8")
 
     styles = (
         "ui-v4-shell.css",
@@ -32,10 +31,8 @@ def test_native_index_loads_v4_styles_at_first_paint_without_runtime_preload() -
         assert name in html
     assert "ui-v4-navigation.css" not in html
 
-    assert 'link.rel = "preload"' not in foundation
-    assert "EARLY_STYLE_ASSETS" not in foundation
-    assert "document.createElement(\"link\")" not in foundation
-    assert "ZHILINK_UI_V4_FOUNDATION_READY" in foundation
+    assert "ui-v4-foundation.js" not in UI_SCRIPTS
+    assert not (ASSETS / "ui-v4-foundation.js").exists()
 
 
 def test_final_bundle_recovers_storage_before_core_and_exposes_v4_runtime() -> None:
@@ -54,6 +51,7 @@ def test_final_bundle_recovers_storage_before_core_and_exposes_v4_runtime() -> N
     assert "ZHILINK_RESULT_EVENTS_READY" in response.text
     assert "ZHILINK_UI_V4_RUNTIME_READY" in response.text
     assert "ZHILINK_UI_V4_SHELL_READY" in response.text
+    assert "ZHILINK_UI_V4_FINAL_QA_READY" in response.text
     assert "ZHILINK_DATA_PROVENANCE_READY" in response.text
     assert "ZHILINK_DATA_PROVENANCE_V2_READY" not in response.text
     assert "EARLY_STYLE_ASSETS" not in response.text
@@ -61,12 +59,12 @@ def test_final_bundle_recovers_storage_before_core_and_exposes_v4_runtime() -> N
     assert old_hook_bridge.status_code == 404
 
 
-def test_foundation_and_overlay_layers_do_not_own_business_state() -> None:
-    foundation = (ASSETS / "ui-v4-foundation.js").read_text(encoding="utf-8")
+def test_final_presentation_and_overlay_layers_do_not_own_business_state() -> None:
+    final_qa = (ASSETS / "ui-v4-final-qa.js").read_text(encoding="utf-8")
     overlays = (ASSETS / "ui-v4-overlays.js").read_text(encoding="utf-8")
 
     for forbidden in ("fetch(", "state.results", "setResult", "apiStream", "sessionStorage", "localStorage"):
-        assert forbidden not in foundation
+        assert forbidden not in final_qa
         assert forbidden not in overlays
 
 
