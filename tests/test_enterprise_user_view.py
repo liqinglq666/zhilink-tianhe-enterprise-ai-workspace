@@ -21,7 +21,6 @@ def test_enterprise_customer_view_translates_only_remaining_global_ui() -> None:
         "平台 AI 服务已就绪",
         "仅导出业务内容",
         "智能辅助整理",
-        "清除这些内容",
     ):
         assert expected in source
 
@@ -79,6 +78,29 @@ def test_account_and_project_customer_copy_is_owned_by_source_modules() -> None:
         assert technical_copy not in project
 
 
+def test_provenance_customer_copy_is_owned_by_source_module() -> None:
+    enterprise = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
+    provenance = (ASSETS / "data-provenance-guard.js").read_text(encoding="utf-8")
+
+    for expected in (
+        "示例内容仅供体验，不会加入当前项目、待处理事项或报告。",
+        "有 ${keys.length} 项示例或历史会话内容未加入当前项目",
+        "示例和历史会话内容不会加入项目、待处理事项或报告",
+        "清除这些内容",
+        'origin === "example" ? "示例内容" : "历史会话内容"',
+        "当前包含示例或历史会话内容。请先清除这些内容，再保存项目。",
+    ):
+        assert expected in provenance
+
+    for obsolete in (
+        "decorateProvenance",
+        "示例内容仅供体验",
+        "旧会话材料",
+        "清除这些内容",
+    ):
+        assert obsolete not in enterprise
+
+
 def test_enterprise_view_keeps_advanced_model_controls_but_collapses_them_for_normal_users() -> None:
     source = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
     css = (ASSETS / "enterprise-user-view.css").read_text(encoding="utf-8")
@@ -113,15 +135,17 @@ def test_enterprise_view_does_not_patch_service_workflow_or_duplicate_runtime_sc
     assert "ZHILINK_UI_V4_RUNTIME?.subscribe" in enterprise
 
 
-def test_enterprise_view_owns_user_toast_rewrites_without_extra_guard_file() -> None:
+def test_enterprise_view_owns_only_remaining_model_toast_rewrites() -> None:
     source = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
+    provenance = (ASSETS / "data-provenance-guard.js").read_text(encoding="utf-8")
 
     assert not (ASSETS / "enterprise-user-view-guards.js").exists()
     assert "enterprise-user-view-guards.js" not in UI_SCRIPTS
     assert "AI 服务设置已保存" in source
     assert "平台 AI 服务" in source
-    assert "示例内容仅供体验" in source
     assert "window.toast = wrapped" in source
+    assert "示例内容仅供体验" not in source
+    assert "示例内容仅供体验" in provenance
 
 
 def test_enterprise_styles_load_statically_instead_of_runtime_injection() -> None:
