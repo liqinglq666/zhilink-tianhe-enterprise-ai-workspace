@@ -113,7 +113,6 @@ def test_contract_consumers_do_not_redeclare_shared_storage_or_event_literals() 
     consumers = (
         "example-loader.js",
         "project-storage.js",
-        "project-result-meta.js",
         "data-provenance-guard.js",
         "ui-v4-shell.js",
         "ui-v4-dashboard.js",
@@ -157,6 +156,16 @@ def test_project_storage_uses_result_event_instead_of_monkey_patching_set_result
     assert 'event.detail?.source === "commit"' in source
     assert "const originalSetResult = setResult" not in source
     assert "setResult = function setResultAndMarkProject" not in source
+
+
+def test_project_storage_persists_trust_metadata_without_request_hook() -> None:
+    source = (ASSETS / "project-storage.js").read_text(encoding="utf-8")
+
+    assert not (ASSETS / "project-result-meta.js").exists()
+    assert 'const PERSISTED_META_FIELDS = ["origin", "example_key", "result_schema_version"]' in source
+    assert "PERSISTED_META_FIELDS.forEach(field =>" in source
+    assert 'cleaned[field] = current.slice(0, 200)' in source
+    assert "meta: cleanMeta(state.meta)" in source
 
 
 def test_dashboard_and_provenance_share_core_result_catalogue() -> None:
