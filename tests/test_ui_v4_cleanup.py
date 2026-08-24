@@ -71,9 +71,10 @@ def test_final_presentation_and_overlay_layers_do_not_own_business_state() -> No
 def test_provenance_guard_is_self_contained_after_wrapper_removal() -> None:
     script = (ASSETS / "data-provenance-guard.js").read_text(encoding="utf-8")
 
-    assert 'STYLE_URL = "/assets/data-provenance-guard.css?v=20260806.1"' in script
-    assert 'link.dataset.zhilinkDataProvenance = "true"' in script
-    assert "function ensureStyles()" in script
+    assert "STYLE_URL" not in script
+    assert "zhilinkDataProvenance" not in script
+    assert "ensureStyles" not in script
+    assert 'document.createElement("link")' not in script
     assert "BASE_RESULT_SCHEMA_VERSION" in script
     assert "ZHILINK_DATA_PROVENANCE_READY" in script
     assert "CORE_SCRIPT" not in script
