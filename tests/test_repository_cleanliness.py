@@ -41,6 +41,21 @@ def test_removed_patch_layers_do_not_return() -> None:
         assert name not in UI_SCRIPTS
 
 
+def test_removed_python_compatibility_code_does_not_return() -> None:
+    package = ROOT / "src" / "zhilian_tianhe_agent"
+    agents = (package / "agents.py").read_text(encoding="utf-8")
+    utilities = (package / "utils.py").read_text(encoding="utf-8")
+    package_init = (package / "__init__.py").read_text(encoding="utf-8")
+    dependencies = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+
+    assert not (package / "rule_engine.py").exists()
+    assert "Compatibility stream that exposes only the verified result" not in agents
+    for obsolete_helper in ("safe_join", "normalize_text", "has_meaningful_text", "compact_dict"):
+        assert obsolete_helper not in utilities
+    assert "__version__" not in package_init
+    assert "python-dotenv" not in dependencies
+
+
 def test_repository_does_not_track_generated_or_editor_junk() -> None:
     forbidden_dirs = {
         "__pycache__",
