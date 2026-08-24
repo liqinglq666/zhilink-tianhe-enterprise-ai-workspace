@@ -62,7 +62,7 @@ def test_api_drawer_styles_are_owned_by_static_html() -> None:
     assert 'document.getElementById("modelConfigAdvancedSettingsSummary")' in script
 
 
-def test_api_drawer_preserves_security_copy_and_control_ids_in_native_html() -> None:
+def test_api_drawer_preserves_customer_security_copy_and_control_ids_in_native_html() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     for control_id in (
         "providerSelect", "apiKey", "baseUrl", "modelName", "temperature",
@@ -70,6 +70,20 @@ def test_api_drawer_preserves_security_copy_and_control_ids_in_native_html() -> 
     ):
         assert f'id="{control_id}"' in html
 
-    assert "API Key 仅保存在当前浏览器会话" in html
-    assert "不会写入业务报告" in html
-    assert "公共模型" in html
+    for expected in (
+        "AI 服务设置",
+        "使用平台服务时无需额外设置",
+        "敏感连接信息只用于当前浏览器中的服务设置",
+        "不会写入项目或导出的业务材料",
+        "服务方式",
+        "访问密钥",
+        "平台服务可用时无需配置企业自有服务",
+    ):
+        assert expected in html
+
+    for implementation_copy in (
+        "API Key 仅保存在当前浏览器会话",
+        "公共模型可用时无需填写自定义接口",
+        "大模型连接",
+    ):
+        assert implementation_copy not in html

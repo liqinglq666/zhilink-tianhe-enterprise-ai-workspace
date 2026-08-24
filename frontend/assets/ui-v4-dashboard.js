@@ -99,7 +99,7 @@
     setText(count, `${items.length} 项`);
     const html = items.length
       ? items.map(item => `<article class="ui-v4-pending-item"><span class="ui-v4-pending-icon">!</span><div><strong>${safe(item.title)}</strong><small>${safe(item.source)} · 请人工核对后使用</small></div></article>`).join("")
-      : '<p class="ui-v4-panel-empty">当前材料中没有识别到待确认事项。新材料生成后会自动更新。</p>';
+      : '<p class="ui-v4-panel-empty">当前没有待你确认的事项。新结果需要复核时会显示在这里。</p>';
     if (list.innerHTML !== html) list.innerHTML = html;
   }
   function reviewCounts() {
