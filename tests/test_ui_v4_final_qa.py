@@ -37,6 +37,8 @@ def test_v4_final_qa_is_the_single_final_presentation_layer() -> None:
         "saas-product-polish-v3.css",
         "release-polish-v4.css",
         "ui-v4-foundation.js",
+        "enterprise-user-view.js",
+        "enterprise-user-view.css",
     ):
         assert not (ASSETS / obsolete).exists(), obsolete
 
@@ -80,17 +82,17 @@ def test_v4_final_qa_makes_horizontal_result_content_keyboard_reachable() -> Non
     assert "可横向滚动的内容区域" in text
 
 
-def test_v4_final_qa_owns_product_hierarchy_customer_copy_and_viewport_metrics() -> None:
+def test_v4_final_qa_owns_product_hierarchy_and_viewport_metrics_not_customer_copy() -> None:
     script = (ASSETS / "ui-v4-final-qa.js").read_text(encoding="utf-8")
     css = (ASSETS / "ui-v4-final-qa.css").read_text(encoding="utf-8")
 
     assert 'card.dataset.productTier = card.classList.contains("ui-v4-secondary-task") ? "utility" : "primary"' in script
-    assert '"AI 服务设置"' in script
-    assert "当前没有待你确认的事项。新结果需要复核时会显示在这里。" in script
-    assert "还没有最近结果。完成一次业务任务后，这里会显示你的最新材料。" in script
-    assert 'setText(safetyTitle, "使用与复核")' in script
     assert "window.visualViewport" in script
     assert 'document.documentElement.style.setProperty("--ui4-visual-height"' in script
+    assert "refineCustomerCopy" not in script
+    assert 'document.querySelector(\'[data-ui-v4-account="api"]\')' not in script
+    assert "当前没有待你确认的事项。新结果需要复核时会显示在这里。" not in script
+    assert "还没有最近结果。完成一次业务任务后，这里会显示你的最新材料。" not in script
 
     assert '#home .module-card[data-product-tier="primary"]' in css
     assert '#home .module-card[data-product-tier="utility"]' in css
