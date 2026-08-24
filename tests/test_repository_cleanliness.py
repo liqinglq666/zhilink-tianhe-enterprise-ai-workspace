@@ -38,6 +38,8 @@ def test_removed_patch_layers_do_not_return() -> None:
         "ui-v4-workspace.js",
         "project-result-meta.js",
         "enterprise-user-view-guards.js",
+        "enterprise-user-view.js",
+        "enterprise-user-view.css",
     )
     for name in obsolete:
         assert not (ASSETS / name).exists(), name
