@@ -59,13 +59,6 @@
   }
 
   function injectUi() {
-    if (!document.querySelector("link[data-review-workflow]")) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = "/assets/review-workflow.css";
-      link.dataset.reviewWorkflow = "true";
-      document.head.appendChild(link);
-    }
     if (document.getElementById("reviewWorkflowModal")) return;
     const modal = document.createElement("div");
     modal.id = "reviewWorkflowModal";
