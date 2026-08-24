@@ -114,7 +114,7 @@ def test_llm_client_can_close_active_upstream_response() -> None:
     assert client._active_responses == {}
 
 
-def test_browser_transport_handles_verified_stream_and_server_timeouts() -> None:
+def test_browser_transport_handles_verified_stream_without_exposing_transport_details() -> None:
     source = Path("frontend/assets/generation-controls.js").read_text(encoding="utf-8")
 
     assert 'event.type === "verifying"' in source
@@ -123,7 +123,12 @@ def test_browser_transport_handles_verified_stream_and_server_timeouts() -> None
     assert "task.verified" in source
     assert "idle_timeout_ms" in source
     assert "hard_timeout_ms" in source
-    assert "临时草稿" in source
+    assert '<span class="meta-pill">AI模型流式模式</span>' not in source
+    assert "连接超时 30 秒" not in source
+    assert "生成超时由服务端协调" not in source
+    assert "正在连接模型接口" not in source
+    assert "流式生成中" not in source
+    assert "正在核对内容" in source
 
 
 def test_meeting_and_contract_routes_use_verified_stream_protocol() -> None:
