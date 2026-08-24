@@ -9,12 +9,6 @@
     const open = document.body.classList.contains("ui-v4-api-open");
     panel.setAttribute("aria-hidden", String(!open));
     backdrop?.setAttribute("aria-hidden", String(!open));
-    if (open && !(document.activeElement instanceof Element && panel.contains(document.activeElement))) {
-      window.setTimeout(() => {
-        const target = document.getElementById("modelConfigAdvancedSettingsSummary") || document.getElementById("apiKey");
-        target?.focus();
-      }, 30);
-    }
   }
 
   function openDrawer() {
