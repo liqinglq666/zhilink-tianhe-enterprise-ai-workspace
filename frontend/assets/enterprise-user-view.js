@@ -1,42 +1,5 @@
-/* Enterprise customer presentation layer: business-facing copy and UI hygiene. */
+/* Enterprise customer presentation layer: global business copy and UI hygiene. */
 (() => {
-  const STATUS_LABELS = {
-    draft: "草稿",
-    active: "处理中",
-    on_hold: "已暂停",
-    pending_review: "待结项审核",
-    completed: "已结项",
-    cancelled: "已取消",
-    pending: "未开始",
-    in_progress: "处理中",
-    blocked: "受阻",
-    skipped: "已跳过",
-    approved: "已批准",
-    rejected: "已退回",
-  };
-  const ACTION_LABELS = {
-    create: "创建",
-    activate: "启动",
-    hold: "暂停",
-    resume: "恢复",
-    submit_review: "提交结项审核",
-    complete: "批准结项",
-    cancel: "取消",
-    reopen: "重新打开",
-    context_refresh: "更新办理依据",
-    refresh_context: "更新办理依据",
-    node_start: "开始处理节点",
-    node_submit: "提交节点审核",
-    node_approve: "批准节点",
-    node_return: "退回节点",
-    node_block: "标记节点受阻",
-    node_resume: "恢复节点",
-    node_skip: "跳过节点",
-    node_reopen: "重新打开节点",
-    assign: "调整责任人",
-    update_assignment: "调整责任人",
-  };
-  const ROLE_LABELS = { owner: "所有者", admin: "管理员", editor: "编辑者", viewer: "只读成员", anonymous: "本机用户" };
   const TOAST_REWRITES = [
     [/模型配置已保存/g, "AI 服务设置已保存"],
     [/已切换当前编辑内容为公共模型，保存后生效/g, "已选择平台 AI 服务，保存后生效"],
@@ -45,18 +8,23 @@
     [/当前包含示例或旧会话材料。请先清除隔离材料，再保存正式项目/g, "当前包含示例或历史会话内容。请先清除这些内容，再保存项目"],
     [/已清除 (\d+) 项示例或旧会话材料/g, "已清除 $1 项示例或历史会话内容"],
   ];
-  const TECH_CODE_RE = /^(?:THKB-[A-Z0-9-]+@v\d+|POL-[A-Z0-9-]+|[A-Z]{2,}-[A-Z0-9-]+@v\d+)$/i;
+
   let queued = false;
   let advancedInitialized = false;
 
-  function byId(id) { return document.getElementById(id); }
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
   function setText(element, value) {
     if (element && element.textContent !== String(value)) element.textContent = String(value);
   }
+
   function setPlaceholder(id, value) {
     const element = byId(id);
     if (element && element.getAttribute("placeholder") !== value) element.setAttribute("placeholder", value);
   }
+
   function replaceTextNodes(root, replacements) {
     if (!root) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
@@ -73,14 +41,6 @@
       replacements.forEach(([from, to]) => { next = next.replace(from, to); });
       if (next !== node.nodeValue) node.nodeValue = next;
     });
-  }
-
-  function fixServiceDialogTitleId() {
-    const dialog = document.querySelector("#serviceWorkflowModal .service-workflow-dialog");
-    const title = dialog?.querySelector(":scope > header h2");
-    if (!dialog || !title) return;
-    if (title.id === "swTitle") title.id = "swDialogTitle";
-    if (dialog.getAttribute("aria-labelledby") === "swTitle") dialog.setAttribute("aria-labelledby", "swDialogTitle");
   }
 
   function rewriteToastMessage(message) {
@@ -299,72 +259,6 @@
     }
   }
 
-  function mapStatusText(value) {
-    let next = String(value || "");
-    Object.entries(STATUS_LABELS).forEach(([key, label]) => {
-      next = next.replace(new RegExp(`\\b${key}\\b`, "g"), label);
-    });
-    return next;
-  }
-
-  function decorateServiceWorkflow() {
-    const modal = byId("serviceWorkflowModal");
-    if (!modal) return;
-    setText(modal.querySelector(".service-workflow-dialog > header .track"), "服务跟进");
-    const modalTitle = modal.querySelector(".service-workflow-dialog > header h2");
-    setText(modalTitle, "事项进度与责任协作");
-    setText(modal.querySelector(".service-workflow-dialog > header p"), "围绕当前项目推进负责人、关键节点、复核和结项。项目内容更新后请同步更新办理依据。");
-
-    modal.querySelectorAll("label").forEach(label => {
-      if (label.textContent.includes("知识库发布版本")) {
-        label.hidden = true;
-        label.setAttribute("aria-hidden", "true");
-      }
-    });
-    modal.querySelectorAll(".sw-metrics > span").forEach(metric => {
-      const value = metric.childNodes[0]?.textContent?.trim() || metric.textContent.trim();
-      if (["项目依据", "上下文"].some(label => value.startsWith(label))) metric.remove();
-    });
-    modal.querySelectorAll(".sw-card > small").forEach(item => {
-      if (/SHA-256|上下文\s*SHA/i.test(item.textContent)) item.remove();
-    });
-    modal.querySelectorAll(".sw-context article p b").forEach(code => {
-      if (TECH_CODE_RE.test(code.textContent.trim())) code.remove();
-    });
-    modal.querySelectorAll(".sw-event small").forEach(item => item.remove());
-    modal.querySelectorAll(".sw-event strong").forEach(item => {
-      const key = item.textContent.trim();
-      if (ACTION_LABELS[key]) setText(item, ACTION_LABELS[key]);
-    });
-    modal.querySelectorAll(".sw-event span").forEach(item => {
-      let value = item.textContent;
-      Object.entries(ROLE_LABELS).forEach(([key, label]) => {
-        value = value.replace(new RegExp(`\\b${key}\\b`, "g"), label);
-      });
-      if (value !== item.textContent) setText(item, value);
-    });
-    modal.querySelectorAll(".sw-event p").forEach(item => {
-      const next = mapStatusText(item.textContent);
-      if (next !== item.textContent) setText(item, next);
-    });
-    replaceTextNodes(modal, [[/旧快照/g, "旧版本材料"], [/上下文版本/g, "办理依据版本"]]);
-  }
-
-  function interceptServiceContextPrompt(event) {
-    const button = event.target.closest?.("[data-sw-context]");
-    if (!button) return;
-    const originalPrompt = window.prompt;
-    if (typeof originalPrompt !== "function") return;
-    const replacement = function enterprisePrompt(message, defaultValue) {
-      if (/知识库发布版本引用/.test(String(message || ""))) return String(defaultValue || "");
-      return originalPrompt.call(window, message, defaultValue);
-    };
-    window.prompt = replacement;
-    queueMicrotask(() => {
-      if (window.prompt === replacement) window.prompt = originalPrompt;
-    });
-  }
-
   function syncAdvancedState() {
     const details = byId("enterpriseAdvancedAiSettings");
     if (!details || !advancedInitialized) return;
@@ -374,14 +268,13 @@
 
   function apply() {
     queued = false;
-    fixServiceDialogTitleId();
     wrapToast();
     decorateStaticShell();
     decorateModelSettings();
     decorateAccount();
     decorateProjectManager();
     decorateProvenance();
-    decorateServiceWorkflow();
+    syncAdvancedState();
     window.ZHILINK_ENTERPRISE_USER_VIEW_READY = true;
   }
 
@@ -393,12 +286,6 @@
 
   function start() {
     apply();
-    document.addEventListener("click", interceptServiceContextPrompt, true);
-    const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-    window.addEventListener("zhilink:model-mode-change", () => { schedule(); requestAnimationFrame(syncAdvancedState); });
-    window.addEventListener("zhilink:account-ready", schedule);
-    window.addEventListener("zhilink:project-changed", schedule);
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(schedule, { immediate: false });
   }
 
