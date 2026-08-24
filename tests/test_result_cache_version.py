@@ -9,9 +9,10 @@ POLICY = ROOT / "frontend" / "assets" / "policy-sources.js"
 def test_result_cache_guard_is_single_asset_without_wrapper_loader():
     source = GUARD.read_text(encoding="utf-8")
 
-    assert 'STYLE_URL = "/assets/data-provenance-guard.css?v=20260806.1"' in source
-    assert 'link.dataset.zhilinkDataProvenance = "true"' in source
-    assert "function ensureStyles()" in source
+    assert "STYLE_URL" not in source
+    assert "zhilinkDataProvenance" not in source
+    assert "ensureStyles" not in source
+    assert 'document.createElement("link")' not in source
     assert "CORE_SCRIPT" not in source
     assert "loadCoreGuard" not in source
     assert not (ROOT / "frontend" / "assets" / "data-provenance-guard-v2.js").exists()
