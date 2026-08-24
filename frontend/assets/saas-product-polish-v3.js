@@ -189,7 +189,8 @@
   function apply() {
     if (!document.body) return;
     ensureStyles();
-    document.body.classList.add("ui-v4-saas-polish", "ui-v4-release-polish");
+    document.body.classList.add("ui-v4-saas-polish");
+    document.body.classList.add("ui-v4-release-polish");
     document.documentElement.dataset.zhilinkProductPolish = "v3";
     document.documentElement.dataset.zhilinkReleasePolish = "v4";
     markTaskHierarchy();
