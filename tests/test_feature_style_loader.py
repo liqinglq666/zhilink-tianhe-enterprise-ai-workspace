@@ -21,6 +21,7 @@ FEATURE_STYLES = (
     "knowledge-base.css",
     "service-workflow.css",
     "data-provenance-guard.css",
+    "meeting-user-view.css",
 )
 
 
@@ -28,7 +29,7 @@ def test_feature_styles_have_one_early_bootstrap_owner() -> None:
     source = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
 
     assert UI_SCRIPTS[0] == "storage-recovery.js"
-    assert 'const FEATURE_STYLES_URL = "/assets/feature-styles.css?v=20260824.1"' in source
+    assert 'const FEATURE_STYLES_URL = "/assets/feature-styles.css?v=20260824.2"' in source
     assert 'document.querySelector("link[data-zhilink-feature-styles]")' in source
     assert source.count('document.createElement("link")') == 1
     assert 'stylesheet.dataset.zhilinkFeatureStyles = "true"' in source
@@ -59,6 +60,7 @@ def test_feature_styles_have_no_module_level_loaders() -> None:
         "knowledge-base.js": ("knowledgeBase", "link[data-knowledge-base]", "knowledge-base.css"),
         "service-workflow.js": ("serviceWorkflow", "link[data-service-workflow]", "service-workflow.css"),
         "data-provenance-guard.js": ("zhilinkDataProvenance", "link[data-zhilink-data-provenance]", "data-provenance-guard.css"),
+        "meeting-user-view.js": ("meetingUserView", "link[data-meeting-user-view]", "meeting-user-view.css"),
     }
 
     for filename, (marker, selector, stylesheet) in consumers.items():
@@ -76,7 +78,7 @@ def test_feature_styles_have_no_module_level_loaders() -> None:
 
 def test_feature_manifest_and_bundle_are_served() -> None:
     with TestClient(app) as client:
-        stylesheet = client.get("/assets/feature-styles.css?v=20260824.1")
+        stylesheet = client.get("/assets/feature-styles.css?v=20260824.2")
         bundle = client.get("/assets/app.js")
 
     assert stylesheet.status_code == 200

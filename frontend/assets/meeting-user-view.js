@@ -150,18 +150,6 @@
         <div id="meetingSourceBody"></div>
       </section>`;
     document.body.appendChild(modal);
-
-    const style = document.createElement("style");
-    style.dataset.meetingUserView = "true";
-    style.textContent = `
-      .meeting-source-modal{display:none;position:fixed;inset:0;z-index:10000}.meeting-source-modal.show{display:block}
-      .meeting-source-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.42)}
-      .meeting-source-dialog{position:absolute;right:0;top:0;height:100%;width:min(620px,92vw);background:#fff;box-shadow:-18px 0 45px rgba(15,23,42,.18);padding:24px;overflow:auto}
-      .meeting-source-dialog header{display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid #e5e7eb;padding-bottom:18px;margin-bottom:18px}.meeting-source-dialog header p{margin:6px 0 0;color:#64748b;line-height:1.6}
-      .meeting-source-list{display:grid;gap:12px}.meeting-source-item{padding:14px 16px;border:1px solid #e5e7eb;border-radius:12px;background:#f8fafc}.meeting-source-item strong{display:block;margin-bottom:6px}.meeting-source-item p{margin:0;line-height:1.65;color:#334155}
-      .meeting-source-pending{margin-top:22px}.meeting-source-pending li{margin:7px 0;line-height:1.55}
-    `;
-    document.head.appendChild(style);
   }
 
   function openSources() {
@@ -203,9 +191,6 @@
       replaceResultBody(panel, sanitizeMeetingMarkdown(raw));
       const mode = panel.querySelector(".result-meta .meta-pill");
       if (mode && mode.textContent !== "需人工确认") mode.textContent = "需人工确认";
-      const origin = panel.querySelector(".data-origin-pill");
-      if (origin?.textContent.includes("示例生成")) origin.textContent = "示例数据";
-      else if (origin?.textContent.includes("旧会话材料")) origin.textContent = "历史材料 · 请复核后使用";
 
       const bar = panel.querySelector(".structured-result-bar");
       if (bar && !bar.classList.contains("meeting-user-structure-bar")) {
