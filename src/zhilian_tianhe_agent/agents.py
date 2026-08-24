@@ -161,15 +161,6 @@ class MeetingAgent(BaseAgent):
             error=result.error,
         )
 
-    def stream(self, meeting_text: str, profile_summary: str = "") -> Iterator[str]:
-        """Compatibility stream that exposes only the verified result."""
-        prompt, bundle = self._prepare(meeting_text, profile_summary)
-        content = "".join(self._stream(prompt))
-        checked = audit_meeting_output(content, meeting_text, bundle)
-        for start in range(0, len(checked), 1600):
-            yield checked[start : start + 1600]
-        yield f"\n\n{bundle.to_markdown()}"
-
     def stream_events(self, meeting_text: str, profile_summary: str = "") -> Iterator[AgentStreamEvent]:
         """Stream a provisional draft immediately, then replace it with verified content."""
         prompt, bundle = self._prepare(meeting_text, profile_summary)
@@ -212,15 +203,6 @@ class ContractAgent(BaseAgent):
             mode="AI模型模式（含本地规则预检）",
             error=result.error,
         )
-
-    def stream(self, contract_text: str, profile_summary: str = "") -> Iterator[str]:
-        """Compatibility stream that exposes only the verified result."""
-        prompt, scan = self._prepare(contract_text, profile_summary)
-        content = "".join(self._stream(prompt))
-        checked = audit_contract_output(content, contract_text, scan)
-        for start in range(0, len(checked), 1600):
-            yield checked[start : start + 1600]
-        yield f"\n\n{scan.to_markdown()}"
 
     def stream_events(self, contract_text: str, profile_summary: str = "") -> Iterator[AgentStreamEvent]:
         """Stream a provisional draft immediately, then replace it with verified content."""
