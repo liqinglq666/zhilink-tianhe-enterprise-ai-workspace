@@ -29,7 +29,8 @@ def test_project_api_is_registered_and_secured(monkeypatch, tmp_path):  # noqa: 
         bundle = client.get("/assets/app.js")
         assert bundle.status_code == 200
         assert "PROJECT_STORAGE_READY" in bundle.text
-        assert "ZHILINK_PROJECT_RESULT_META_READY" in bundle.text
+        assert "ZHILINK_PROJECT_RESULT_META_READY" not in bundle.text
+        assert 'PERSISTED_META_FIELDS = ["origin", "example_key", "result_schema_version"]' in bundle.text
         assert "ACCOUNT_ACCESS_READY" in bundle.text
         assert "REVIEW_WORKFLOW_READY" in bundle.text
         assert "ZHILINK_STRUCTURED_READY" in bundle.text
