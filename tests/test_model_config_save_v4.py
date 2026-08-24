@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from backend.main import app
+
+ROOT = Path(__file__).resolve().parents[1]
+ASSETS = ROOT / "frontend" / "assets"
+INDEX = ROOT / "frontend" / "index.html"
 
 
 def test_bundle_loads_explicit_model_config_controller_after_native_drawer() -> None:
@@ -25,68 +31,115 @@ def test_bundle_loads_explicit_model_config_controller_after_native_drawer() -> 
 
 
 def test_model_config_uses_draft_test_and_explicit_commit() -> None:
-    with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260811.1")
+    script = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
 
-    script = response.text
     assert "function readDraft()" in script
     assert "function commitDraft()" in script
     assert "originalSaveConfig" in script
     assert 'window.saveConfig = function saveConfigWithoutImplicitPersistence()' in script
     assert 'window.getConfig = getActiveRequestConfig' in script
     assert 'await apiPost("/api/test-connection", payload)' in script
-    assert "当前编辑内容，尚未保存" in script
-    assert "模型配置有未保存的修改" in script
+    assert "当前编辑设置，尚未保存" in script
+    assert "AI 服务设置有未保存的修改" in script
     assert "restoreDraftFromActive" in script
     assert "有未保存更改" in script
 
 
 def test_model_config_clear_key_is_draft_only_until_save() -> None:
-    with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260811.1")
+    script = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
 
-    script = response.text
     clear_block = script[script.index(f'if (target.closest(`#${{IDS.clear}}`))'):script.index(f'if (target.closest(`#${{IDS.test}}`))')]
     assert 'key.value = ""' in clear_block
     assert "sessionStorage.removeItem" not in clear_block
     assert "保存后生效" in clear_block
+    assert "已选择平台 AI 服务，保存后生效。" in clear_block
+    assert "已清除访问密钥，保存后生效。" in clear_block
 
 
-def test_model_config_supports_public_model_without_browser_key() -> None:
-    with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260811.1")
+def test_model_config_supports_platform_and_enterprise_services_with_business_copy() -> None:
+    script = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
 
-    script = response.text
     assert "const publicModel =" in script
     assert 'fetch("/api/defaults"' in script
     assert 'return publicModel.available ? "public" : "unconfigured"' in script
     assert 'api_key: publicModel.loaded && !publicModel.userOverrideAllowed ? "" : config.api_key' in script
     assert 'publicModel.userOverrideAllowed = status?.user_override_allowed !== false' in script
-    assert 'publicModel.available ? "恢复公共模型" : "清空 API Key"' in script
-    assert "当前部署未开放用户自定义 API" in script
-    assert "公共模型已连接" in script
+    for expected in (
+        'badge: "企业服务"',
+        'top: "企业 AI 服务"',
+        'title: "正在使用企业自有 AI 服务"',
+        'badge: "平台服务"',
+        'top: "AI 服务可用"',
+        'title: "平台 AI 服务已就绪"',
+        'top: "正在检查服务"',
+        'title: "正在检查 AI 服务"',
+        'badge: "未就绪"',
+        'title: "AI 服务未就绪"',
+        'publicModel.available ? "使用平台服务" : "清除访问密钥"',
+        "当前部署未开放企业自有 AI 服务设置。",
+    ):
+        assert expected in script
+
+    for obsolete in (
+        'badge: "自定义 API"',
+        'badge: "公共模型"',
+        'top: "公共模型可用"',
+        'title: "公共模型已连接"',
+        "当前部署未开放用户自定义 API",
+    ):
+        assert obsolete not in script
 
 
-def test_model_config_generation_requires_saved_custom_or_available_public_model() -> None:
-    with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.js?v=20260811.1")
+def test_model_config_generation_requires_saved_enterprise_or_available_platform_service() -> None:
+    script = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
 
-    script = response.text
     assert 'window.requireApiConfig = function requireAvailableModel()' in script
-    assert "使用自定义 API 时，请完整保存 API Key、Base URL 和模型名称" in script
-    assert "当前公共模型尚未配置" in script
+    assert "使用企业自有 AI 服务时，请完整保存访问密钥、服务地址和模型名称。" in script
+    assert "AI 服务尚未就绪，请打开“AI 服务设置”完成配置后再生成。" in script
     assert "renderModelStatus" in script
     assert "zhilink:model-mode-change" in script
 
 
-def test_model_config_save_state_has_mobile_safe_area_and_disabled_save_feedback() -> None:
-    with TestClient(app) as client:
-        response = client.get("/assets/model-config-save-v4.css?v=20260811.1")
-        drawer = client.get("/assets/api-drawer-v4.css?v=20260811.1")
+def test_model_config_owns_advanced_settings_and_customer_copy() -> None:
+    script = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
+    stylesheet = (ASSETS / "model-config-save-v4.css").read_text(encoding="utf-8")
 
-    stylesheet = response.text
+    for expected in (
+        'details.id = "modelConfigAdvancedSettings"',
+        'summary.id = "modelConfigAdvancedSettingsSummary"',
+        'summary.textContent = "高级连接设置"',
+        'note.textContent = "仅在接入企业自有 AI 服务时需要填写。普通用户无需修改。"',
+        'advanced.open = mode === "custom" || mode === "unconfigured"',
+        'setText(byId("apiDrawerTitle"), "AI 服务设置")',
+        'setText(byId(IDS.test), "检查服务")',
+        'setText(byId(IDS.save), "保存设置")',
+        'toast("AI 服务设置已保存。")',
+    ):
+        assert expected in script
+
+    assert ".model-config-advanced" in stylesheet
+    assert ".model-config-advanced-note" in stylesheet
+    assert ".enterprise-ai-advanced" not in stylesheet
+
+
+def test_model_config_styles_are_static_and_not_loaded_from_javascript() -> None:
+    script = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
+    html = INDEX.read_text(encoding="utf-8")
+
+    assert 'href="/assets/model-config-save-v4.css?v=20260811.1"' in html
+    assert 'data-model-config-save-v4="true"' in html
+    assert "function ensureStyles()" not in script
+    assert 'document.createElement("link")' not in script
+    assert '.rel = "stylesheet"' not in script
+    assert "const VERSION =" not in script
+
+
+def test_model_config_save_state_has_mobile_safe_area_and_disabled_save_feedback() -> None:
+    stylesheet = (ASSETS / "model-config-save-v4.css").read_text(encoding="utf-8")
+    drawer = (ASSETS / "api-drawer-v4.css").read_text(encoding="utf-8")
+
     assert ".model-config-draft-status" in stylesheet
     assert '[data-state="dirty"]' in stylesheet
     assert '#saveApiConfig:disabled' in stylesheet
     assert "env(safe-area-inset-bottom)" in stylesheet
-    assert ".public-model-mode-notice" in drawer.text
+    assert ".public-model-mode-notice" in drawer

@@ -1,17 +1,7 @@
 /* UI V4 model drawer controller for native markup. */
 (() => {
-  const VERSION = "20260811.1";
   const LEGACY_COLLAPSE_STORAGE = "zhilian_api_panel_collapsed";
   let bound = false;
-
-  function ensureStyles() {
-    if (document.querySelector("link[data-api-drawer-v4]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `/assets/api-drawer-v4.css?v=${VERSION}`;
-    link.dataset.apiDrawerV4 = "true";
-    document.head.appendChild(link);
-  }
 
   function normalizePanel(panel) {
     if (!panel) return;
@@ -29,7 +19,10 @@
     panel.setAttribute("aria-hidden", String(!open));
     backdrop?.setAttribute("aria-hidden", String(!open));
     if (open && !(document.activeElement instanceof Element && panel.contains(document.activeElement))) {
-      window.setTimeout(() => document.getElementById("apiKey")?.focus(), 30);
+      window.setTimeout(() => {
+        const target = document.getElementById("modelConfigAdvancedSettingsSummary") || document.getElementById("apiKey");
+        target?.focus();
+      }, 30);
     }
   }
 
@@ -61,7 +54,6 @@
   }
 
   function start() {
-    ensureStyles();
     const panel = document.getElementById("apiPanel");
     if (!panel) return;
     normalizePanel(panel);

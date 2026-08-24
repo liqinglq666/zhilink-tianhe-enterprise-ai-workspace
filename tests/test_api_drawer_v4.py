@@ -49,6 +49,19 @@ def test_api_drawer_is_native_markup_and_controller_no_longer_rebuilds_dom() -> 
     assert "live-api-" not in stylesheet
 
 
+def test_api_drawer_styles_are_owned_by_static_html() -> None:
+    script = (ASSETS / "api-drawer-v4.js").read_text(encoding="utf-8")
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+
+    assert 'href="/assets/api-drawer-v4.css?v=20260811.1"' in html
+    assert 'data-api-drawer-v4="true"' in html
+    assert "function ensureStyles()" not in script
+    assert 'document.createElement("link")' not in script
+    assert '.rel = "stylesheet"' not in script
+    assert "const VERSION =" not in script
+    assert 'document.getElementById("modelConfigAdvancedSettingsSummary")' in script
+
+
 def test_api_drawer_preserves_security_copy_and_control_ids_in_native_html() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     for control_id in (

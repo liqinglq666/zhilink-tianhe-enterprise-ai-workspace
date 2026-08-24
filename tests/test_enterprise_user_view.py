@@ -12,17 +12,23 @@ ROUTES = ROOT / "backend" / "project_routes.py"
 INDEX = ROOT / "frontend" / "index.html"
 
 
-def test_enterprise_customer_view_translates_only_remaining_global_ui() -> None:
+def test_enterprise_customer_view_translates_only_remaining_global_shell_ui() -> None:
     source = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
 
     for expected in (
         "AI 服务设置",
-        "高级连接设置",
-        "平台 AI 服务已就绪",
         "仅导出业务内容",
         "智能辅助整理",
     ):
         assert expected in source
+
+    for moved in (
+        "高级连接设置",
+        "平台 AI 服务已就绪",
+        "正在使用企业自有 AI 服务",
+        "AI 服务设置已保存",
+    ):
+        assert moved not in source
 
 
 def test_account_and_project_customer_copy_is_owned_by_source_modules() -> None:
@@ -101,15 +107,38 @@ def test_provenance_customer_copy_is_owned_by_source_module() -> None:
         assert obsolete not in enterprise
 
 
-def test_enterprise_view_keeps_advanced_model_controls_but_collapses_them_for_normal_users() -> None:
-    source = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
-    css = (ASSETS / "enterprise-user-view.css").read_text(encoding="utf-8")
+def test_model_settings_customer_copy_and_advanced_controls_are_source_owned() -> None:
+    enterprise = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
+    model = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
+    model_css = (ASSETS / "model-config-save-v4.css").read_text(encoding="utf-8")
+    enterprise_css = (ASSETS / "enterprise-user-view.css").read_text(encoding="utf-8")
 
-    assert 'details.id = "enterpriseAdvancedAiSettings"' in source
-    assert 'summary.textContent = "高级连接设置"' in source
-    assert 'details.open = mode === "custom" || mode === "unconfigured"' in source
-    assert ".enterprise-ai-advanced" in css
-    assert "普通用户无需修改" in source
+    for expected in (
+        "AI 服务设置",
+        "高级连接设置",
+        "平台 AI 服务已就绪",
+        "正在使用企业自有 AI 服务",
+        "普通用户无需修改",
+        "AI 服务设置已保存",
+    ):
+        assert expected in model
+
+    assert 'details.id = "modelConfigAdvancedSettings"' in model
+    assert 'advanced.open = mode === "custom" || mode === "unconfigured"' in model
+    assert ".model-config-advanced" in model_css
+    assert ".enterprise-ai-advanced" not in enterprise_css
+
+    for obsolete in (
+        "decorateModelSettings",
+        "syncAdvancedState",
+        "TOAST_REWRITES",
+        "rewriteToastMessage",
+        "wrapToast",
+        "window.toast = wrapped",
+        "enterpriseAdvancedAiSettings",
+        "平台 AI 服务已就绪",
+    ):
+        assert obsolete not in enterprise
 
 
 def test_enterprise_view_does_not_patch_service_workflow_or_duplicate_runtime_scheduler() -> None:
@@ -135,16 +164,17 @@ def test_enterprise_view_does_not_patch_service_workflow_or_duplicate_runtime_sc
     assert "ZHILINK_UI_V4_RUNTIME?.subscribe" in enterprise
 
 
-def test_enterprise_view_owns_only_remaining_model_toast_rewrites() -> None:
+def test_enterprise_view_no_longer_wraps_toasts() -> None:
     source = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
+    model = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
     provenance = (ASSETS / "data-provenance-guard.js").read_text(encoding="utf-8")
 
     assert not (ASSETS / "enterprise-user-view-guards.js").exists()
     assert "enterprise-user-view-guards.js" not in UI_SCRIPTS
-    assert "AI 服务设置已保存" in source
-    assert "平台 AI 服务" in source
-    assert "window.toast = wrapped" in source
-    assert "示例内容仅供体验" not in source
+    assert "TOAST_REWRITES" not in source
+    assert "window.toast = wrapped" not in source
+    assert "AI 服务设置已保存" in model
+    assert "已选择平台 AI 服务，保存后生效" in model
     assert "示例内容仅供体验" in provenance
 
 

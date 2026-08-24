@@ -1,6 +1,5 @@
 /* UI V4 model config: draft -> test -> explicit save, with server-side public model support. */
 (() => {
-  const VERSION = "20260810.3";
   const IDS = {
     panel: "apiPanel",
     provider: "providerSelect",
@@ -30,14 +29,29 @@
   };
 
   function byId(id) { return document.getElementById(id); }
-  function ensureStyles() {
-    if (document.querySelector("link[data-model-config-save-v4]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `/assets/model-config-save-v4.css?v=${VERSION}`;
-    link.dataset.modelConfigSaveV4 = "true";
-    document.head.appendChild(link);
+
+  function applyCustomerCopy() {
+    const panel = byId(IDS.panel);
+    if (!panel) return;
+    const setText = (element, value) => {
+      if (element && element.textContent !== value) element.textContent = value;
+    };
+    setText(byId("apiDrawerTitle"), "AI 服务设置");
+    setText(panel.querySelector(".api-drawer-intro strong"), "AI 服务");
+    setText(panel.querySelector(".api-drawer-intro p"), "使用平台服务时无需额外设置；企业如需接入自有服务，可在高级连接设置中维护。");
+    setText(panel.querySelector(".api-drawer-security-note"), "敏感连接信息只用于当前浏览器中的服务设置，不会写入项目或导出的业务材料。");
+    const labels = new Map([
+      [IDS.provider, "服务方式"],
+      [IDS.apiKey, "访问密钥"],
+      [IDS.baseUrl, "服务地址"],
+      [IDS.model, "模型名称"],
+      [IDS.temperature, "生成稳定性"],
+    ]);
+    labels.forEach((label, id) => setText(panel.querySelector(`label[for="${id}"]`), label));
+    setText(byId(IDS.test), "检查服务");
+    setText(byId(IDS.save), "保存设置");
   }
+
   function readDraft() {
     return {
       provider: byId(IDS.provider)?.value || "",
@@ -97,45 +111,63 @@
   }
   function modeCopy(mode) {
     if (mode === "custom") return {
-      badge: "自定义 API",
-      top: "自定义 API",
-      title: "当前使用自定义 API",
-      detail: "API Key 仅保存在当前浏览器会话，并发送到你保存的兼容接口。",
+      badge: "企业服务",
+      top: "企业 AI 服务",
+      title: "正在使用企业自有 AI 服务",
+      detail: "连接信息仅用于企业自有服务，不会写入业务材料。",
     };
-    if (mode === "public") {
-      const detail = [publicModel.provider, publicModel.model].filter(Boolean).join(" · ");
-      return {
-        badge: "公共模型",
-        top: "公共模型可用",
-        title: "公共模型已连接",
-        detail: detail ? `当前部署模型：${detail}。无需在浏览器保存公共 Key。` : "当前部署已提供公共模型，无需填写 API Key。",
-      };
-    }
+    if (mode === "public") return {
+      badge: "平台服务",
+      top: "AI 服务可用",
+      title: "平台 AI 服务已就绪",
+      detail: "当前服务可直接使用，无需额外设置。",
+    };
     if (mode === "checking") return {
       badge: "检查中",
-      top: "正在检查模型",
-      title: "正在确认模型状态",
-      detail: "仅读取不包含密钥的服务端状态。",
+      top: "正在检查服务",
+      title: "正在检查 AI 服务",
+      detail: "请稍候，系统正在确认服务状态。",
     };
     return {
-      badge: "待配置",
-      top: "需配置模型",
-      title: "当前没有可用模型",
-      detail: "部署方尚未提供公共模型，请保存自己的 API Key、Base URL 和模型名称。",
+      badge: "未就绪",
+      top: "AI 服务未就绪",
+      title: "AI 服务未就绪",
+      detail: "请联系管理员，或在高级连接设置中配置企业自有 AI 服务。",
     };
+  }
+
+  function ensureAdvancedSettings() {
+    const body = byId("apiPanelBody");
+    const fields = body?.querySelector(".api-drawer-fields");
+    if (!body || !fields) return null;
+    let details = byId("modelConfigAdvancedSettings");
+    if (details) return details;
+    details = document.createElement("details");
+    details.id = "modelConfigAdvancedSettings";
+    details.className = "model-config-advanced";
+    const summary = document.createElement("summary");
+    summary.id = "modelConfigAdvancedSettingsSummary";
+    summary.textContent = "高级连接设置";
+    const note = document.createElement("p");
+    note.className = "model-config-advanced-note";
+    note.textContent = "仅在接入企业自有 AI 服务时需要填写。普通用户无需修改。";
+    fields.before(details);
+    details.append(summary, note, fields);
+    return details;
   }
 
   function ensurePublicNotice() {
     const body = byId("apiPanelBody");
     const fields = body?.querySelector(".api-drawer-fields");
     if (!body || !fields) return null;
+    const advanced = ensureAdvancedSettings();
     let notice = byId("publicModelModeNotice");
     if (!notice) {
       notice = document.createElement("div");
       notice.id = "publicModelModeNotice";
       notice.className = "public-model-mode-notice";
       notice.innerHTML = "<strong data-public-model-title></strong><span data-public-model-detail></span>";
-      body.insertBefore(notice, fields);
+      body.insertBefore(notice, advanced || fields);
     }
     return notice;
   }
@@ -164,8 +196,10 @@
       if (title) title.textContent = copy.title;
       if (detail) detail.textContent = copy.detail;
     }
+    const advanced = ensureAdvancedSettings();
+    if (advanced) advanced.open = mode === "custom" || mode === "unconfigured";
     const clear = byId(IDS.clear);
-    if (clear) clear.textContent = publicModel.available ? "恢复公共模型" : "清空 API Key";
+    if (clear) clear.textContent = publicModel.available ? "使用平台服务" : "清除访问密钥";
     window.dispatchEvent(new CustomEvent("zhilink:model-mode-change", {
       detail: { mode, available: publicModel.available, provider: publicModel.provider, model: publicModel.model },
     }));
@@ -177,8 +211,8 @@
       const element = byId(id);
       if (!element) return;
       element.disabled = !allow;
-      if (!allow) element.title = "当前部署未开放用户自定义 API。";
-      else if (element.title === "当前部署未开放用户自定义 API。") element.removeAttribute("title");
+      if (!allow) element.title = "当前部署未开放企业自有 AI 服务设置。";
+      else if (element.title === "当前部署未开放企业自有 AI 服务设置。") element.removeAttribute("title");
     });
     updateDraftState();
   }
@@ -205,7 +239,7 @@
       const payload = await response.json();
       ingestPublicStatus(payload?.public_model || {});
     } catch (error) {
-      console.warn("无法读取公共模型状态。", error);
+      console.warn("无法读取 AI 服务状态。", error);
       ingestPublicStatus({ available: false, user_override_allowed: true });
     }
   }
@@ -273,7 +307,7 @@
   }
   function shouldAllowClose() {
     if (!sessionOpen || !dirty) return true;
-    const discard = window.confirm("模型配置有未保存的修改。要放弃这些修改吗？");
+    const discard = window.confirm("AI 服务设置有未保存的修改。要放弃这些修改吗？");
     if (!discard) return false;
     restoreDraftFromActive();
     return true;
@@ -285,15 +319,15 @@
     const draft = readDraft();
     const usingCustom = publicModel.userOverrideAllowed && Boolean(draft.api_key);
     if (usingCustom && (!draft.base_url || !draft.model)) {
-      if (result) result.textContent = "使用自定义 API 时，请填写 Base URL 和模型名称后再测试。";
+      if (result) result.textContent = "使用企业自有 AI 服务时，请填写服务地址和模型名称后再检查。";
       return;
     }
     if (!usingCustom && publicModel.loaded && !publicModel.available) {
-      if (result) result.textContent = "当前没有可用公共模型，请填写并保存自己的 API 配置。";
+      if (result) result.textContent = "AI 服务尚未就绪，请配置企业自有 AI 服务后再检查。";
       return;
     }
     try {
-      if (typeof setLoading === "function") setLoading(button, true, "测试中...");
+      if (typeof setLoading === "function") setLoading(button, true, "检查中...");
       const payload = {
         api_key: usingCustom ? draft.api_key : "",
         base_url: draft.base_url,
@@ -301,15 +335,15 @@
         temperature: draft.temperature,
       };
       const response = typeof apiPost === "function" ? await apiPost("/api/test-connection", payload) : null;
-      if (!response) throw new Error("连接测试不可用。");
+      if (!response) throw new Error("服务检查暂不可用。");
       if (result) {
-        const scope = usingCustom ? "当前编辑内容，尚未保存" : "公共模型";
+        const scope = usingCustom ? "当前编辑设置，尚未保存" : "平台服务";
         result.textContent = response.ok
-          ? `连接成功（${scope}）：${response.content || response.mode || "模型可用"}`
-          : `连接失败：${response.error || "模型接口不可用"}`;
+          ? `服务可用（${scope}）：${response.content || response.mode || "连接正常"}`
+          : `服务不可用：${response.error || "请检查连接设置"}`;
       }
     } catch (error) {
-      if (result) result.textContent = `连接失败：${error.message || String(error)}`;
+      if (result) result.textContent = `服务不可用：${error.message || String(error)}`;
     } finally {
       if (typeof setLoading === "function") setLoading(button, false);
     }
@@ -324,11 +358,11 @@
     window.requireApiConfig = function requireAvailableModel() {
       const config = getActiveRequestConfig();
       if (config.api_key) {
-        if (!config.base_url || !config.model) throw new Error("使用自定义 API 时，请完整保存 API Key、Base URL 和模型名称。 ");
+        if (!config.base_url || !config.model) throw new Error("使用企业自有 AI 服务时，请完整保存访问密钥、服务地址和模型名称。");
         return config;
       }
       if (publicModel.loaded && !publicModel.available) {
-        throw new Error("当前公共模型尚未配置，请打开“模型配置”并保存自己的 API 后再生成。 ");
+        throw new Error("AI 服务尚未就绪，请打开“AI 服务设置”完成配置后再生成。");
       }
       return config;
     };
@@ -345,7 +379,7 @@
       if (key) key.value = "";
       updateDraftState();
       renderModelStatus();
-      if (typeof toast === "function") toast(publicModel.available ? "已切换当前编辑内容为公共模型，保存后生效。" : "已从当前编辑内容中清空 API Key，保存后生效。");
+      if (typeof toast === "function") toast(publicModel.available ? "已选择平台 AI 服务，保存后生效。" : "已清除访问密钥，保存后生效。");
       return;
     }
     if (target.closest(`#${IDS.test}`)) {
@@ -359,7 +393,7 @@
       event.stopImmediatePropagation();
       if (!dirty) return;
       commitDraft();
-      if (typeof toast === "function") toast("模型配置已保存。 ");
+      if (typeof toast === "function") toast("AI 服务设置已保存。");
       byId(IDS.close)?.click();
       return;
     }
@@ -394,7 +428,8 @@
   }
 
   function start() {
-    ensureStyles();
+    applyCustomerCopy();
+    ensureAdvancedSettings();
     installCompatibilityOverrides();
     document.addEventListener("click", handleClick, true);
     document.addEventListener("input", handleDraftChange, true);
