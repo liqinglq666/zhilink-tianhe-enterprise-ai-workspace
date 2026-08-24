@@ -10,7 +10,6 @@
     stylesheet.dataset.zhilinkFeatureStyles = "true";
 
     // Compatibility markers keep legacy feature loaders dormant until their dead code is removed.
-    stylesheet.dataset.generationControls = "true";
     stylesheet.dataset.accountAccess = "true";
     stylesheet.dataset.projectStorage = "true";
     stylesheet.dataset.projectHistory = "true";
