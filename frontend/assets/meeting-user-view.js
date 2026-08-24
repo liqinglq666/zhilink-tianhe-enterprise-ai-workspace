@@ -63,8 +63,9 @@
       .replace(/原文事实/g, "已确认")
       .replace(/已明确/g, "已确认")
       .replace(/部分明确(?:（[^）]*）)?/g, "待确认")
-      .replace(/AI\s*建议（未确认）/g, "AI 建议")
+      .replace(/AI\s*建议（未确认）/g, "建议（待确认）")
       .replace(/待确认（AI\s*建议：[^）]*）/g, "待确认")
+      .replace(/AI\s*建议/g, "建议")
       .replace(/^##\s+(?:原文待办事项|待办事项表)\s*$/gm, "## 待办事项");
   }
   function cleanInternalRefs(markdown) {
@@ -145,7 +146,7 @@
     modal.innerHTML = `
       <div class="meeting-source-backdrop" data-close-meeting-sources></div>
       <section class="meeting-source-dialog" role="dialog" aria-modal="true" aria-labelledby="meetingSourceTitle">
-        <header><div><span>生成依据</span><h2 id="meetingSourceTitle">会议原文来源</h2><p>展示实际使用的会议原文和待确认问题，不向业务用户暴露内部编号。</p></div><button type="button" class="icon-btn" data-close-meeting-sources aria-label="关闭生成依据">✕</button></header>
+        <header><div><span>原文核对</span><h2 id="meetingSourceTitle">会议原文</h2><p>用于核对纪要内容与原始会议记录，便于确认关键决策和待办事项。</p></div><button type="button" class="icon-btn" data-close-meeting-sources aria-label="关闭会议原文">✕</button></header>
         <div id="meetingSourceBody"></div>
       </section>`;
     document.body.appendChild(modal);
@@ -170,8 +171,8 @@
     const body = document.getElementById("meetingSourceBody");
     body.innerHTML = sources.length
       ? `<div class="meeting-source-list">${sources.map(item => `<article class="meeting-source-item"><strong>${safe(item.source || "会议原文")}</strong><p>${safe(item.excerpt)}</p></article>`).join("")}</div>`
-      : '<div class="notice info">当前没有可展开的原文索引，系统仍保留原始会议输入供人工复核。</div>';
-    if (pending.length) body.insertAdjacentHTML("beforeend", `<section class="meeting-source-pending"><h3>仍需人工确认</h3><ul>${pending.map(item => `<li>${safe(item)}</li>`).join("")}</ul></section>`);
+      : '<div class="notice info">暂无可展开的原文片段，可直接对照会议记录进行复核。</div>';
+    if (pending.length) body.insertAdjacentHTML("beforeend", `<section class="meeting-source-pending"><h3>仍需确认</h3><ul>${pending.map(item => `<li>${safe(item)}</li>`).join("")}</ul></section>`);
     const modal = document.getElementById("meetingSourceDialog");
     modal.classList.add("show");
     modal.setAttribute("aria-hidden", "false");
@@ -201,15 +202,15 @@
     try {
       replaceResultBody(panel, sanitizeMeetingMarkdown(raw));
       const mode = panel.querySelector(".result-meta .meta-pill");
-      if (mode && mode.textContent !== "AI 生成 · 待人工确认") mode.textContent = "AI 生成 · 待人工确认";
+      if (mode && mode.textContent !== "需人工确认") mode.textContent = "需人工确认";
       const origin = panel.querySelector(".data-origin-pill");
-      if (origin?.textContent.includes("示例生成")) origin.textContent = "示例数据 · 不会保存为正式材料";
-      else if (origin?.textContent.includes("旧会话材料")) origin.textContent = "旧会话材料 · 请重新确认后使用";
+      if (origin?.textContent.includes("示例生成")) origin.textContent = "示例数据";
+      else if (origin?.textContent.includes("旧会话材料")) origin.textContent = "历史材料 · 请复核后使用";
 
       const bar = panel.querySelector(".structured-result-bar");
       if (bar && !bar.classList.contains("meeting-user-structure-bar")) {
         bar.className = "structured-result-bar structured-valid meeting-user-structure-bar";
-        bar.innerHTML = '<div><strong>已完成结构检查</strong><small>事实、待确认项和 AI 建议已区分，请人工复核后归档。</small></div>';
+        bar.innerHTML = '<div><strong>归档前请复核</strong><small>请确认关键决策、负责人和时间节点后再归档。</small></div>';
       }
       const actions = panel.querySelector(".result-actions");
       if (actions && !actions.querySelector("[data-open-meeting-sources]")) {
@@ -217,7 +218,7 @@
         button.type = "button";
         button.className = "inline-action";
         button.dataset.openMeetingSources = "true";
-        button.textContent = "查看生成依据";
+        button.textContent = "核对原文";
         actions.appendChild(button);
       }
     } finally {
