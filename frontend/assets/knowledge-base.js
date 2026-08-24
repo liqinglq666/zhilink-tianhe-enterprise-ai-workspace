@@ -55,17 +55,7 @@
     } finally { clearTimeout(timer); }
   }
 
-  function injectStyles() {
-    if (document.querySelector("link[data-knowledge-base]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "/assets/knowledge-base.css";
-    link.dataset.knowledgeBase = "true";
-    document.head.appendChild(link);
-  }
-
   function injectUi() {
-    injectStyles();
     const topActions = document.querySelector(".top-actions");
     if (topActions && !document.getElementById("openKnowledgeBase")) {
       const button = document.createElement("button");
