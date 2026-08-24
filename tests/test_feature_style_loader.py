@@ -9,6 +9,7 @@ from backend.project_routes import UI_BUNDLE_VERSION, UI_SCRIPTS
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
+INDEX = ROOT / "frontend" / "index.html"
 
 FEATURE_STYLES = (
     "generation-controls.css",
@@ -20,68 +21,80 @@ FEATURE_STYLES = (
     "policy-sources.css",
     "knowledge-base.css",
     "service-workflow.css",
-    "data-provenance-guard.css",
+    "data-provenance-guard.css?v=20260806.1",
     "meeting-user-view.css",
 )
 
 
-def test_feature_styles_have_one_early_bootstrap_owner() -> None:
-    source = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
+def test_feature_styles_are_native_dependencies_before_v4_presentation() -> None:
+    html = INDEX.read_text(encoding="utf-8")
 
     assert UI_SCRIPTS[0] == "storage-recovery.js"
-    assert 'const FEATURE_STYLES_URL = "/assets/feature-styles.css?v=20260824.2"' in source
-    assert 'document.querySelector("link[data-zhilink-feature-styles]")' in source
-    assert source.count('document.createElement("link")') == 1
-    assert 'stylesheet.dataset.zhilinkFeatureStyles = "true"' in source
-    assert "ZHILINK_FEATURE_STYLES_READY" in source
-
-
-def test_feature_style_manifest_preserves_existing_cascade_order() -> None:
-    manifest = (ASSETS / "feature-styles.css").read_text(encoding="utf-8")
+    base_position = html.index('href="/assets/style.css"')
+    v4_position = html.index('href="/assets/ui-v4-shell.css?v=20260811.1"')
     positions = []
+    for stylesheet in FEATURE_STYLES:
+        marker = f'href="/assets/{stylesheet}"'
+        assert html.count(marker) == 1, stylesheet
+        positions.append(html.index(marker))
 
-    for filename in FEATURE_STYLES:
-        assert filename in manifest
-        positions.append(manifest.index(filename))
-
+    assert base_position < positions[0]
     assert positions == sorted(positions)
-    assert manifest.count("@import") == len(FEATURE_STYLES)
+    assert positions[-1] < v4_position
+
+
+def test_storage_recovery_is_storage_only() -> None:
+    source = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
+
+    assert "ZHILINK_STORAGE_RECOVERY" in source
+    assert "FEATURE_STYLES_URL" not in source
+    assert "ensureFeatureStyles" not in source
+    assert "feature-styles.css" not in source
+    assert "ZHILINK_FEATURE_STYLES_READY" not in source
+    assert 'document.createElement("link")' not in source
+    assert "document.head.appendChild" not in source
 
 
 def test_feature_styles_have_no_module_level_loaders() -> None:
-    bootstrap = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
     consumers = {
-        "generation-controls.js": ("generationControls", "link[data-generation-controls]", "generation-controls.css"),
-        "account-access.js": ("accountAccess", "link[data-account-access]", "account-access.css"),
-        "project-storage.js": ("projectStorage", "link[data-project-storage]", "project-storage.css"),
-        "review-workflow.js": ("reviewWorkflow", "link[data-review-workflow]", "review-workflow.css"),
-        "structured-results.js": ("structuredResults", "link[data-structured-results]", "structured-results.css"),
-        "policy-sources.js": ("policySources", "link[data-policy-sources]", "policy-sources.css"),
-        "knowledge-base.js": ("knowledgeBase", "link[data-knowledge-base]", "knowledge-base.css"),
-        "service-workflow.js": ("serviceWorkflow", "link[data-service-workflow]", "service-workflow.css"),
-        "data-provenance-guard.js": ("zhilinkDataProvenance", "link[data-zhilink-data-provenance]", "data-provenance-guard.css"),
-        "meeting-user-view.js": ("meetingUserView", "link[data-meeting-user-view]", "meeting-user-view.css"),
+        "generation-controls.js": ("link[data-generation-controls]", "generation-controls.css"),
+        "account-access.js": ("link[data-account-access]", "account-access.css"),
+        "project-storage.js": ("link[data-project-storage]", "project-storage.css"),
+        "review-workflow.js": ("link[data-review-workflow]", "review-workflow.css"),
+        "structured-results.js": ("link[data-structured-results]", "structured-results.css"),
+        "policy-sources.js": ("link[data-policy-sources]", "policy-sources.css"),
+        "knowledge-base.js": ("link[data-knowledge-base]", "knowledge-base.css"),
+        "service-workflow.js": ("link[data-service-workflow]", "service-workflow.css"),
+        "data-provenance-guard.js": ("link[data-zhilink-data-provenance]", "data-provenance-guard.css"),
+        "meeting-user-view.js": ("link[data-meeting-user-view]", "meeting-user-view.css"),
     }
 
-    for filename, (marker, selector, stylesheet) in consumers.items():
+    for filename, (selector, stylesheet) in consumers.items():
         source = (ASSETS / filename).read_text(encoding="utf-8")
-        assert marker not in bootstrap
         assert selector not in source
         assert stylesheet not in source
         assert 'document.createElement("link")' not in source
 
     project_source = (ASSETS / "project-storage.js").read_text(encoding="utf-8")
-    assert "projectHistory" not in bootstrap
     assert "link[data-project-history]" not in project_source
     assert "project-history.css" not in project_source
 
 
-def test_feature_manifest_and_bundle_are_served() -> None:
+def test_feature_manifest_and_legacy_collapse_dom_are_removed() -> None:
+    html = INDEX.read_text(encoding="utf-8")
+
+    assert not (ASSETS / "feature-styles.css").exists()
+    assert "feature-styles.css" not in html
+    assert 'id="toggleApiPanel"' not in html
+    assert "collapse-btn" not in html
+    for stylesheet in FEATURE_STYLES:
+        assert (ASSETS / stylesheet.split("?", 1)[0]).is_file()
+
+
+def test_bundle_still_starts_with_storage_recovery() -> None:
     with TestClient(app) as client:
-        stylesheet = client.get("/assets/feature-styles.css?v=20260824.2")
         bundle = client.get("/assets/app.js")
 
-    assert stylesheet.status_code == 200
     assert bundle.status_code == 200
     assert bundle.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
-    assert bundle.text.index("ZHILINK_FEATURE_STYLES_READY") < bundle.text.index("ZHILINK_GENERATION_CONTROLS_READY")
+    assert bundle.text.index("ZHILINK_STORAGE_RECOVERY") < bundle.text.index("ZHILINK_GENERATION_CONTROLS_READY")
