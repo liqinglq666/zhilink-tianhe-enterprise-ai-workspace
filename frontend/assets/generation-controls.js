@@ -33,19 +33,19 @@
     const panel = $(`${key}Result`);
     if (!panel) return;
     const title = resultTitles[key] || "生成结果";
-    const partial = String(partialContent || "").trim();
+    void partialContent;
     panel.className = "result-panel";
     panel.innerHTML = `
       <div class="result-header">
         <div>
           <p class="result-label">${escapeHtml(title)}</p>
-          <h3>${escapeHtml(title)}已停止生成</h3>
+          <h3>${escapeHtml(title)}生成已停止</h3>
         </div>
       </div>
       <div class="result-meta">
         <span class="meta-pill danger">${escapeHtml(message)}</span>
       </div>
-      ${partial ? `<p class="partial-result-note">已保留本次已接收的临时草稿，但未通过最终校验，不会写入正式结果或报告归档。</p>${renderStructuredMarkdown(partial)}` : ""}
+      <p class="partial-result-note">本次未完成的内容未保存，可重新生成。</p>
     `;
   }
 
@@ -58,19 +58,14 @@
       <div class="result-header">
         <div>
           <p class="result-label">${escapeHtml(title)}</p>
-          <h3>${escapeHtml(title)}流式生成中</h3>
+          <h3>${escapeHtml(title)}生成中</h3>
         </div>
         <div class="result-actions">
-          <span class="streaming-badge stream-status" data-stream-status="${escapeHtml(key)}"><span class="streaming-dot"></span>正在连接</span>
+          <span class="streaming-badge stream-status" data-stream-status="${escapeHtml(key)}"><span class="streaming-dot"></span>正在处理</span>
           <button class="cancel-generation" data-cancel-generation="${escapeHtml(key)}" type="button" aria-label="停止当前生成">停止生成</button>
         </div>
       </div>
-      <div class="result-meta">
-        <span class="meta-pill">AI模型流式模式</span>
-        <span class="meta-pill">连接超时 30 秒</span>
-        <span class="meta-pill">生成超时由服务端协调</span>
-      </div>
-      <div id="${key}StreamContent" class="streaming-content" aria-live="polite">正在连接模型接口，请稍候...</div>
+      <div id="${key}StreamContent" class="streaming-content" aria-live="polite">正在整理内容，请稍候...</div>
     `;
   };
 
@@ -78,7 +73,7 @@
     const { url, payload, key } = request;
     saveConfig();
     if (activeGenerations.size) {
-      throw createGenerationError("当前已有生成任务正在运行，请先等待完成或点击“停止生成”。", "GENERATION_ALREADY_RUNNING");
+      throw createGenerationError("当前已有任务正在处理，请等待完成或停止当前任务后再试。", "GENERATION_ALREADY_RUNNING");
     }
 
     beginStreamingResult(key);
@@ -144,15 +139,15 @@
         const text = await resp.text();
         let parsed = {};
         try { parsed = JSON.parse(text); } catch (_) {}
-        const error = createGenerationError(parsed.detail || text || "模型请求失败。", parsed.code || "GENERATION_HTTP_ERROR", Boolean(parsed.retryable));
+        const error = createGenerationError(parsed.detail || text || "处理请求失败，请稍后重试。", parsed.code || "GENERATION_HTTP_ERROR", Boolean(parsed.retryable));
         error.retryAfter = parsed.retry_after;
         throw error;
       }
       if (!resp.body) {
-        throw createGenerationError("当前浏览器不支持流式读取，请更新浏览器后重试。", "STREAM_NOT_SUPPORTED");
+        throw createGenerationError("当前浏览器无法接收实时结果，请更新浏览器后重试。", "STREAM_NOT_SUPPORTED");
       }
 
-      setStreamStatus(key, "正在接收");
+      setStreamStatus(key, "正在处理");
       resetIdleTimer();
       resetHardTimer();
       const reader = resp.body.getReader();
@@ -180,46 +175,42 @@
           if (event.type === "meta") {
             task.requiresVerification = event.provisional === true;
             applyServerTimeouts(event);
-            if (task.requiresVerification) {
-              setStreamStatus(key, "AI 草稿生成中（待校验）");
-              const target = $(`${key}StreamContent`);
-              if (target && !task.full.trim()) target.textContent = "正在生成实时草稿；完成后系统会自动进行事实与规则校验，校验前不会保存。";
-            } else {
-              setStreamStatus(key, "请求已发送");
-            }
+            setStreamStatus(key, "正在生成");
+            const target = $(`${key}StreamContent`);
+            if (target && !task.full.trim()) target.textContent = "正在生成内容，请稍候...";
           } else if (event.type === "delta") {
             task.full += event.content || "";
-            setStreamStatus(key, task.requiresVerification ? "草稿生成中（待校验）" : "正在生成");
+            setStreamStatus(key, "正在生成");
             const now = Date.now();
             if (now - lastRender > 120 || task.full.length < 80) {
               updateStreamingResult(key, task.full);
               lastRender = now;
             }
           } else if (event.type === "verifying") {
-            setStreamStatus(key, event.message || "正在事实校验");
+            setStreamStatus(key, "正在核对内容");
           } else if (event.type === "verified") {
             if (!String(event.content || "").trim()) {
-              throw createGenerationError("事实校验完成，但没有返回可用结果。", "STREAM_VERIFICATION_EMPTY", true);
+              throw createGenerationError("内容核对完成，但没有可用结果，请重新生成。", "STREAM_VERIFICATION_EMPTY", true);
             }
             task.full = event.content;
             task.verified = true;
-            setStreamStatus(key, "校验完成");
+            setStreamStatus(key, "即将完成");
             updateStreamingResult(key, task.full);
           } else if (event.type === "done") {
             receivedDone = true;
             if (task.requiresVerification && !task.verified) {
               throw createGenerationError(
-                "生成已结束，但事实校验未完成；本次草稿不会保存，请重新生成。",
+                "内容核对未完成，本次结果未保存，请重新生成。",
                 "STREAM_VERIFICATION_MISSING",
                 true,
               );
             }
             task.full = event.content || task.full;
-            setStreamStatus(key, "正在整理");
+            setStreamStatus(key, "已完成");
             finishStreamingResult(key, task.full, event.mode || (task.verified ? "AI模型模式（已校验）" : "AI模型流式模式"));
             return { ok: true, content: task.full, mode: event.mode || "AI模型流式模式" };
           } else if (event.type === "error") {
-            const error = createGenerationError(event.error || "模型流式生成失败。", event.code || "STREAM_ERROR", Boolean(event.retryable));
+            const error = createGenerationError(event.error || "生成失败，请稍后重试。", event.code || "STREAM_ERROR", Boolean(event.retryable));
             error.retryAfter = event.retry_after;
             throw error;
           }
@@ -229,16 +220,16 @@
 
       if (!receivedDone) {
         throw createGenerationError(
-          "流式连接提前结束，收到的内容可能不完整，已保留为临时内容但不会写入正式结果。",
+          "连接提前结束，本次结果未保存，请重新生成。",
           "STREAM_INCOMPLETE",
           true,
         );
       }
       if (!task.full.trim()) {
-        throw createGenerationError("模型连接已结束，但没有返回可用内容。", "MODEL_EMPTY_RESPONSE", true);
+        throw createGenerationError("处理已结束，但没有生成可用内容，请重新生成。", "MODEL_EMPTY_RESPONSE", true);
       }
       if (task.requiresVerification && !task.verified) {
-        throw createGenerationError("结果尚未通过事实校验，本次内容不会保存。", "STREAM_VERIFICATION_MISSING", true);
+        throw createGenerationError("内容核对未完成，本次结果未保存。", "STREAM_VERIFICATION_MISSING", true);
       }
       finishStreamingResult(key, task.full, task.verified ? "AI模型模式（已校验）" : "AI模型流式模式");
       return { ok: true, content: task.full, mode: task.verified ? "AI模型模式（已校验）" : "AI模型流式模式" };
@@ -253,15 +244,15 @@
           showStoppedResult(key, message, task.full);
         } else if (task.timeoutKind === "connect") {
           code = "GENERATION_CONNECT_TIMEOUT";
-          message = "连接模型超过 30 秒，请检查 Base URL、网络或模型服务状态。";
+          message = "服务连接超时，请检查网络后重试。";
           failStreamingResult(key, message);
         } else if (task.timeoutKind === "idle") {
           code = "GENERATION_IDLE_TIMEOUT";
-          message = `模型超过 ${Math.round(task.idleTimeoutMs / 1000)} 秒没有返回新内容，请缩短输入或稍后重试。`;
+          message = "长时间未收到新内容，系统已停止本次生成，请稍后重试。";
           showStoppedResult(key, message, task.full);
         } else {
           code = "GENERATION_HARD_TIMEOUT";
-          message = `本次生成超过 ${Math.round(task.hardTimeoutMs / 1000)} 秒，系统已自动停止。`;
+          message = "本次处理时间较长，系统已自动停止，请精简输入后重试。";
           showStoppedResult(key, message, task.full);
         }
       } else if (code === "STREAM_INCOMPLETE" || code.startsWith("STREAM_VERIFICATION") || (task.requiresVerification && task.full.trim())) {
