@@ -91,6 +91,8 @@ def test_contract_agent_injects_scan_and_appends_deterministic_evidence():
     assert "## 本地规则预检明细" in result.content
     assert result.mode == "AI模型模式（含本地规则预检）"
 
-    streamed = "".join(agent.stream("服务费以后续通知为准。"))
+    events = list(agent.stream_events("服务费以后续通知为准。"))
+    assert events[-1].type == "verified"
+    streamed = events[-1].content
     assert "## 本地规则预检明细" in streamed
     assert "CR-PAYMENT" in streamed
