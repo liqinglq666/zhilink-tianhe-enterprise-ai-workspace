@@ -20,7 +20,8 @@ def test_release_polish_v4_is_delivered_by_the_existing_presentation_controller(
     assert stylesheet.status_code == 200
     assert bundle.status_code == 200
     assert 'RELEASE_STYLE_URL = "/assets/release-polish-v4.css?v=20260824.1"' in script
-    assert 'document.body.classList.add("ui-v4-saas-polish", "ui-v4-release-polish")' in script
+    assert 'document.body.classList.add("ui-v4-saas-polish")' in script
+    assert 'document.body.classList.add("ui-v4-release-polish")' in script
     assert 'document.documentElement.dataset.zhilinkReleasePolish = "v4"' in script
     assert "ZHILINK_RELEASE_POLISH_V4_READY" in bundle.text
 
