@@ -64,6 +64,7 @@ UI_SCRIPTS = (
     "ui-v4-states.js",
     "ui-v4-forms.js",
     "ui-v4-results.js",
+    "enterprise-user-view-guards.js",
     "enterprise-user-view.js",
     "ui-v4-final-qa.js",
 )
