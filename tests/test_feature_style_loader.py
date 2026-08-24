@@ -53,6 +53,7 @@ def test_migrated_feature_styles_have_no_module_level_loader() -> None:
         "generation-controls.js": ("generationControls", "link[data-generation-controls]", "generation-controls.css"),
         "review-workflow.js": ("reviewWorkflow", "link[data-review-workflow]", "review-workflow.css"),
         "structured-results.js": ("structuredResults", "link[data-structured-results]", "structured-results.css"),
+        "service-workflow.js": ("serviceWorkflow", "link[data-service-workflow]", "service-workflow.css"),
     }
 
     for filename, (marker, selector, stylesheet) in consumers.items():
@@ -71,7 +72,6 @@ def test_bootstrap_marks_remaining_legacy_loaders_as_already_satisfied() -> None
         "projectHistory",
         "policySources",
         "knowledgeBase",
-        "serviceWorkflow",
         "zhilinkDataProvenance",
     )
     for marker in markers:
@@ -82,7 +82,6 @@ def test_bootstrap_marks_remaining_legacy_loaders_as_already_satisfied() -> None
         "project-storage.js": "link[data-project-storage]",
         "policy-sources.js": "link[data-policy-sources]",
         "knowledge-base.js": "link[data-knowledge-base]",
-        "service-workflow.js": "link[data-service-workflow]",
         "data-provenance-guard.js": "link[data-zhilink-data-provenance]",
     }
     for filename, selector in legacy_guards.items():
