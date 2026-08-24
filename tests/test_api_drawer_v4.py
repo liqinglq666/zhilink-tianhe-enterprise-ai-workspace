@@ -26,20 +26,31 @@ def test_api_drawer_is_loaded_from_native_v4_shell_before_model_controller() -> 
     assert "ZHILINK_MODEL_CONFIG_SAVE_V4_READY" in bundle.text
 
 
-def test_api_drawer_is_native_markup_and_controller_no_longer_rebuilds_dom() -> None:
+def test_api_drawer_is_native_markup_and_controller_only_manages_open_state() -> None:
     script = (ASSETS / "api-drawer-v4.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "api-drawer-v4.css").read_text(encoding="utf-8")
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
     assert 'id="apiPanel" class="api-panel api-drawer-v4"' in html
+    assert 'data-api-drawer-v4="true"' in html
+    assert 'role="dialog"' in html
+    assert 'aria-modal="true"' in html
+    assert 'aria-labelledby="apiDrawerTitle"' in html
     assert 'id="uiV4ApiClose"' in html
     assert 'id="uiV4ApiBackdrop"' in html
     assert 'id="saveApiConfig"' in html
-    assert "document.body.appendChild(panel)" not in script
-    assert "document.createElement(\"section\")" not in script
+
+    assert 'document.body.classList.add("ui-v4-api-open")' in script
     assert 'document.body.classList.remove("ui-v4-api-open")' in script
-    assert "LEGACY_COLLAPSE_STORAGE" in script
-    assert "localStorage.removeItem(LEGACY_COLLAPSE_STORAGE)" in script
+    assert "normalizePanel" not in script
+    assert "LEGACY_COLLAPSE_STORAGE" not in script
+    assert "zhilian_api_panel_collapsed" not in script
+    assert 'panel.classList.remove("collapsed")' not in script
+    assert 'panel.classList.add("api-drawer-v4")' not in script
+    assert "panel.dataset.apiDrawerV4" not in script
+    assert 'panel.setAttribute("role", "dialog")' not in script
+    assert 'panel.setAttribute("aria-modal", "true")' not in script
+    assert 'panel.setAttribute("aria-labelledby", "apiDrawerTitle")' not in script
 
     assert "body.ui-v4-shell .api-panel.api-drawer-v4" in stylesheet
     assert "body.ui-v4-shell.ui-v4-api-open .api-panel.api-drawer-v4" in stylesheet
