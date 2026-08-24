@@ -51,6 +51,20 @@ class AgentResult:
     error: str = ""
 
 
+@dataclass(frozen=True)
+class AgentStreamEvent:
+    """Trusted server-side stream event.
+
+    ``delta`` may be shown as an explicitly provisional draft. ``verified`` is emitted
+    only after deterministic post-generation checks and is the only event that may be
+    persisted as a formal meeting/contract result.
+    """
+
+    type: str
+    content: str = ""
+    mode: str = ""
+
+
 class BaseAgent:
     def __init__(self, llm: Optional[LLMClient] = None):
         self.llm = llm or LLMClient()
@@ -148,14 +162,30 @@ class MeetingAgent(BaseAgent):
         )
 
     def stream(self, meeting_text: str, profile_summary: str = "") -> Iterator[str]:
+        """Compatibility stream that exposes only the verified result."""
         prompt, bundle = self._prepare(meeting_text, profile_summary)
-        # Buffer the model output so unsupported owners, dates and hard values can be
-        # corrected before any result is presented as a meeting fact.
         content = "".join(self._stream(prompt))
         checked = audit_meeting_output(content, meeting_text, bundle)
         for start in range(0, len(checked), 1600):
             yield checked[start : start + 1600]
         yield f"\n\n{bundle.to_markdown()}"
+
+    def stream_events(self, meeting_text: str, profile_summary: str = "") -> Iterator[AgentStreamEvent]:
+        """Stream a provisional draft immediately, then replace it with verified content."""
+        prompt, bundle = self._prepare(meeting_text, profile_summary)
+        chunks: list[str] = []
+        for chunk in self._stream(prompt):
+            chunks.append(chunk)
+            yield AgentStreamEvent(type="delta", content=chunk)
+
+        yield AgentStreamEvent(type="verifying")
+        checked = audit_meeting_output("".join(chunks), meeting_text, bundle)
+        verified = append_evidence_appendix(checked, bundle)
+        yield AgentStreamEvent(
+            type="verified",
+            content=verified,
+            mode="AI模型模式（已事实校验）",
+        )
 
 
 class ContractAgent(BaseAgent):
@@ -184,14 +214,30 @@ class ContractAgent(BaseAgent):
         )
 
     def stream(self, contract_text: str, profile_summary: str = "") -> Iterator[str]:
+        """Compatibility stream that exposes only the verified result."""
         prompt, scan = self._prepare(contract_text, profile_summary)
-        # Buffer before presenting the result so unsupported clause values can be
-        # downgraded to negotiation variables consistently in stream and non-stream paths.
         content = "".join(self._stream(prompt))
         checked = audit_contract_output(content, contract_text, scan)
         for start in range(0, len(checked), 1600):
             yield checked[start : start + 1600]
         yield f"\n\n{scan.to_markdown()}"
+
+    def stream_events(self, contract_text: str, profile_summary: str = "") -> Iterator[AgentStreamEvent]:
+        """Stream a provisional draft immediately, then replace it with verified content."""
+        prompt, scan = self._prepare(contract_text, profile_summary)
+        chunks: list[str] = []
+        for chunk in self._stream(prompt):
+            chunks.append(chunk)
+            yield AgentStreamEvent(type="delta", content=chunk)
+
+        yield AgentStreamEvent(type="verifying")
+        checked = audit_contract_output("".join(chunks), contract_text, scan)
+        verified = self._with_local_scan(checked, scan)
+        yield AgentStreamEvent(
+            type="verified",
+            content=verified,
+            mode="AI模型模式（已校验，含本地规则预检）",
+        )
 
 
 class PolicyAgent(BaseAgent):
