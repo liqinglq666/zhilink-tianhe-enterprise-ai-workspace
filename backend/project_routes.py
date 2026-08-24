@@ -37,7 +37,7 @@ from .structured_routes import register_structured_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS_DIR = ROOT / "frontend" / "assets"
-UI_BUNDLE_VERSION = "2026-08-24-ui-v4-clean-v5"
+UI_BUNDLE_VERSION = "2026-08-24-ui-v4-clean-v6"
 UI_SCRIPTS = (
     "storage-recovery.js",
     "app.js",
