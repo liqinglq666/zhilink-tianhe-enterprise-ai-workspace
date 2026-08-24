@@ -1,21 +1,12 @@
 /* UI V4 model drawer controller for native markup. */
 (() => {
-  const LEGACY_COLLAPSE_STORAGE = "zhilian_api_panel_collapsed";
   let bound = false;
-
-  function normalizePanel(panel) {
-    if (!panel) return;
-    panel.classList.remove("collapsed");
-    document.getElementById("toggleApiPanel")?.setAttribute("aria-expanded", "true");
-    localStorage.removeItem(LEGACY_COLLAPSE_STORAGE);
-  }
 
   function syncOpenState() {
     const panel = document.getElementById("apiPanel");
     const backdrop = document.getElementById("uiV4ApiBackdrop");
     if (!panel) return;
     const open = document.body.classList.contains("ui-v4-api-open");
-    if (open) normalizePanel(panel);
     panel.setAttribute("aria-hidden", String(!open));
     backdrop?.setAttribute("aria-hidden", String(!open));
     if (open && !(document.activeElement instanceof Element && panel.contains(document.activeElement))) {
@@ -27,8 +18,6 @@
   }
 
   function openDrawer() {
-    const panel = document.getElementById("apiPanel");
-    normalizePanel(panel);
     document.body.classList.add("ui-v4-api-open");
     window.ZHILINK_UI_V4_RUNTIME?.schedule?.("api-open");
     syncOpenState();
@@ -54,14 +43,7 @@
   }
 
   function start() {
-    const panel = document.getElementById("apiPanel");
-    if (!panel) return;
-    normalizePanel(panel);
-    panel.classList.add("api-drawer-v4");
-    panel.dataset.apiDrawerV4 = "true";
-    panel.setAttribute("role", "dialog");
-    panel.setAttribute("aria-modal", "true");
-    panel.setAttribute("aria-labelledby", "apiDrawerTitle");
+    if (!document.getElementById("apiPanel")) return;
     bindControls();
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(syncOpenState, { immediate: false });
     syncOpenState();
