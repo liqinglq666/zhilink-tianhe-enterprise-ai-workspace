@@ -1,16 +1,24 @@
-/* SaaS product polish v3: presentation-only hierarchy and responsive semantics. */
+/* SaaS product polish v3 + release polish v4: presentation-only hierarchy and responsive semantics. */
 (() => {
   const STYLE_URL = "/assets/saas-product-polish-v3.css?v=20260824.1";
+  const RELEASE_STYLE_URL = "/assets/release-polish-v4.css?v=20260824.1";
   const runtime = window.ZHILINK_UI_V4_RUNTIME;
+  const MOBILE_BREAKPOINT = 1020;
   let started = false;
+  let resizeFrame = 0;
 
-  function ensureStyles() {
-    if (document.querySelector('link[data-saas-product-polish-v3]')) return;
+  function ensureStyle(href, marker) {
+    if (document.querySelector(`link[${marker}]`)) return;
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = STYLE_URL;
-    link.dataset.saasProductPolishV3 = "true";
+    link.href = href;
+    link.setAttribute(marker, "true");
     document.head.appendChild(link);
+  }
+
+  function ensureStyles() {
+    ensureStyle(STYLE_URL, "data-saas-product-polish-v3");
+    ensureStyle(RELEASE_STYLE_URL, "data-release-polish-v4");
   }
 
   function setText(element, value) {
@@ -59,16 +67,141 @@
     if (project && !project.getAttribute("aria-label")) project.setAttribute("aria-label", "打开当前项目与版本");
   }
 
+  function syncViewportMetrics() {
+    const visualHeight = Math.round(window.visualViewport?.height || window.innerHeight || 0);
+    const visualWidth = Math.round(window.visualViewport?.width || window.innerWidth || 0);
+    if (visualHeight > 0) document.documentElement.style.setProperty("--ui4-visual-height", `${visualHeight}px`);
+    if (visualWidth > 0) document.documentElement.style.setProperty("--ui4-visual-width", `${visualWidth}px`);
+    document.documentElement.dataset.uiV4Height = visualHeight <= 700 ? "short" : visualHeight <= 820 ? "compact" : "regular";
+  }
+
+  function syncAccountMenuSemantics() {
+    const toggle = document.getElementById("uiV4AccountToggle");
+    const menu = document.getElementById("uiV4AccountMenu");
+    if (!(toggle instanceof HTMLButtonElement) || !(menu instanceof HTMLElement)) return;
+    toggle.setAttribute("aria-haspopup", "menu");
+    menu.setAttribute("role", "menu");
+    menu.querySelectorAll("button").forEach(button => button.setAttribute("role", "menuitem"));
+  }
+
+  function syncMobileSidebarSemantics() {
+    const sidebar = document.getElementById("primarySidebar") || document.querySelector(".sidebar");
+    if (!(sidebar instanceof HTMLElement)) return;
+    const mobile = window.innerWidth <= MOBILE_BREAKPOINT;
+    if (!mobile) {
+      sidebar.removeAttribute("aria-hidden");
+      return;
+    }
+    sidebar.setAttribute("aria-hidden", document.body.classList.contains("ui-v4-sidebar-open") ? "false" : "true");
+  }
+
+  function accountMenuItems() {
+    const menu = document.getElementById("uiV4AccountMenu");
+    if (!(menu instanceof HTMLElement) || menu.hidden) return [];
+    return Array.from(menu.querySelectorAll("button:not(:disabled)"));
+  }
+
+  function focusAccountItem(index) {
+    const items = accountMenuItems();
+    if (!items.length) return;
+    const normalized = (index + items.length) % items.length;
+    items[normalized]?.focus({ preventScroll: true });
+  }
+
+  function handleReleaseKeydown(event) {
+    const toggle = event.target.closest?.("#uiV4AccountToggle");
+    const menu = document.getElementById("uiV4AccountMenu");
+
+    if (toggle && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      event.preventDefault();
+      if (menu?.hidden) toggle.click();
+      requestAnimationFrame(() => focusAccountItem(event.key === "ArrowUp" ? -1 : 0));
+      return;
+    }
+
+    if (menu instanceof HTMLElement && !menu.hidden && menu.contains(event.target)) {
+      const items = accountMenuItems();
+      const current = items.indexOf(event.target.closest?.("button"));
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        focusAccountItem(current + 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        focusAccountItem(current - 1);
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        focusAccountItem(0);
+      } else if (event.key === "End") {
+        event.preventDefault();
+        focusAccountItem(-1);
+      }
+    }
+
+    if (event.key === "Escape") {
+      const accountWasOpen = menu instanceof HTMLElement && !menu.hidden;
+      const sidebarWasOpen = document.body.classList.contains("ui-v4-sidebar-open");
+      window.setTimeout(() => {
+        if (accountWasOpen) document.getElementById("uiV4AccountToggle")?.focus({ preventScroll: true });
+        if (sidebarWasOpen) document.getElementById("uiV4MobileMenu")?.focus({ preventScroll: true });
+        syncMobileSidebarSemantics();
+      }, 0);
+    }
+  }
+
+  function handleReleaseClick(event) {
+    const mobileButton = event.target.closest?.("#uiV4MobileMenu");
+    const backdrop = event.target.closest?.("#uiV4MobileBackdrop");
+    const sidebarNav = event.target.closest?.("#navList button[data-section]");
+    const wasOpen = document.body.classList.contains("ui-v4-sidebar-open");
+
+    if (mobileButton) {
+      const opening = !wasOpen;
+      requestAnimationFrame(() => {
+        syncMobileSidebarSemantics();
+        if (opening && document.body.classList.contains("ui-v4-sidebar-open")) {
+          const active = document.querySelector("#navList button.active") || document.querySelector("#navList button[data-section]");
+          active?.focus({ preventScroll: true });
+        }
+      });
+      return;
+    }
+
+    if (backdrop && wasOpen) {
+      window.setTimeout(() => {
+        syncMobileSidebarSemantics();
+        document.getElementById("uiV4MobileMenu")?.focus({ preventScroll: true });
+      }, 0);
+      return;
+    }
+
+    if (sidebarNav && wasOpen) requestAnimationFrame(syncMobileSidebarSemantics);
+  }
+
+  function scheduleViewportSync() {
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      syncViewportMetrics();
+      syncMobileSidebarSemantics();
+    });
+  }
+
   function apply() {
     if (!document.body) return;
     ensureStyles();
     document.body.classList.add("ui-v4-saas-polish");
+    document.body.classList.add("ui-v4-release-polish");
     document.documentElement.dataset.zhilinkProductPolish = "v3";
+    document.documentElement.dataset.zhilinkReleasePolish = "v4";
     markTaskHierarchy();
     refineCustomerCopy();
     syncNavigationSemantics();
     syncActionSemantics();
+    syncAccountMenuSemantics();
+    syncViewportMetrics();
+    syncMobileSidebarSemantics();
     window.ZHILINK_SAAS_PRODUCT_POLISH_V3_READY = true;
+    window.ZHILINK_RELEASE_POLISH_V4_READY = true;
   }
 
   function start() {
@@ -76,6 +209,11 @@
     started = true;
     apply();
     runtime?.subscribe?.(apply, { immediate: false });
+    document.addEventListener("keydown", handleReleaseKeydown, true);
+    document.addEventListener("click", handleReleaseClick, true);
+    window.addEventListener("resize", scheduleViewportSync, { passive: true });
+    window.visualViewport?.addEventListener("resize", scheduleViewportSync, { passive: true });
+    window.visualViewport?.addEventListener("scroll", scheduleViewportSync, { passive: true });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
