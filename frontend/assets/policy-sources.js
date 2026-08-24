@@ -226,11 +226,13 @@
     const modal = document.getElementById("officialPolicyModal");
     modal?.classList.add("show");
     modal?.setAttribute("aria-hidden", "false");
+    window.ZHILINK_UI_V4_RUNTIME?.schedule?.("policy-sources-open");
   }
   function closeViewer() {
     const modal = document.getElementById("officialPolicyModal");
     modal?.classList.remove("show");
     modal?.setAttribute("aria-hidden", "true");
+    window.ZHILINK_UI_V4_RUNTIME?.schedule?.("policy-sources-close");
   }
 
   hooks.register("generation:request", async request => {
@@ -252,9 +254,6 @@
     });
     document.addEventListener("click", event => {
       if (event.target.closest("[data-open-policy-sources]")) openViewer();
-    });
-    document.addEventListener("keydown", event => {
-      if (event.key === "Escape" && document.getElementById("officialPolicyModal")?.classList.contains("show")) closeViewer();
     });
     if (typeof state !== "undefined" && state.results?.policy) decorate();
   }

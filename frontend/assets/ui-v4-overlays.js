@@ -60,6 +60,14 @@
       initial: () => document.querySelector("#meetingSourceDialog button[data-close-meeting-sources]"),
     },
     {
+      key: "policy-sources",
+      container: () => document.getElementById("officialPolicyModal"),
+      dialog: () => document.querySelector("#officialPolicyModal .policy-source-dialog"),
+      isOpen: () => document.getElementById("officialPolicyModal")?.classList.contains("show") === true,
+      close: () => document.querySelector("#officialPolicyModal [data-close-policy-sources]"),
+      initial: () => document.querySelector("#officialPolicyModal [data-close-policy-sources]"),
+    },
+    {
       key: "structured",
       container: () => document.getElementById("structuredResultModal"),
       dialog: () => document.querySelector("#structuredResultModal .structured-dialog"),
@@ -88,7 +96,7 @@
   const OPENER_SELECTOR = [
     "#openApiSettings", "#openAccountManager", "#openProjectManager", "#openKnowledgeBase", "#openIdentity", "#identityChip",
     "#uiV4ProjectContext", "#uiV4KnowledgeNav", "#uiV4SidebarAllProjects", "[data-ui-v4-account]",
-    "[data-open-meeting-sources]", "[data-open-structured]", "[data-open-review]", "#openServiceWorkflow",
+    "[data-open-meeting-sources]", "#searchOfficialPolicy", "[data-open-policy-sources]", "[data-open-structured]", "[data-open-review]", "#openServiceWorkflow",
   ].join(",");
 
   let active = null;
