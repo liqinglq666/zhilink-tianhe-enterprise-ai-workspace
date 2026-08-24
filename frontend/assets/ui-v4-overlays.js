@@ -17,7 +17,7 @@
       dialog: () => document.getElementById("apiPanel"),
       isOpen: () => document.body.classList.contains("ui-v4-api-open"),
       close: () => document.getElementById("uiV4ApiClose"),
-      initial: () => document.getElementById("apiKey"),
+      initial: () => document.getElementById("modelConfigAdvancedSettingsSummary") || document.getElementById("apiKey"),
     },
     {
       key: "account",
