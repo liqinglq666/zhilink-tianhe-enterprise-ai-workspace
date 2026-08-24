@@ -863,20 +863,11 @@ function clearAll() {
   sessionStorage.removeItem("zhilian_results");
   sessionStorage.removeItem("zhilian_meta");
   sessionStorage.removeItem("zhilian_form_inputs");
-  localStorage.removeItem("zhilian_api_panel_collapsed");
   location.reload();
 }
 
 function bindEvents() {
   qsa(".nav button").forEach(btn => btn.addEventListener("click", () => go(btn.dataset.section)));
-  $("toggleApiPanel").addEventListener("click", () => {
-    const panel = $("apiPanel");
-    const collapsed = !panel.classList.contains("collapsed");
-    panel.classList.toggle("collapsed", collapsed);
-    $("toggleApiPanel").textContent = collapsed ? "展开" : "收起";
-    $("toggleApiPanel").setAttribute("aria-expanded", String(!collapsed));
-    localStorage.setItem("zhilian_api_panel_collapsed", collapsed ? "1" : "0");
-  });
   formInputIds.forEach(id => {
     const el = $(id);
     if (el) el.addEventListener("input", () => { saveFormState(); if (id.startsWith("profile")) saveProfileToState(); });
@@ -901,19 +892,6 @@ function bindEvents() {
   if ($("saveIdentity")) $("saveIdentity").addEventListener("click", () => { saveIdentity(); closeIdentityModal(); toast("已保存当前使用身份"); });
   if ($("resetIdentity")) $("resetIdentity").addEventListener("click", () => { localStorage.removeItem("zhilian_identity"); state.identity = { role: "企业用户" }; renderIdentity(); toast("已清除当前使用身份"); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeIdentityModal(); });
-  if ($("openApiSettings")) {
-    $("openApiSettings").addEventListener("click", () => {
-      const panel = $("apiPanel");
-      if (panel.classList.contains("collapsed")) {
-        panel.classList.remove("collapsed");
-        $("toggleApiPanel").textContent = "收起";
-        $("toggleApiPanel").setAttribute("aria-expanded", "true");
-        localStorage.setItem("zhilian_api_panel_collapsed", "0");
-      }
-      $("apiKey").focus();
-      toast("请在左侧填写并测试模型 API。每个工具都需要 API 才能生成结果。");
-    });
-  }
   document.addEventListener("click", async (e) => {
     const exampleBtn = e.target.closest(".quick-fill-btn");
     if (exampleBtn) {
@@ -991,11 +969,6 @@ async function main() {
   loadIdentity();
   loadProfileFromState();
   loadFormState();
-  if (localStorage.getItem("zhilian_api_panel_collapsed") === "1") {
-    $("apiPanel").classList.add("collapsed");
-    $("toggleApiPanel").textContent = "展开";
-    $("toggleApiPanel").setAttribute("aria-expanded", "false");
-  }
   loadResultsFromSession();
 }
 
