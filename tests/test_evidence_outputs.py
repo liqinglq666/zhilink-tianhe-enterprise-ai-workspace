@@ -138,12 +138,14 @@ def test_agents_inject_evidence_ids_and_append_deterministic_index(monkeypatch):
         assert result.mode == "AI模型模式（含证据索引）"
 
 
-def test_streaming_agents_append_index_after_model_output():
+def test_verified_meeting_stream_appends_index_after_model_output():
     llm = FakeLLM()
-    content = "".join(
-        MeetingAgent(llm).stream("会议决定继续推进，但负责人和时间待定。")
+    events = list(
+        MeetingAgent(llm).stream_events("会议决定继续推进，但负责人和时间待定。")
     )
 
+    assert events[-1].type == "verified"
+    content = events[-1].content
     assert content.startswith("## 一句话结论")
     assert "## 输入证据与待确认索引" in content
     assert "MT-01" in content

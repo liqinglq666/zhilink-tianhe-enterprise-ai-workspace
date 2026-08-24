@@ -137,7 +137,7 @@ def test_contract_audit_softens_overclaims_and_invented_rights():
     assert "合同效力结论" in checked
 
 
-def test_contract_agent_applies_guard_to_run_and_stream():
+def test_contract_agent_applies_guard_to_run_and_verified_stream():
     contract = "结算周期为活动结束后30个工作日内完成。"
     output = """## 重点风险清单
 
@@ -156,7 +156,9 @@ def test_contract_agent_applies_guard_to_run_and_stream():
     assert run_result.mode == "AI模型模式（含本地规则预检）"
 
     stream_llm = FakeContractLLM(output)
-    streamed = "".join(ContractAgent(stream_llm).stream(contract))
+    events = list(ContractAgent(stream_llm).stream_events(contract))
+    assert events[-1].type == "verified"
+    streamed = events[-1].content
     assert "5个工作日" not in streamed
     assert "20%" not in streamed
     assert "## 自动一致性校验" in streamed
