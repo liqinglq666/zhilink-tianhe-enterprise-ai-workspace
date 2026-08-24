@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.project_routes import UI_BUNDLE_VERSION
+from backend.project_routes import UI_BUNDLE_VERSION, UI_SCRIPTS
 
 
 def test_native_v4_bundle_is_the_only_app_js_route_after_startup() -> None:
@@ -15,7 +15,6 @@ def test_native_v4_bundle_is_the_only_app_js_route_after_startup() -> None:
     assert response.headers["cache-control"] == "no-store, max-age=0"
     assert "ZHILINK_UI_V4_RUNTIME_READY" in response.text
     assert "ZHILINK_UI_V4_SHELL_READY" in response.text
-    assert "ZHILINK_UI_V4_FOUNDATION_READY" in response.text
     assert "ZHILINK_UI_V4_FORMS_READY" in response.text
     assert "ZHILINK_UI_V4_RESULTS_READY" in response.text
     assert "ZHILINK_UI_V4_FINAL_QA_READY" in response.text
@@ -25,6 +24,10 @@ def test_native_v4_bundle_is_the_only_app_js_route_after_startup() -> None:
     assert "ZHILINK_SIMPLE_UI_READY" not in response.text
     assert "ZHILINK_UI_REDESIGN_LIVE_READY" not in response.text
     assert "ZHILINK_UI_V3_READY" not in response.text
+    assert "ZHILINK_SAAS_PRODUCT_POLISH_V3_READY" not in response.text
+    assert "ZHILINK_RELEASE_POLISH_V4_READY" not in response.text
+    assert "ui-v4-foundation.js" not in UI_SCRIPTS
+    assert "saas-product-polish-v3.js" not in UI_SCRIPTS
 
     app_js_routes = [route for route in app.router.routes if getattr(route, "path", None) == "/assets/app.js"]
     assert len(app_js_routes) == 1
