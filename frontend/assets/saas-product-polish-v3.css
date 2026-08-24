@@ -1,0 +1,317 @@
+/* SaaS product polish v3: hierarchy, density, responsive rhythm and customer-facing affordances. */
+body.ui-v4-saas-polish {
+  --saas-canvas: #f6f8fb;
+  --saas-surface: #ffffff;
+  --saas-line: #e5eaf0;
+  --saas-line-strong: #d4dce7;
+  --saas-text: #172033;
+  --saas-muted: #64748b;
+  --saas-primary: #245eea;
+  --saas-primary-hover: #1f4fd0;
+  --saas-radius: 12px;
+  --saas-shadow: 0 1px 2px rgba(15, 23, 42, .035), 0 6px 18px rgba(15, 23, 42, .03);
+  background: var(--saas-canvas);
+}
+
+/* Chrome: quieter, denser and more product-like. */
+body.ui-v4-saas-polish .main { padding-bottom: 36px; }
+body.ui-v4-saas-polish .topbar {
+  min-height: 68px;
+  margin-bottom: 20px;
+  background: rgba(250, 251, 253, .96);
+  border-bottom-color: #e7ebf0;
+}
+body.ui-v4-saas-polish .topbar h2 { letter-spacing: -.015em; }
+body.ui-v4-saas-polish .topbar p { color: #7a8798; }
+body.ui-v4-saas-polish .ui-v4-project-context,
+body.ui-v4-saas-polish .ui-v4-account-toggle {
+  border-color: #dfe5ec;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 1px 2px rgba(15,23,42,.025);
+}
+body.ui-v4-saas-polish .ui-v4-project-context:hover,
+body.ui-v4-saas-polish .ui-v4-account-toggle:hover,
+body.ui-v4-saas-polish .ui-v4-account-toggle[aria-expanded="true"] {
+  border-color: #cbd6e2;
+  background: #fff;
+}
+body.ui-v4-saas-polish .ui-v4-account-menu {
+  padding: 7px;
+  border-color: #dfe5ec;
+  border-radius: 12px;
+  box-shadow: 0 18px 42px rgba(15,23,42,.14);
+}
+body.ui-v4-saas-polish .ui-v4-account-menu button { min-height: 40px; }
+body.ui-v4-saas-polish .nav button { min-height: 41px; }
+body.ui-v4-saas-polish .nav-group-label { margin-top: 12px; }
+body.ui-v4-saas-polish .ui-v4-sidebar-recent { margin-top: 11px; padding-top: 11px; }
+
+/* Home: primary work first, utility work second. */
+body.ui-v4-saas-polish #home { max-width: 1440px; }
+body.ui-v4-saas-polish #home .overview-panel {
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, .65fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+body.ui-v4-saas-polish #home .ui-v4-work-hero,
+body.ui-v4-saas-polish #home .ui-v4-attention-panel {
+  min-height: 214px;
+  border-color: var(--saas-line);
+  box-shadow: var(--saas-shadow);
+}
+body.ui-v4-saas-polish #home .ui-v4-work-hero .hero-content { padding: 28px 30px; }
+body.ui-v4-saas-polish #home .ui-v4-work-hero .eyebrow { margin-bottom: 8px; }
+body.ui-v4-saas-polish #home .ui-v4-work-hero h3 {
+  margin: 5px 0 8px;
+  font-size: clamp(25px, 2vw, 32px);
+}
+body.ui-v4-saas-polish #home .ui-v4-work-hero p { margin: 8px 0 18px; max-width: 720px; }
+body.ui-v4-saas-polish #home .ui-v4-work-hero .button-row { margin-top: 16px; }
+body.ui-v4-saas-polish #home .ui-v4-attention-panel { padding: 16px; }
+body.ui-v4-saas-polish #home .ui-v4-attention-panel .ui-v4-pending-item { min-height: 52px; }
+body.ui-v4-saas-polish #home > .section-toolbar { margin: 20px 0 10px; }
+body.ui-v4-saas-polish #home > .section-toolbar h3 { font-size: 17px; }
+
+body.ui-v4-saas-polish #home .module-grid {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 11px;
+}
+body.ui-v4-saas-polish #home .module-card[data-product-tier="primary"] {
+  grid-column: span 3;
+  min-height: 182px;
+  padding: 16px;
+}
+body.ui-v4-saas-polish #home .module-card[data-product-tier="utility"] {
+  grid-column: span 6;
+  min-height: 128px;
+  padding: 15px 16px;
+  background: #fbfcfe;
+}
+body.ui-v4-saas-polish #home .module-card {
+  border-color: var(--saas-line);
+  border-radius: 13px;
+  box-shadow: none;
+}
+body.ui-v4-saas-polish #home .module-card:hover {
+  transform: translateY(-1px);
+  border-color: #c7d7f3;
+  box-shadow: 0 8px 22px rgba(15,23,42,.06);
+}
+body.ui-v4-saas-polish #home .module-card h4 { margin-top: 8px; font-size: 15px; }
+body.ui-v4-saas-polish #home .module-card > p { line-height: 1.55; }
+body.ui-v4-saas-polish #home .module-head > span,
+body.ui-v4-saas-polish #home .module-footer > span {
+  font-weight: 650;
+}
+body.ui-v4-saas-polish #home .module-footer { padding-top: 9px; }
+body.ui-v4-saas-polish #home .module-footer button {
+  padding: 5px 8px;
+  border-color: transparent;
+  border-radius: 7px;
+  background: transparent;
+  font-weight: 700;
+}
+body.ui-v4-saas-polish #home .module-card:hover .module-footer button {
+  color: var(--saas-primary);
+  border-color: #d8e4f8;
+  background: #f6f9ff;
+}
+body.ui-v4-saas-polish #home .ui-v4-secondary-task::after { display: none; }
+body.ui-v4-saas-polish #home .module-card[data-product-tier="utility"] .module-head > span {
+  color: #7b8796;
+  background: #f1f4f8;
+}
+body.ui-v4-saas-polish #home .ui-v4-secondary-grid { margin-top: 16px; }
+body.ui-v4-saas-polish #home .ui-v4-recent-panel,
+body.ui-v4-saas-polish #home .ui-v4-usage-panel {
+  min-height: 192px;
+  border-color: var(--saas-line);
+  border-radius: 12px;
+}
+body.ui-v4-saas-polish #home .ui-v4-safety-strip {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-color: #e9edf2;
+  background: rgba(255,255,255,.42);
+}
+body.ui-v4-saas-polish #home .ui-v4-safety-strip h3 { margin-bottom: 8px; font-size: 14px; }
+
+/* Buttons: one obvious primary action, restrained secondary actions. */
+body.ui-v4-saas-polish button.primary {
+  border-color: var(--saas-primary);
+  background: var(--saas-primary);
+  box-shadow: none;
+  font-weight: 700;
+}
+body.ui-v4-saas-polish button.primary:hover:not(:disabled) {
+  border-color: var(--saas-primary-hover);
+  background: var(--saas-primary-hover);
+}
+body.ui-v4-saas-polish button.secondary,
+body.ui-v4-saas-polish button.ghost {
+  border-color: #dce3eb;
+  background: #fff;
+  box-shadow: none;
+  font-weight: 650;
+}
+body.ui-v4-saas-polish button.secondary:hover:not(:disabled),
+body.ui-v4-saas-polish button.ghost:hover:not(:disabled) {
+  border-color: #c9d4e1;
+  background: #f8fafc;
+}
+body.ui-v4-saas-polish button:disabled { cursor: not-allowed; opacity: .56; }
+
+/* Workbench: slightly more result-focused without overwhelming the input side. */
+body.ui-v4-saas-polish.ui-v4-workspace .page.ui-v4-business-page.active-page {
+  max-width: 1540px;
+  grid-template-columns: minmax(370px, .82fr) minmax(540px, 1.18fr);
+  gap: 13px;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .content-card,
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .result-panel {
+  border-color: var(--saas-line);
+  border-radius: 13px;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .content-card { padding: 18px; }
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .content-card .section-head {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .content-card .ui-v4-module-meta {
+  gap: 8px;
+  margin: -1px 0 12px;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .content-card .ui-v4-module-meta span {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #7a8796;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .content-card .ui-v4-module-meta span + span::before {
+  content: "·";
+  margin-right: 8px;
+  color: #b3bdc9;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .content-card .quick-fill-bar {
+  padding: 8px 9px;
+  background: #f9fafc;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .content-card .sticky-actions {
+  margin-top: 16px;
+  padding-top: 11px;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .result-panel:not(.empty) { padding-top: 16px; }
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .result-panel.empty {
+  border-style: dashed;
+  background: #fcfdff;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .result-panel .result-header {
+  border-bottom-color: #e9edf2;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .result-panel .inline-action {
+  min-height: 32px;
+  border-color: #e0e5ec;
+  background: #fff;
+}
+body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .result-panel .meta-pill {
+  border-color: transparent;
+  background: #f5f7fa;
+}
+
+/* Forms: reduce decorative chrome and make the completion path easier to scan. */
+body.ui-v4-saas-polish.ui-v4-forms .ui-v4-form-section-head {
+  margin: 18px 0 12px;
+  padding-top: 15px;
+}
+body.ui-v4-saas-polish.ui-v4-forms .ui-v4-form-section-badge {
+  min-height: 24px;
+  border-color: transparent;
+  background: #f2f5f8;
+  color: #6c7888;
+}
+body.ui-v4-saas-polish.ui-v4-forms .ui-v4-field { gap: 6px; }
+body.ui-v4-saas-polish.ui-v4-forms .ui-v4-business-control {
+  border-color: #dbe2ea;
+  box-shadow: none;
+}
+body.ui-v4-saas-polish.ui-v4-forms .ui-v4-business-control:hover:not(:disabled) { border-color: #c9d4df; }
+body.ui-v4-saas-polish.ui-v4-forms .ui-v4-business-control:focus {
+  border-color: #6f91cf;
+  box-shadow: 0 0 0 3px rgba(36,94,234,.09);
+}
+body.ui-v4-saas-polish.ui-v4-forms .ui-v4-form-actions {
+  margin-top: 18px;
+  padding-top: 11px;
+}
+
+/* Empty and feedback surfaces should guide, not look like errors. */
+body.ui-v4-saas-polish [data-ui-v4-state="empty"] {
+  color: #738095;
+}
+body.ui-v4-saas-polish .recent-list.empty,
+body.ui-v4-saas-polish .project-empty,
+body.ui-v4-saas-polish .knowledge-empty,
+body.ui-v4-saas-polish .account-empty {
+  border-color: #dce3eb !important;
+  background: #fafbfd !important;
+}
+
+/* Medium widths: preserve hierarchy before collapsing to a single column. */
+@media (max-width: 1320px) {
+  body.ui-v4-saas-polish #home .module-card[data-product-tier="primary"] { grid-column: span 6; }
+  body.ui-v4-saas-polish #home .module-card[data-product-tier="utility"] { grid-column: span 6; }
+}
+
+@media (max-width: 1180px) {
+  body.ui-v4-saas-polish #home .overview-panel,
+  body.ui-v4-saas-polish #home .ui-v4-secondary-grid { grid-template-columns: 1fr; }
+  body.ui-v4-saas-polish.ui-v4-workspace .page.ui-v4-business-page.active-page { grid-template-columns: 1fr; }
+  body.ui-v4-saas-polish #home .ui-v4-attention-panel { min-height: auto; }
+}
+
+@media (max-width: 760px) {
+  body.ui-v4-saas-polish .main { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  body.ui-v4-saas-polish .topbar { min-height: 62px; margin-bottom: 12px; }
+  body.ui-v4-saas-polish .topbar h2 { max-width: 45vw; font-size: 16px; }
+  body.ui-v4-saas-polish #home .ui-v4-work-hero .hero-content { padding: 22px 20px; }
+  body.ui-v4-saas-polish #home .ui-v4-work-hero h3 { font-size: 24px; }
+  body.ui-v4-saas-polish #home .ui-v4-work-hero .button-row { display: grid; grid-template-columns: 1fr; }
+  body.ui-v4-saas-polish #home .ui-v4-work-hero .button-row button { width: 100%; }
+  body.ui-v4-saas-polish #home .module-grid { grid-template-columns: 1fr; }
+  body.ui-v4-saas-polish #home .module-card[data-product-tier="primary"],
+  body.ui-v4-saas-polish #home .module-card[data-product-tier="utility"] { grid-column: auto; min-height: auto; }
+  body.ui-v4-saas-polish #home .module-card { padding: 15px; }
+  body.ui-v4-saas-polish #home .module-footer button { min-height: 34px; }
+  body.ui-v4-saas-polish #home .ui-v4-safety-strip { display: block; }
+  body.ui-v4-saas-polish #home .ui-v4-safety-strip .principle-grid { grid-template-columns: 1fr; }
+  body.ui-v4-saas-polish.ui-v4-workspace .ui-v4-business-page > .content-card { padding: 15px; }
+  body.ui-v4-saas-polish.ui-v4-forms .ui-v4-form-actions.sticky-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 8;
+    margin-left: -4px;
+    margin-right: -4px;
+    padding: 10px 4px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(255,255,255,.98);
+  }
+}
+
+@media (max-height: 760px) and (min-width: 1021px) {
+  body.ui-v4-saas-polish .ui-v4-sidebar-recent { display: none; }
+  body.ui-v4-saas-polish .nav-group-label { margin-top: 9px; }
+  body.ui-v4-saas-polish .nav button { min-height: 38px; }
+}
+
+@media (hover: none) {
+  body.ui-v4-saas-polish #home .module-card:hover { transform: none; box-shadow: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.ui-v4-saas-polish #home .module-card,
+  body.ui-v4-saas-polish button,
+  body.ui-v4-saas-polish input,
+  body.ui-v4-saas-polish textarea,
+  body.ui-v4-saas-polish select { transition: none !important; }
+}
