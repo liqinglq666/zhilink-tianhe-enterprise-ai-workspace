@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.project_routes import UI_BUNDLE_VERSION
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,4 +70,4 @@ def test_enterprise_customer_layer_is_delivered_after_results_and_before_final_q
     assert bundle.status_code == 200
     assert "ZHILINK_ENTERPRISE_USER_VIEW_GUARDS_READY" in bundle.text
     assert "ZHILINK_ENTERPRISE_USER_VIEW_READY" in bundle.text
-    assert "2026-08-24-ui-v4-enterprise-v2" == bundle.headers["x-zhilink-ui-bundle"]
+    assert bundle.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
