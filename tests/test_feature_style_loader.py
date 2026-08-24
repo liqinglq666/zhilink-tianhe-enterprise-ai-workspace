@@ -47,48 +47,31 @@ def test_feature_style_manifest_preserves_existing_cascade_order() -> None:
     assert manifest.count("@import") == len(FEATURE_STYLES)
 
 
-def test_migrated_feature_styles_have_no_module_level_loader() -> None:
+def test_feature_styles_have_no_module_level_loaders() -> None:
     bootstrap = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
     consumers = {
         "generation-controls.js": ("generationControls", "link[data-generation-controls]", "generation-controls.css"),
+        "account-access.js": ("accountAccess", "link[data-account-access]", "account-access.css"),
+        "project-storage.js": ("projectStorage", "link[data-project-storage]", "project-storage.css"),
         "review-workflow.js": ("reviewWorkflow", "link[data-review-workflow]", "review-workflow.css"),
         "structured-results.js": ("structuredResults", "link[data-structured-results]", "structured-results.css"),
+        "policy-sources.js": ("policySources", "link[data-policy-sources]", "policy-sources.css"),
+        "knowledge-base.js": ("knowledgeBase", "link[data-knowledge-base]", "knowledge-base.css"),
         "service-workflow.js": ("serviceWorkflow", "link[data-service-workflow]", "service-workflow.css"),
+        "data-provenance-guard.js": ("zhilinkDataProvenance", "link[data-zhilink-data-provenance]", "data-provenance-guard.css"),
     }
 
     for filename, (marker, selector, stylesheet) in consumers.items():
         source = (ASSETS / filename).read_text(encoding="utf-8")
         assert marker not in bootstrap
         assert selector not in source
-        assert 'document.createElement("link")' not in source
         assert stylesheet not in source
-
-
-def test_bootstrap_marks_remaining_legacy_loaders_as_already_satisfied() -> None:
-    source = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
-    markers = (
-        "accountAccess",
-        "projectStorage",
-        "projectHistory",
-        "policySources",
-        "knowledgeBase",
-        "zhilinkDataProvenance",
-    )
-    for marker in markers:
-        assert f"stylesheet.dataset.{marker}" in source
-
-    legacy_guards = {
-        "account-access.js": "link[data-account-access]",
-        "project-storage.js": "link[data-project-storage]",
-        "policy-sources.js": "link[data-policy-sources]",
-        "knowledge-base.js": "link[data-knowledge-base]",
-        "data-provenance-guard.js": "link[data-zhilink-data-provenance]",
-    }
-    for filename, selector in legacy_guards.items():
-        assert selector in (ASSETS / filename).read_text(encoding="utf-8"), filename
+        assert 'document.createElement("link")' not in source
 
     project_source = (ASSETS / "project-storage.js").read_text(encoding="utf-8")
-    assert "link[data-project-history]" in project_source
+    assert "projectHistory" not in bootstrap
+    assert "link[data-project-history]" not in project_source
+    assert "project-history.css" not in project_source
 
 
 def test_feature_manifest_and_bundle_are_served() -> None:
