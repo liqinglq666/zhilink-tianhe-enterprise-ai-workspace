@@ -1,9 +1,0 @@
-/* Customer-facing polish for cross-module enterprise controls. */
-#serviceWorkflowModal label[aria-hidden="true"] { display: none !important; }
-#serviceWorkflowModal .sw-metrics { grid-template-columns: repeat(4,minmax(0,1fr)); }
-#serviceWorkflowModal .sw-context p b:empty { display: none; }
-#serviceWorkflowModal .sw-event { padding-bottom: 10px; }
-
-@media (max-width: 720px) {
-  #serviceWorkflowModal .sw-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
-}
