@@ -100,9 +100,10 @@ def test_model_config_generation_requires_saved_enterprise_or_available_platform
     assert "zhilink:model-mode-change" in script
 
 
-def test_model_config_owns_advanced_settings_and_customer_copy() -> None:
+def test_model_config_owns_dynamic_state_while_customer_copy_is_native() -> None:
     script = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
     stylesheet = (ASSETS / "model-config-save-v4.css").read_text(encoding="utf-8")
+    html = INDEX.read_text(encoding="utf-8")
 
     for expected in (
         'details.id = "modelConfigAdvancedSettings"',
@@ -110,12 +111,28 @@ def test_model_config_owns_advanced_settings_and_customer_copy() -> None:
         'summary.textContent = "高级连接设置"',
         'note.textContent = "仅在接入企业自有 AI 服务时需要填写。普通用户无需修改。"',
         'advanced.open = mode === "custom" || mode === "unconfigured"',
-        'setText(byId("apiDrawerTitle"), "AI 服务设置")',
-        'setText(byId(IDS.test), "检查服务")',
-        'setText(byId(IDS.save), "保存设置")',
         'toast("AI 服务设置已保存。")',
     ):
         assert expected in script
+
+    assert "function applyCustomerCopy()" not in script
+    assert 'setText(byId("apiDrawerTitle")' not in script
+    assert "labels = new Map" not in script
+
+    for expected in (
+        '<span id="apiDrawerTitle">AI 服务设置</span>',
+        '<strong>AI 服务</strong>',
+        "使用平台服务时无需额外设置；企业如需接入自有服务，可在高级连接设置中维护。",
+        "敏感连接信息只用于当前浏览器中的服务设置，不会写入项目或导出的业务材料。",
+        '<label for="providerSelect">服务方式</label>',
+        '<label for="apiKey">访问密钥</label>',
+        '<label for="baseUrl">服务地址</label>',
+        '<label for="modelName">模型名称</label>',
+        '<label for="temperature">生成稳定性</label>',
+        '>检查服务</button>',
+        '>保存设置</button>',
+    ):
+        assert expected in html
 
     assert ".model-config-advanced" in stylesheet
     assert ".model-config-advanced-note" in stylesheet
