@@ -15,6 +15,7 @@ def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     assert '[data-open-meeting-sources]' in script
     assert 'button[data-close-meeting-sources]' in script
     assert 'document.getElementById("uiV4ApiClose")' in script
+    assert 'document.getElementById("modelConfigAdvancedSettingsSummary") || document.getElementById("apiKey")' in script
     assert '[data-ui-v4-account]' in script
     assert 'dialog.setAttribute("aria-modal", "true")' in script
     assert 'dialog.setAttribute("tabindex", "-1")' in script
