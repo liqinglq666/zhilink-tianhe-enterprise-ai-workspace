@@ -23,7 +23,7 @@ def test_shell_only_owns_workspace_chrome_not_business_content() -> None:
         assert forbidden not in shell, forbidden
 
 
-def test_workspace_owns_business_meta_and_primary_action_icons() -> None:
+def test_workspace_css_owns_business_meta_and_primary_action_icons() -> None:
     workspace = read("ui-v4-workspace.css")
 
     for required in (
@@ -56,7 +56,7 @@ def test_dashboard_owns_home_card_icons_and_action_arrows() -> None:
 
 def test_javascript_owners_match_css_owners() -> None:
     shell = read("ui-v4-shell.js")
-    workspace = read("ui-v4-workspace.js")
+    final_qa = read("ui-v4-final-qa.js")
     dashboard = read("ui-v4-dashboard.js")
     runtime = read("ui-v4-runtime.js")
 
@@ -77,9 +77,9 @@ def test_javascript_owners_match_css_owners() -> None:
         'meta.className = "ui-v4-module-meta"',
         'button.insertAdjacentHTML("beforeend", ICONS.arrow)',
         "ICONS[shared.icon]",
-        'document.querySelectorAll(".ui-v4-business-page[id]").forEach(decoratePage)',
+        'document.querySelectorAll(".ui-v4-business-page[id]").forEach(page =>',
     ):
-        assert required in workspace, required
+        assert required in final_qa, required
 
     for forbidden in (
         "ui-v4-workspace-page",
@@ -91,7 +91,7 @@ def test_javascript_owners_match_css_owners() -> None:
         'result.setAttribute("aria-label"',
         ':scope > .result-panel',
     ):
-        assert forbidden not in workspace, forbidden
+        assert forbidden not in final_qa, forbidden
 
     assert "function ensureHomePanels" not in dashboard
     assert "document.createElement" not in dashboard
@@ -110,6 +110,6 @@ def test_javascript_owners_match_css_owners() -> None:
     assert "const icons = Object.freeze({" in runtime
     assert "window.ZHILINK_UI_V4_ICONS = icons" in runtime
     assert "window.ZHILINK_UI_V4_ICONS_READY = true" in runtime
-    for source in (shell, workspace, dashboard):
+    for source in (shell, final_qa, dashboard):
         assert '<svg viewBox="0 0 24 24"' not in source
         assert "window.ZHILINK_UI_V4_ICONS" in source

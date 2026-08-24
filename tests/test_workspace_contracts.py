@@ -63,7 +63,6 @@ def test_runtime_owns_only_behavior_generic_v4_helpers() -> None:
         assert '.replaceAll("&", "&amp;")' not in source
 
     for filename in (
-        "ui-v4-workspace.js",
         "ui-v4-overlays.js",
         "ui-v4-forms.js",
         "ui-v4-results.js",
@@ -90,24 +89,24 @@ def test_runtime_owns_the_shared_v4_module_catalogue() -> None:
 def test_ui_owners_consume_shared_module_catalogue_without_redeclaring_it() -> None:
     shell = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
     dashboard = (ASSETS / "ui-v4-dashboard.js").read_text(encoding="utf-8")
-    workspace = (ASSETS / "ui-v4-workspace.js").read_text(encoding="utf-8")
+    final_qa = (ASSETS / "ui-v4-final-qa.js").read_text(encoding="utf-8")
 
     assert "const MODULES = contracts.modules" in shell
     assert "const MODULES = contracts.modules" in dashboard
     assert "const MODULE_ORDER = contracts.moduleOrder" in dashboard
-    assert "const SHARED_MODULES = contracts.modules" in workspace
+    assert "const SHARED_MODULES = contracts.modules" in final_qa
 
     assert "const MODULES = {" not in shell
     assert 'home: { label: "工作首页"' not in shell
     assert 'const MODULE_ORDER = ["meeting"' not in dashboard
     assert 'key === "landing" ? "plan" : key' not in dashboard
-    assert "resultLabel:" not in workspace
-    assert 'icon: "meeting"' not in workspace
-    assert 'result.setAttribute("aria-label", shared.resultLabel)' not in workspace
-    assert 'input.setAttribute("aria-label"' not in workspace
-    assert ':scope > .result-panel' not in workspace
-    assert 'document.querySelectorAll(".ui-v4-business-page[id]").forEach(decoratePage);' in workspace
-    assert "ICONS[shared.icon]" in workspace
+    assert "resultLabel:" not in final_qa
+    assert 'icon: "meeting"' not in final_qa
+    assert 'result.setAttribute("aria-label", shared.resultLabel)' not in final_qa
+    assert 'input.setAttribute("aria-label"' not in final_qa
+    assert ':scope > .result-panel' not in final_qa
+    assert 'document.querySelectorAll(".ui-v4-business-page[id]").forEach(page =>' in final_qa
+    assert "ICONS[shared.icon]" in final_qa
 
 
 def test_contract_consumers_do_not_redeclare_shared_storage_or_event_literals() -> None:
@@ -118,7 +117,7 @@ def test_contract_consumers_do_not_redeclare_shared_storage_or_event_literals() 
         "data-provenance-guard.js",
         "ui-v4-shell.js",
         "ui-v4-dashboard.js",
-        "ui-v4-workspace.js",
+        "ui-v4-final-qa.js",
         "policy-sources.js",
         "meeting-user-view.js",
         "review-workflow.js",

@@ -1,14 +1,61 @@
-/* UI V4 final QA: canonical responsive and accessibility presentation controller. */
+/* UI V4 final QA: canonical responsive, workspace and accessibility presentation controller. */
 (() => {
+  const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
+  const ICONS = window.ZHILINK_UI_V4_ICONS;
+  if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before final QA.");
+
   const PAGE_NAV_SELECTOR = "#navList button[data-section], [data-goto]";
   const SCROLLABLE_SELECTOR = ".result-section-content, .structured-table-wrap";
   const MOBILE_BREAKPOINT = 1020;
+  const SHARED_MODULES = contracts.modules;
   let keyboardNavigationPending = false;
   let started = false;
   let resizeFrame = 0;
 
   function setText(element, value) {
     if (element && element.textContent !== value) element.textContent = value;
+  }
+
+  function moduleMeta(id) {
+    if (id === "report") return ["汇总已有结果", "支持多格式导出", "敏感设置不会导出"];
+    if (id === "profile") return ["补充企业背景", "支持快速填写", "结果可归档"];
+    return ["智能辅助整理", "人工复核后使用", "结果可归档"];
+  }
+
+  function decorateBusinessWorkspace() {
+    document.documentElement.dataset.zhilinkWorkspace = "v4";
+    document.querySelectorAll(".ui-v4-business-page[id]").forEach(page => {
+      const id = page.id;
+      const shared = SHARED_MODULES[id];
+      const input = page.querySelector(":scope > .content-card");
+      if (!shared || !input) return;
+
+      const head = input.querySelector(".section-head");
+      const iconHolder = head?.querySelector(":scope > span");
+      if (iconHolder && iconHolder.dataset.uiV4Icon !== "true") {
+        iconHolder.innerHTML = ICONS[shared.icon] || ICONS.home;
+        iconHolder.dataset.uiV4Icon = "true";
+        iconHolder.setAttribute("aria-hidden", "true");
+      }
+
+      if (head && !input.querySelector(".ui-v4-module-meta")) {
+        const meta = document.createElement("div");
+        meta.className = "ui-v4-module-meta";
+        moduleMeta(id).forEach(label => {
+          const item = document.createElement("span");
+          item.textContent = label;
+          meta.appendChild(item);
+        });
+        head.insertAdjacentElement("afterend", meta);
+      }
+
+      input.querySelectorAll("textarea").forEach(textarea => textarea.setAttribute("spellcheck", "false"));
+      input.querySelectorAll(".sticky-actions button.primary").forEach(button => {
+        if (button.dataset.uiV4Arrow === "true") return;
+        button.insertAdjacentHTML("beforeend", ICONS.arrow);
+        button.dataset.uiV4Arrow = "true";
+      });
+    });
   }
 
   function ensureSkipLink() {
@@ -169,6 +216,7 @@
 
   function sync() {
     if (!document.body) return;
+    decorateBusinessWorkspace();
     ensureSkipLink();
     ensureSidebarSemantics();
     ensureTopbarSemantics();

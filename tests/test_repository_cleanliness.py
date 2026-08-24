@@ -34,6 +34,7 @@ def test_removed_patch_layers_do_not_return() -> None:
         "saas-product-polish-v3.css",
         "release-polish-v4.css",
         "ui-v4-foundation.js",
+        "ui-v4-workspace.js",
         "enterprise-user-view-guards.js",
     )
     for name in obsolete:

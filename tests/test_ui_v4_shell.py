@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.project_routes import UI_BUNDLE_VERSION
+from backend.project_routes import UI_BUNDLE_VERSION, UI_SCRIPTS
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
@@ -33,7 +33,6 @@ def test_production_bundle_is_one_consolidated_v4_runtime() -> None:
         "ZHILINK_MODEL_CONFIG_SAVE_V4_READY",
         "ZHILINK_MEETING_USER_VIEW_READY",
         "ZHILINK_UI_V4_DASHBOARD_READY",
-        "ZHILINK_UI_V4_WORKSPACE_READY",
         "ZHILINK_UI_V4_OVERLAYS_READY",
         "ZHILINK_UI_V4_STATES_READY",
         "ZHILINK_UI_V4_FORMS_READY",
@@ -54,6 +53,7 @@ def test_production_bundle_is_one_consolidated_v4_runtime() -> None:
         "ZHILINK_SIMPLE_UI_READY",
         "ZHILINK_DATA_PROVENANCE_V2_READY",
         "ZHILINK_UI_V4_FOUNDATION_READY",
+        "ZHILINK_UI_V4_WORKSPACE_READY",
     ):
         assert legacy not in response.text
 
@@ -79,12 +79,14 @@ def test_replaced_ui_layers_and_fake_preview_are_deleted() -> None:
         "ui-preview.css",
         "ui-preview.js",
         "ui-v4-foundation.js",
+        "ui-v4-workspace.js",
         "saas-product-polish-v3.js",
         "saas-product-polish-v3.css",
         "release-polish-v4.css",
         "enterprise-user-view-guards.js",
     )
     assert all(not (ASSETS / filename).exists() for filename in removed)
+    assert "ui-v4-workspace.js" not in UI_SCRIPTS
     with TestClient(app) as client:
         assert client.get("/preview").status_code == 404
 
@@ -111,7 +113,7 @@ def test_native_index_owns_core_workspace_chrome_before_javascript() -> None:
 def test_v4_shell_uses_shared_runtime_contracts_without_recreating_business_state() -> None:
     shell = (ASSETS / "ui-v4-shell.js").read_text(encoding="utf-8")
     dashboard = (ASSETS / "ui-v4-dashboard.js").read_text(encoding="utf-8")
-    workspace = (ASSETS / "ui-v4-workspace.js").read_text(encoding="utf-8")
+    final_qa = (ASSETS / "ui-v4-final-qa.js").read_text(encoding="utf-8")
 
     assert "window.ZHILINK_WORKSPACE_CONTRACTS" in shell
     assert "window.ZHILINK_UI_V4_ICONS" in shell
@@ -125,8 +127,10 @@ def test_v4_shell_uses_shared_runtime_contracts_without_recreating_business_stat
     assert "function renderPending" in dashboard
     assert "function renderUsage" in dashboard
 
-    assert "const SHARED_MODULES = contracts.modules" in workspace
-    assert 'document.querySelectorAll(".ui-v4-business-page[id]").forEach(decoratePage);' in workspace
+    assert "const SHARED_MODULES = contracts.modules" in final_qa
+    assert "function decorateBusinessWorkspace()" in final_qa
+    assert 'document.querySelectorAll(".ui-v4-business-page[id]").forEach(page =>' in final_qa
+    assert 'document.documentElement.dataset.zhilinkWorkspace = "v4"' in final_qa
 
 
 def test_workspace_keeps_task_first_split_workbench_and_accessibility_contracts() -> None:

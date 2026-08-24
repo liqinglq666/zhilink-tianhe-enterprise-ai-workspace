@@ -24,7 +24,6 @@ def test_runtime_is_the_shared_dom_refresh_scheduler() -> None:
 
     presentation_layers = (
         "ui-v4-dashboard.js",
-        "ui-v4-workspace.js",
         "ui-v4-overlays.js",
         "ui-v4-states.js",
         "ui-v4-results.js",
