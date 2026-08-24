@@ -51,6 +51,7 @@ def test_migrated_feature_styles_have_no_module_level_loader() -> None:
     bootstrap = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
     consumers = {
         "generation-controls.js": ("generationControls", "link[data-generation-controls]", "generation-controls.css"),
+        "review-workflow.js": ("reviewWorkflow", "link[data-review-workflow]", "review-workflow.css"),
         "structured-results.js": ("structuredResults", "link[data-structured-results]", "structured-results.css"),
     }
 
@@ -68,7 +69,6 @@ def test_bootstrap_marks_remaining_legacy_loaders_as_already_satisfied() -> None
         "accountAccess",
         "projectStorage",
         "projectHistory",
-        "reviewWorkflow",
         "policySources",
         "knowledgeBase",
         "serviceWorkflow",
@@ -80,7 +80,6 @@ def test_bootstrap_marks_remaining_legacy_loaders_as_already_satisfied() -> None
     legacy_guards = {
         "account-access.js": "link[data-account-access]",
         "project-storage.js": "link[data-project-storage]",
-        "review-workflow.js": "link[data-review-workflow]",
         "policy-sources.js": "link[data-policy-sources]",
         "knowledge-base.js": "link[data-knowledge-base]",
         "service-workflow.js": "link[data-service-workflow]",
