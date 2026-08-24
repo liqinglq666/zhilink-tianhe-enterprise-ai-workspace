@@ -90,7 +90,7 @@
       }
       return data;
     } catch (error) {
-      if (error.name === "AbortError") throw new Error("项目存储请求超时，请稍后重试。");
+      if (error.name === "AbortError") throw new Error("项目请求超时，请稍后重试。");
       throw error;
     } finally {
       clearTimeout(timer);
@@ -177,7 +177,7 @@
     if (!button) return;
     if (!currentProject) {
       button.textContent = "项目";
-      button.title = "创建或打开持久化项目";
+      button.title = "创建或打开项目";
       button.classList.remove("project-dirty");
       return;
     }
@@ -208,9 +208,9 @@
         <section class="project-dialog" role="dialog" aria-modal="true" aria-labelledby="projectManagerTitle">
           <div class="project-dialog-header">
             <div>
-              <span class="track">项目存储</span>
-              <h2 id="projectManagerTitle">项目、材料与版本历史</h2>
-              <p>只有显式保存才写入数据库。模型 API Key 与接口配置不会写入项目或历史版本。</p>
+              <span class="track">项目管理</span>
+              <h2 id="projectManagerTitle">项目与历史版本</h2>
+              <p>保存项目后会记录当前工作内容和历史版本；AI 服务设置等敏感配置不会写入项目。</p>
             </div>
             <button class="icon-btn" type="button" data-close-project-manager aria-label="关闭项目管理">✕</button>
           </div>
@@ -228,19 +228,19 @@
           </div>
           <section id="projectHistorySection" class="project-history-section" hidden>
             <div class="project-list-header">
-              <div><h3>版本历史</h3><p>每次有效保存生成不可变版本；恢复旧版会产生一个新版本。</p></div>
+              <div><h3>版本历史</h3><p>每次保存都会保留一个历史版本；恢复旧版不会删除已有记录。</p></div>
               <button id="refreshProjectHistoryButton" class="secondary small" type="button">刷新</button>
             </div>
             <div id="projectHistoryList" class="project-history-list"></div>
             <div id="projectHistoryDetail" class="project-history-detail"></div>
           </section>
           <div class="project-list-header">
-            <div><h3>我的项目</h3><p>项目按当前浏览器工作区隔离。</p></div>
+            <div><h3>我的项目</h3><p>项目保存在当前工作空间。</p></div>
             <label class="project-archive-toggle"><input id="includeArchivedProjects" type="checkbox" />显示已归档</label>
           </div>
           <div id="projectList" class="project-list"><p class="project-empty">正在读取项目...</p></div>
           <div class="project-privacy-note">
-            浏览器工作区密钥只保存在本机，服务端仅保存其哈希。清除浏览器网站数据后，将无法继续访问此前的匿名项目；账号迁移将在后续阶段实现。
+            未登录时，项目仅与当前浏览器关联。重要项目建议登录并保存到组织空间，以便长期使用。
           </div>
         </section>`;
       document.body.appendChild(modal);
@@ -297,7 +297,7 @@
     const saveButton = document.getElementById("saveProjectButton");
     const historyButton = document.getElementById("showProjectHistoryButton");
     if (!currentProject) {
-      card.innerHTML = "<strong>当前未打开持久化项目</strong><span>可以填写名称后新建，或从下方项目列表载入。</span>";
+      card.innerHTML = "<strong>当前未打开项目</strong><span>可以填写名称后新建，或从下方项目列表载入。</span>";
       nameInput.value = "";
       descriptionInput.value = "";
       archiveButton.disabled = true;
@@ -559,7 +559,7 @@
       if (String(value || "").trim()) rows.push(["表单", FORM_LABELS[key] || key, value]);
     });
     Object.entries(snapshot.results || {}).forEach(([key, value]) => {
-      if (String(value || "").trim()) rows.push(["AI 结果", MODULE_LABELS[key] || key, value]);
+      if (String(value || "").trim()) rows.push(["业务结果", MODULE_LABELS[key] || key, value]);
     });
     if (!rows.length) return '<p class="project-empty">该版本没有非空业务材料。</p>';
     return `<div class="project-version-materials">${rows.map(([type, label, value]) => `
@@ -593,7 +593,7 @@
           <div><span>变更类型</span><strong>${escapeHtml(versionKindLabel(version.change_kind))}</strong></div>
           <div><span>来源版本</span><strong>${version.source_version_number ? `v${version.source_version_number}` : "无"}</strong></div>
         </div>
-        <p class="project-history-safety">版本详情为只读摘要。恢复操作只恢复业务快照，当前项目名称、说明和归档状态不会被旧版本覆盖。</p>
+        <p class="project-history-safety">版本详情为只读摘要。恢复操作只恢复业务材料，当前项目名称、说明和归档状态不会被旧版本覆盖。</p>
         ${renderVersionMaterialSummary(version)}`;
     } catch (error) {
       detail.innerHTML = `<p class="project-empty error">${escapeHtml(error.message || String(error))}</p>`;
