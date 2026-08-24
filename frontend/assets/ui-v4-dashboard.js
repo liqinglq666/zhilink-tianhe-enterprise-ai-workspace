@@ -99,7 +99,7 @@
     setText(count, `${items.length} 项`);
     const html = items.length
       ? items.map(item => `<article class="ui-v4-pending-item"><span class="ui-v4-pending-icon">!</span><div><strong>${safe(item.title)}</strong><small>${safe(item.source)} · 请人工核对后使用</small></div></article>`).join("")
-      : '<p class="ui-v4-panel-empty">当前正式材料中没有识别到待确认事项。新材料生成后会自动更新。</p>';
+      : '<p class="ui-v4-panel-empty">当前材料中没有识别到待确认事项。新材料生成后会自动更新。</p>';
     if (list.innerHTML !== html) list.innerHTML = html;
   }
   function reviewCounts() {
@@ -122,9 +122,9 @@
     const project = currentProject();
     const reviews = reviewCounts();
     const projectCount = Number(window.ZHILINK_UI_V4_SHELL?.projectCount?.() || 0);
-    const html = `<div class="ui-v4-metric"><strong>${generated}</strong><span>正式材料</span></div><div class="ui-v4-metric"><strong>${projectCount}</strong><span>可访问项目</span></div><div class="ui-v4-metric"><strong>${reviews.confirmed}</strong><span>已确认 / 批准</span></div><div class="ui-v4-metric"><strong>${reviews.pending}</strong><span>待复核状态</span></div>`;
+    const html = `<div class="ui-v4-metric"><strong>${generated}</strong><span>已生成材料</span></div><div class="ui-v4-metric"><strong>${projectCount}</strong><span>项目</span></div><div class="ui-v4-metric"><strong>${reviews.confirmed}</strong><span>已复核</span></div><div class="ui-v4-metric"><strong>${reviews.pending}</strong><span>待复核</span></div>`;
     if (metrics.innerHTML !== html) metrics.innerHTML = html;
-    setText(note, project ? `当前项目：${project.name} · v${project.lock_version}${project.status === "archived" ? " · 已归档" : ""}` : "当前未打开持久化项目。示例和旧会话材料不会进入正式统计。");
+    setText(note, project ? `当前项目：${project.name} · v${project.lock_version}${project.status === "archived" ? " · 已归档" : ""}` : "当前未打开项目。新建或打开项目后可持续保存工作进度。");
   }
   function decorateHero() {
     const home = document.getElementById("home");
