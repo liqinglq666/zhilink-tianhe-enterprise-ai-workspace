@@ -1,4 +1,4 @@
-/* UI V4 states: consistent empty, loading, error and feedback presentation without owning business state. */
+/* UI V4 states: consistent empty, loading, error and feedback presentation without owning business state or copy. */
 (() => {
   const STATE_SELECTOR = [
     ".result-panel",
@@ -38,30 +38,6 @@
     }
   }
 
-  function actionOrientedEmptyCopy(element) {
-    if (!(element instanceof HTMLElement)) return;
-    const text = normalizedText(element);
-    if (element.matches(".recent-list.empty") && /暂无生成材料|暂无.*材料/.test(text)) {
-      element.textContent = "还没有最近材料。完成一次业务任务后，生成结果会出现在这里。";
-      return;
-    }
-    if (element.closest("#projectList") && /暂无|还没有|没有.*项目/.test(text)) {
-      element.textContent = "还没有项目。创建项目后，可保存当前工作内容和版本历史。";
-      return;
-    }
-    if (element.closest("#projectHistoryList") && /暂无|还没有|没有.*版本/.test(text)) {
-      element.textContent = "当前项目还没有版本记录。保存项目后，版本历史会显示在这里。";
-      return;
-    }
-    if (element.closest("#knowledgeArticleList") && /还没有可见的知识条目|暂无/.test(text)) {
-      element.textContent = "当前组织还没有知识条目。新建草稿并审核通过后，可用于知识检索。";
-      return;
-    }
-    if (element.closest("#knowledgeEditor") && /选择一个知识条目/.test(text)) {
-      element.textContent = "选择左侧知识条目查看详情，或新建一个草稿。";
-    }
-  }
-
   function decorateResultPanel(panel) {
     if (!(panel instanceof HTMLElement)) return;
     panel.classList.add("ui-v4-state-surface");
@@ -83,7 +59,6 @@
 
   function decorateGeneric(element) {
     if (!(element instanceof HTMLElement)) return;
-    actionOrientedEmptyCopy(element);
     const text = normalizedText(element);
     let state = classifyText(text);
     if (element.matches(".project-empty, .knowledge-empty, .knowledge-search-empty, .account-empty, .recent-list.empty")) {
