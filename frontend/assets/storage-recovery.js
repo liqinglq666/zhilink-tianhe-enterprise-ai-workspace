@@ -14,7 +14,6 @@
     stylesheet.dataset.projectStorage = "true";
     stylesheet.dataset.projectHistory = "true";
     stylesheet.dataset.reviewWorkflow = "true";
-    stylesheet.dataset.structuredResults = "true";
     stylesheet.dataset.policySources = "true";
     stylesheet.dataset.knowledgeBase = "true";
     stylesheet.dataset.serviceWorkflow = "true";
