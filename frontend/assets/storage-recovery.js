@@ -8,14 +8,6 @@
     stylesheet.rel = "stylesheet";
     stylesheet.href = FEATURE_STYLES_URL;
     stylesheet.dataset.zhilinkFeatureStyles = "true";
-
-    // Compatibility markers keep legacy feature loaders dormant until their dead code is removed.
-    stylesheet.dataset.accountAccess = "true";
-    stylesheet.dataset.projectStorage = "true";
-    stylesheet.dataset.projectHistory = "true";
-    stylesheet.dataset.policySources = "true";
-    stylesheet.dataset.knowledgeBase = "true";
-    stylesheet.dataset.zhilinkDataProvenance = "true";
     document.head.appendChild(stylesheet);
   }
 

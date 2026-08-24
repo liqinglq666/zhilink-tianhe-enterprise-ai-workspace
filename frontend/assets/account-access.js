@@ -142,14 +142,6 @@
   }
 
   function injectUI() {
-    if (!document.querySelector("link[data-account-access]")) {
-      const stylesheet = document.createElement("link");
-      stylesheet.rel = "stylesheet";
-      stylesheet.href = "/assets/account-access.css";
-      stylesheet.dataset.accountAccess = "true";
-      document.head.appendChild(stylesheet);
-    }
-
     const topActions = document.querySelector(".top-actions");
     if (topActions && !document.getElementById("openAccountManager")) {
       const button = document.createElement("button");

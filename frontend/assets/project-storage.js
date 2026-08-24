@@ -186,25 +186,7 @@
     button.classList.toggle("project-dirty", projectDirty);
   }
 
-  function injectStylesheets() {
-    if (!document.querySelector("link[data-project-storage]")) {
-      const stylesheet = document.createElement("link");
-      stylesheet.rel = "stylesheet";
-      stylesheet.href = "/assets/project-storage.css";
-      stylesheet.dataset.projectStorage = "true";
-      document.head.appendChild(stylesheet);
-    }
-    if (!document.querySelector("link[data-project-history]")) {
-      const stylesheet = document.createElement("link");
-      stylesheet.rel = "stylesheet";
-      stylesheet.href = "/assets/project-history.css";
-      stylesheet.dataset.projectHistory = "true";
-      document.head.appendChild(stylesheet);
-    }
-  }
-
   function injectProjectUI() {
-    injectStylesheets();
     const topActions = document.querySelector(".top-actions");
     if (topActions && !document.getElementById("openProjectManager")) {
       const button = document.createElement("button");

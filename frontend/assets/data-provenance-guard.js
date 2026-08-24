@@ -29,7 +29,6 @@
   const QUARANTINE_STORAGE = contracts.storage.legacyQuarantine;
   const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
   const FORMAL_ORIGINS = new Set(contracts.formalOrigins);
-  const STYLE_URL = "/assets/data-provenance-guard.css?v=20260806.1";
   let started = false;
   let eventsBound = false;
 
@@ -58,14 +57,6 @@
   function persistActiveResults(results, meta) {
     sessionStorage.setItem(RESULTS_STORAGE, JSON.stringify(results || {}));
     sessionStorage.setItem(META_STORAGE, JSON.stringify(meta || {}));
-  }
-  function ensureStyles() {
-    if (document.querySelector("link[data-zhilink-data-provenance]")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = STYLE_URL;
-    link.dataset.zhilinkDataProvenance = "true";
-    document.head.appendChild(link);
   }
 
   function moduleFromExampleKey(key) {
@@ -378,7 +369,6 @@
   function start() {
     if (started) return;
     started = true;
-    ensureStyles();
     const migrated = quarantineLegacyResults();
     migrateExistingOrigins();
     hooks.register("results:collect", collectFormalResults);
