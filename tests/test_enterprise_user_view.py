@@ -12,21 +12,71 @@ ROUTES = ROOT / "backend" / "project_routes.py"
 INDEX = ROOT / "frontend" / "index.html"
 
 
-def test_enterprise_customer_view_translates_global_technical_ui_into_business_copy() -> None:
+def test_enterprise_customer_view_translates_only_remaining_global_ui() -> None:
     source = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
 
     for expected in (
         "AI 服务设置",
         "高级连接设置",
         "平台 AI 服务已就绪",
-        "账户、组织与成员",
-        "本机工作区",
-        "项目与历史版本",
         "仅导出业务内容",
         "智能辅助整理",
         "清除这些内容",
     ):
         assert expected in source
+
+
+def test_account_and_project_customer_copy_is_owned_by_source_modules() -> None:
+    enterprise = (ASSETS / "enterprise-user-view.js").read_text(encoding="utf-8")
+    account = (ASSETS / "account-access.js").read_text(encoding="utf-8")
+    project = (ASSETS / "project-storage.js").read_text(encoding="utf-8")
+
+    for expected in (
+        "账户与组织",
+        "账户、组织与成员",
+        "本机工作区",
+        "将本机项目移入当前组织",
+        "当前暂不支持密码找回和邮件邀请，请妥善保管登录信息。",
+    ):
+        assert expected in account
+
+    for expected in (
+        "项目管理",
+        "项目与历史版本",
+        "保存项目后会记录当前工作内容和历史版本",
+        "项目保存在当前工作空间。",
+        "当前未打开项目",
+        "业务结果",
+        "恢复操作只恢复业务材料",
+    ):
+        assert expected in project
+
+    for obsolete in (
+        "decorateAccount",
+        "decorateProjectManager",
+        "账户、组织与成员",
+        "本机工作区",
+        "项目与历史版本",
+    ):
+        assert obsolete not in enterprise
+
+    for technical_copy in (
+        "组织空间与角色权限",
+        "匿名浏览器工作区",
+        "当前仍在匿名浏览器工作区",
+        "本浏览器匿名项目",
+    ):
+        assert technical_copy not in account
+
+    for technical_copy in (
+        "项目存储请求超时",
+        "当前未打开持久化项目",
+        "项目按当前浏览器工作区隔离",
+        "浏览器工作区密钥只保存在本机",
+        'rows.push(["AI 结果"',
+        "恢复操作只恢复业务快照",
+    ):
+        assert technical_copy not in project
 
 
 def test_enterprise_view_keeps_advanced_model_controls_but_collapses_them_for_normal_users() -> None:

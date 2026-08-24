@@ -193,51 +193,6 @@
     advancedInitialized = true;
   }
 
-  function decorateAccount() {
-    const modal = byId("accountManagerModal");
-    if (!modal) return;
-    setText(modal.querySelector(".account-dialog-header .track"), "账户与组织");
-    setText(byId("accountManagerTitle"), "账户、组织与成员");
-    setText(modal.querySelector(".account-dialog-header p"), "登录后可以在组织内共享项目，并按成员角色管理查看和编辑权限。");
-    const note = modal.querySelector(".account-note");
-    if (note) setText(note, "当前暂不支持密码找回和邮件邀请，请妥善保管登录信息。");
-    replaceTextNodes(modal, [
-      [/匿名浏览器工作区/g, "本机工作区"],
-      [/匿名空间/g, "本机工作区"],
-      [/匿名项目/g, "本机项目"],
-      [/本浏览器匿名项目/g, "本机项目"],
-      [/当前仍在匿名浏览器工作区/g, "当前使用本机工作区"],
-    ]);
-    const claim = byId("claimAnonymousProjectsButton");
-    if (claim) setText(claim, "将本机项目移入当前组织");
-    document.querySelectorAll("#accountManagerContent .account-panel p").forEach(p => {
-      if (p.textContent.includes("清除网站数据") || p.textContent.includes("访问密钥")) {
-        setText(p, "本机工作区仅适用于当前浏览器。重要项目建议登录并保存到组织空间。");
-      }
-    });
-  }
-
-  function decorateProjectManager() {
-    const modal = byId("projectManagerModal");
-    if (!modal) return;
-    setText(modal.querySelector(".project-dialog-header .track"), "项目管理");
-    setText(byId("projectManagerTitle"), "项目与历史版本");
-    setText(modal.querySelector(".project-dialog-header p"), "保存项目后会记录当前工作内容和历史版本；AI 服务设置等敏感配置不会写入项目。");
-    const historyCopy = modal.querySelector("#projectHistorySection .project-list-header p");
-    if (historyCopy) setText(historyCopy, "每次保存都会保留一个历史版本；恢复旧版不会删除已有记录。");
-    const headers = Array.from(modal.querySelectorAll(":scope .project-list-header"));
-    const projectListHeader = headers.find(header => header.querySelector("h3")?.textContent.trim() === "我的项目");
-    if (projectListHeader) setText(projectListHeader.querySelector("p"), "项目保存在当前工作空间。");
-    const privacy = modal.querySelector(".project-privacy-note");
-    if (privacy) setText(privacy, "未登录时，项目仅与当前浏览器关联。重要项目建议登录并保存到组织空间，以便长期使用。");
-    replaceTextNodes(modal, [
-      [/当前未打开持久化项目/g, "当前未打开项目"],
-      [/AI 结果/g, "业务结果"],
-      [/业务快照/g, "业务材料"],
-      [/项目存储请求/g, "项目请求"],
-    ]);
-  }
-
   function decorateProvenance() {
     const notice = byId("dataIsolationNotice");
     if (notice) {
@@ -271,8 +226,6 @@
     wrapToast();
     decorateStaticShell();
     decorateModelSettings();
-    decorateAccount();
-    decorateProjectManager();
     decorateProvenance();
     syncAdvancedState();
     window.ZHILINK_ENTERPRISE_USER_VIEW_READY = true;
