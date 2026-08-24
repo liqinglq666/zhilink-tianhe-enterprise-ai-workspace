@@ -1,6 +1,6 @@
 /* Recover known workspace JSON keys and load shared feature styles before feature modules start. */
 (() => {
-  const FEATURE_STYLES_URL = "/assets/feature-styles.css?v=20260824.1";
+  const FEATURE_STYLES_URL = "/assets/feature-styles.css?v=20260824.2";
 
   function ensureFeatureStyles() {
     if (document.querySelector("link[data-zhilink-feature-styles]")) return;
