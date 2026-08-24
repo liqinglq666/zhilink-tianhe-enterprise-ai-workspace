@@ -1,6 +1,7 @@
 /* UI V4 results: present generated business output as a readable enterprise document without changing content. */
 (() => {
   const PANEL_SELECTOR = ".result-panel";
+  const INTERNAL_META_RE = /(AI\s*模型|流式模式|模型模式|本地报告模式|含证据索引|本地规则预检|连接超时|生成超时|请求已发送|服务端协调)/i;
   const KIND_RULES = [
     ["pending", /(待确认|待补充|需确认|未确认|信息缺口|未知事项|待核实)/],
     ["risk", /(风险|问题|注意事项|合规|警示|隐患|异常)/],
@@ -49,8 +50,16 @@
     const meta = panel.querySelector(".result-meta");
     if (!(meta instanceof HTMLElement)) return;
     meta.classList.add("ui-v4-document-meta");
-    meta.setAttribute("aria-label", "生成信息");
-    meta.querySelectorAll(".meta-pill").forEach(item => item.classList.add("ui-v4-document-meta-item"));
+    meta.setAttribute("aria-label", "文档信息");
+    meta.querySelectorAll(".meta-pill").forEach(item => {
+      const text = cleanText(item.textContent);
+      if (!item.classList.contains("danger") && INTERNAL_META_RE.test(text)) {
+        item.remove();
+        return;
+      }
+      item.classList.add("ui-v4-document-meta-item");
+    });
+    meta.hidden = !meta.querySelector(".meta-pill");
   }
   function ensureStatusRail(panel) {
     let rail = panel.querySelector(":scope > .ui-v4-document-status-rail");
