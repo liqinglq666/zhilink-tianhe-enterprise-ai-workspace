@@ -61,7 +61,6 @@ def test_business_extensions_register_hooks_and_events_without_wrapping_globals(
     consumers = {
         "generation-controls.js": ("hooks.setGenerationTransport(runGeneration)",),
         "policy-sources.js": ('hooks.register("generation:request"', "contracts.events.resultUpdated"),
-        "project-result-meta.js": ('hooks.register("fetch:request"',),
         "data-provenance-guard.js": ('hooks.register("results:collect", collectFormalResults)', "EVENTS.resultUpdated"),
         "meeting-user-view.js": ('hooks.register("results:collect", sanitizeCollectedResults)', "contracts.events.resultUpdated"),
         "review-workflow.js": ("contracts.events.resultUpdated",),
@@ -84,11 +83,17 @@ def test_business_extensions_register_hooks_and_events_without_wrapping_globals(
         for marker in forbidden:
             assert marker not in source, f"{marker} leaked into {filename}"
 
+    project_storage = (ASSETS / "project-storage.js").read_text(encoding="utf-8")
+    assert 'const PERSISTED_META_FIELDS = ["origin", "example_key", "result_schema_version"]' in project_storage
+    assert 'hooks.register("fetch:request"' not in project_storage
+    assert not (ASSETS / "project-result-meta.js").exists()
+
 
 def test_bundle_loads_runtime_contracts_before_examples_and_consumers() -> None:
     routes = ROUTES.read_text(encoding="utf-8")
     assert '"result-events.js"' not in routes
     assert '"workspace-hooks.js"' not in routes
+    assert '"project-result-meta.js"' not in routes
     assert '"example-loader.js"' in routes
     assert '"ui-v4-runtime.js"' in routes
 
@@ -98,7 +103,7 @@ def test_bundle_loads_runtime_contracts_before_examples_and_consumers() -> None:
     assert app_position < runtime_position < examples_position
     for filename in (
         "generation-controls.js",
-        "project-result-meta.js",
+        "project-storage.js",
         "review-workflow.js",
         "structured-results.js",
         "policy-sources.js",
@@ -124,3 +129,4 @@ def test_bundle_loads_runtime_contracts_before_examples_and_consumers() -> None:
 def test_removed_bridge_assets_are_physically_deleted() -> None:
     assert not (ASSETS / "result-events.js").exists()
     assert not (ASSETS / "workspace-hooks.js").exists()
+    assert not (ASSETS / "project-result-meta.js").exists()
