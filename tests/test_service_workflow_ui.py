@@ -31,7 +31,7 @@ def test_service_workflow_hides_internal_provenance_details_at_source() -> None:
     assert "更新办理依据" in source
 
 
-def test_service_workflow_source_owns_business_copy() -> None:
+def test_service_workflow_source_owns_business_copy_and_event_labels() -> None:
     source = SERVICE.read_text(encoding="utf-8")
 
     for expected in (
@@ -43,5 +43,12 @@ def test_service_workflow_source_owns_business_copy() -> None:
         "组织知识",
         "待确认",
         "操作记录",
+        "eventStatusLabel",
+        "ACTION_LABELS",
+        "ROLE_LABELS",
+        "NODE_LABELS",
+        "CASE_LABELS",
     ):
         assert expected in source
+
+    assert 'String(action || "").startsWith("node_")' in source
