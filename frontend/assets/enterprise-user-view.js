@@ -1,13 +1,6 @@
-/* Enterprise customer presentation layer: global business copy and UI hygiene. */
+/* Enterprise customer presentation layer: remaining global shell copy. */
 (() => {
-  const TOAST_REWRITES = [
-    [/模型配置已保存/g, "AI 服务设置已保存"],
-    [/已切换当前编辑内容为公共模型，保存后生效/g, "已选择平台 AI 服务，保存后生效"],
-    [/已从当前编辑内容中清空 API Key，保存后生效/g, "已清除访问密钥，保存后生效"],
-  ];
-
   let queued = false;
-  let advancedInitialized = false;
 
   function byId(id) {
     return document.getElementById(id);
@@ -38,23 +31,6 @@
       replacements.forEach(([from, to]) => { next = next.replace(from, to); });
       if (next !== node.nodeValue) node.nodeValue = next;
     });
-  }
-
-  function rewriteToastMessage(message) {
-    let value = String(message || "");
-    TOAST_REWRITES.forEach(([pattern, replacement]) => { value = value.replace(pattern, replacement); });
-    return value;
-  }
-
-  function wrapToast() {
-    const original = window.toast;
-    if (typeof original !== "function" || original.__enterpriseWrapped) return;
-    const wrapped = function enterpriseToast(message) {
-      return original.call(this, rewriteToastMessage(message));
-    };
-    wrapped.__enterpriseWrapped = true;
-    wrapped.__enterpriseOriginal = original;
-    window.toast = wrapped;
   }
 
   function decorateStaticShell() {
@@ -108,101 +84,9 @@
     });
   }
 
-  function decorateModelSettings() {
-    const panel = byId("apiPanel");
-    if (!panel) return;
-    setText(byId("apiDrawerTitle"), "AI 服务设置");
-    setText(panel.querySelector(".api-drawer-intro strong"), "AI 服务");
-    setText(panel.querySelector(".api-drawer-intro p"), "使用平台服务时无需额外设置；企业如需接入自有服务，可在高级连接设置中维护。");
-    setText(panel.querySelector(".api-drawer-security-note"), "敏感连接信息只用于当前浏览器中的服务设置，不会写入项目或导出的业务材料。");
-
-    const fieldLabels = new Map([
-      ["providerSelect", "服务方式"],
-      ["apiKey", "访问密钥"],
-      ["baseUrl", "服务地址"],
-      ["modelName", "模型名称"],
-      ["temperature", "生成稳定性"],
-    ]);
-    fieldLabels.forEach((label, id) => setText(panel.querySelector(`label[for="${id}"]`), label));
-    setText(byId("testConnection"), "检查服务");
-    setText(byId("saveApiConfig"), "保存设置");
-
-    const clear = byId("clearKey");
-    if (clear) {
-      const value = clear.textContent.trim();
-      if (value.includes("恢复公共模型")) setText(clear, "使用平台服务");
-      else if (value.includes("API Key") || value.includes("访问密钥")) setText(clear, "清除访问密钥");
-    }
-
-    const notice = byId("publicModelModeNotice");
-    if (notice) {
-      const title = notice.querySelector("[data-public-model-title]");
-      const detail = notice.querySelector("[data-public-model-detail]");
-      const mode = document.body.dataset.modelMode || notice.dataset.mode || "";
-      if (mode === "public") {
-        setText(title, "平台 AI 服务已就绪");
-        setText(detail, "当前服务可直接使用，无需额外设置。");
-      } else if (mode === "custom") {
-        setText(title, "正在使用企业自有 AI 服务");
-        setText(detail, "连接信息仅用于企业自有服务，不会写入业务材料。");
-      } else if (mode === "checking") {
-        setText(title, "正在检查 AI 服务");
-        setText(detail, "请稍候，系统正在确认服务状态。");
-      } else if (mode === "unconfigured") {
-        setText(title, "AI 服务未就绪");
-        setText(detail, "请联系管理员，或在高级连接设置中配置企业自有 AI 服务。");
-      }
-    }
-
-    const topStatus = byId("topApiStatus");
-    if (topStatus) {
-      const value = topStatus.textContent.trim();
-      const map = {
-        "公共模型可用": "AI 服务可用",
-        "自定义 API": "企业 AI 服务",
-        "需配置模型": "AI 服务未就绪",
-        "正在检查模型": "正在检查服务",
-      };
-      if (map[value]) setText(topStatus, map[value]);
-    }
-    const badge = byId("modeBadge");
-    if (badge) {
-      const value = badge.textContent.trim();
-      const map = { "公共模型": "平台服务", "自定义 API": "企业服务", "待配置": "未就绪", "检查中": "检查中" };
-      if (map[value]) setText(badge, map[value]);
-    }
-
-    const fields = panel.querySelector(".api-drawer-fields");
-    if (!fields || fields.closest("#enterpriseAdvancedAiSettings") || !notice) return;
-    const details = document.createElement("details");
-    details.id = "enterpriseAdvancedAiSettings";
-    details.className = "enterprise-ai-advanced";
-    const summary = document.createElement("summary");
-    summary.id = "enterpriseAdvancedAiSettingsSummary";
-    summary.textContent = "高级连接设置";
-    const noteText = document.createElement("p");
-    noteText.className = "enterprise-ai-advanced-note";
-    noteText.textContent = "仅在接入企业自有 AI 服务时需要填写。普通用户无需修改。";
-    fields.before(details);
-    details.append(summary, noteText, fields);
-    const mode = document.body.dataset.modelMode || "";
-    details.open = mode === "custom" || mode === "unconfigured";
-    advancedInitialized = true;
-  }
-
-  function syncAdvancedState() {
-    const details = byId("enterpriseAdvancedAiSettings");
-    if (!details || !advancedInitialized) return;
-    const mode = document.body.dataset.modelMode || "";
-    if ((mode === "custom" || mode === "unconfigured") && !details.open) details.open = true;
-  }
-
   function apply() {
     queued = false;
-    wrapToast();
     decorateStaticShell();
-    decorateModelSettings();
-    syncAdvancedState();
     window.ZHILINK_ENTERPRISE_USER_VIEW_READY = true;
   }
 
