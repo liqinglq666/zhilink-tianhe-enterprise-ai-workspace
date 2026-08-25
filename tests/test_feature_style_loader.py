@@ -10,6 +10,7 @@ from backend.project_routes import UI_BUNDLE_VERSION, UI_SCRIPTS
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
 INDEX = ROOT / "frontend" / "index.html"
+RECOVERY_MARKER = "/* Recover known workspace JSON keys before feature modules start. */"
 
 FEATURE_STYLES = (
     "generation-controls.css",
@@ -46,7 +47,8 @@ def test_feature_styles_are_native_dependencies_before_v4_presentation() -> None
 def test_storage_recovery_is_storage_only() -> None:
     source = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
 
-    assert "ZHILINK_STORAGE_RECOVERY" in source
+    assert RECOVERY_MARKER in source
+    assert "ZHILINK_STORAGE_RECOVERY" not in source
     assert "FEATURE_STYLES_URL" not in source
     assert "ensureFeatureStyles" not in source
     assert "feature-styles.css" not in source
@@ -97,4 +99,4 @@ def test_bundle_still_starts_with_storage_recovery() -> None:
 
     assert bundle.status_code == 200
     assert bundle.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
-    assert bundle.text.index("ZHILINK_STORAGE_RECOVERY") < bundle.text.index("ZHILINK_GENERATION_CONTROLS_READY")
+    assert bundle.text.index(RECOVERY_MARKER) < bundle.text.index("ZHILINK_GENERATION_CONTROLS_READY")
