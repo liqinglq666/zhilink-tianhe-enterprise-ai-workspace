@@ -51,6 +51,7 @@ def test_core_source_and_bundle_do_not_duplicate_example_payloads() -> None:
     assert "会议主题：天河路商圈暑期青年品牌联动促消费活动筹备会" not in source
     assert "_strip_embedded_examples" not in routes
     assert "_workspace_script" not in routes
+    assert routes.index('"app.js"') < routes.index('"example-loader.js"')
 
     with TestClient(app) as client:
         bundle = client.get("/assets/app.js")
@@ -80,6 +81,8 @@ def test_example_loader_fetches_once_on_demand_and_restores_example_context() ->
     assert "if (hasExampleContext())" in loader
     assert "ensureLoaded().catch" in loader
     assert "applyExample(exampleKey)" in loader
+    assert 'toast(error.message || "示例数据加载失败，请稍后重试。")' in loader
+    assert "console." not in loader
     assert "ZHILINK_EXAMPLE_LOADER_READY" in loader
     assert "if (window.ZHILINK_EXAMPLE_LOADER_READY) return;" not in loader
     assert "window.ZHILINK_EXAMPLE_LOADER =" not in loader
