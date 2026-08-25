@@ -61,7 +61,6 @@
 
   async function runGeneration(request) {
     const { url, payload, key } = request;
-    saveConfig();
     if (activeGenerations.size) {
       throw createGenerationError("当前已有任务正在处理，请等待完成或停止当前任务后再试。", "GENERATION_ALREADY_RUNNING");
     }
