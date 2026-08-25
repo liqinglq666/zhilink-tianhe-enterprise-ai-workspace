@@ -1,7 +1,5 @@
 /* UI V4 model drawer controller for native markup. */
 (() => {
-  let bound = false;
-
   function syncOpenState() {
     const panel = document.getElementById("apiPanel");
     const backdrop = document.getElementById("uiV4ApiBackdrop");
@@ -24,8 +22,6 @@
   }
 
   function bindControls() {
-    if (bound) return;
-    bound = true;
     document.getElementById("uiV4ApiClose")?.addEventListener("click", closeDrawer);
     document.getElementById("uiV4ApiBackdrop")?.addEventListener("click", closeDrawer);
     const source = document.getElementById("openApiSettings");

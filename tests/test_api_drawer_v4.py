@@ -57,6 +57,9 @@ def test_api_drawer_is_native_markup_and_controller_only_manages_open_state() ->
     assert ".focus(" not in script
     assert 'window.ZHILINK_API_DRAWER_V4 = { open: openDrawer, close: closeDrawer };' in script
     assert "sync: syncOpenState" not in script
+    assert "let bound = false" not in script
+    assert "if (bound) return" not in script
+    assert "bound = true" not in script
 
     assert "window.ZHILINK_API_DRAWER_V4" in shell
     assert "drawer.open()" in shell
