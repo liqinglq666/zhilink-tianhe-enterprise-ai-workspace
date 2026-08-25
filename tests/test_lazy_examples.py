@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.project_routes import UI_BUNDLE_VERSION
+from backend.project_routes import UI_BUNDLE_VERSION, UI_SCRIPTS
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
@@ -68,6 +68,7 @@ def test_core_source_and_bundle_do_not_duplicate_example_payloads() -> None:
 def test_example_loader_fetches_once_on_demand_and_restores_example_context() -> None:
     loader = (ASSETS / "example-loader.js").read_text(encoding="utf-8")
 
+    assert UI_SCRIPTS.count("example-loader.js") == 1
     assert 'EXAMPLES_URL = "/assets/examples.json?v=20260811.1"' in loader
     assert "CONTEXT_STORAGE = contracts.storage.exampleContexts" in loader
     assert 'CONTEXT_STORAGE = "zhilian_example_contexts_v1"' not in loader
@@ -80,9 +81,11 @@ def test_example_loader_fetches_once_on_demand_and_restores_example_context() ->
     assert "ensureLoaded().catch" in loader
     assert "applyExample(exampleKey)" in loader
     assert "ZHILINK_EXAMPLE_LOADER_READY" in loader
+    assert "if (window.ZHILINK_EXAMPLE_LOADER_READY) return;" not in loader
 
 
 def test_index_does_not_eagerly_request_example_payload() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert "examples.json" not in html
     assert "example-loader.js" not in html
+    assert html.count('<script src="/assets/app.js"></script>') == 1
