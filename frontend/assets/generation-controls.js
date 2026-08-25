@@ -7,7 +7,6 @@
   const hooks = window.ZHILINK_WORKSPACE_HOOKS;
 
   if (!hooks) throw new Error("Workspace hooks must load before generation controls.");
-  window.__activeGenerations = activeGenerations;
 
   function createGenerationError(message, code, retryable = false) {
     const error = new Error(message);
