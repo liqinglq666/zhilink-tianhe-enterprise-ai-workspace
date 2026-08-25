@@ -87,6 +87,14 @@ def test_stopped_result_renderer_does_not_accept_discarded_partial_content() -> 
     assert "showStoppedResult(key, message);" in source
 
 
+def test_streaming_content_renders_once_per_non_terminal_network_chunk() -> None:
+    source = Path("frontend/assets/generation-controls.js").read_text(encoding="utf-8")
+
+    assert "lastRender" not in source
+    assert "Date.now()" not in source
+    assert source.count("updateStreamingResult(key, task.full);") == 1
+
+
 def test_generation_task_registry_stays_private_to_transport_module() -> None:
     source = Path("frontend/assets/generation-controls.js").read_text(encoding="utf-8")
 
