@@ -13,6 +13,25 @@ ROUTES = ROOT / "backend" / "project_routes.py"
 RUNTIME = ASSETS / "ui-v4-runtime.js"
 
 
+def test_storage_recovery_removes_invalid_json_without_exporting_diagnostics() -> None:
+    source = (ASSETS / "storage-recovery.js").read_text(encoding="utf-8")
+
+    for key in (
+        "zhilian_identity",
+        "zhilian_current_project_v1",
+        "zhilian_profile",
+        "zhilian_form_inputs",
+        "zhilian_results",
+        "zhilian_meta",
+    ):
+        assert key in source
+    assert "JSON.parse(raw)" in source
+    assert "storage.removeItem(key);" in source
+    assert "ZHILINK_STORAGE_RECOVERY" not in source
+    assert "console." not in source
+    assert "recovered" not in source
+
+
 def test_core_runtime_owns_contracts_result_events_hooks_and_ui_scheduler() -> None:
     runtime = RUNTIME.read_text(encoding="utf-8")
 
