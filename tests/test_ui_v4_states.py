@@ -41,7 +41,11 @@ def test_v4_state_assets_are_served_and_presentation_only() -> None:
     assert '[data-ui-v4-state="success"]' in stylesheet.text
     assert '[data-ui-v4-state="warning"]' in stylesheet.text
     assert ".ui-v4-loading-control::before" in stylesheet.text
-    assert 'button[data-ui-v4-disabled="true"]' in stylesheet.text
+    assert "button:disabled" in stylesheet.text
+    assert "input:disabled" in stylesheet.text
+    assert "select:disabled" in stylesheet.text
+    assert "textarea:disabled" in stylesheet.text
+    assert "data-ui-v4-disabled" not in stylesheet.text
     assert "@media (prefers-reduced-motion: reduce)" in stylesheet.text
 
 
@@ -70,6 +74,10 @@ def test_v4_states_only_decorate_existing_ui_state() -> None:
 
     for forbidden in ("98%", "提升", "节省时间", "审核准确率", "业务成功"):
         assert forbidden not in script.text
+
+    assert "decorateDisabledControls" not in script.text
+    assert "uiV4Disabled" not in script.text
+    assert "data-ui-v4-disabled" not in script.text
 
 
 def test_shared_runtime_observer_does_not_watch_aria_busy_updates() -> None:
