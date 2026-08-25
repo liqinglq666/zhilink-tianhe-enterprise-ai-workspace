@@ -33,7 +33,6 @@
             throw new Error("示例数据格式无效，请刷新后重试。");
           }
           Object.assign(exampleScenarios, data);
-          window.ZHILINK_EXAMPLE_SCENARIOS = exampleScenarios;
           return exampleScenarios;
         })
         .catch(error => {
@@ -70,6 +69,5 @@
     ensureLoaded().catch(error => console.warn("Example context restore skipped", error));
   }
 
-  window.ZHILINK_EXAMPLE_LOADER = { ensureLoaded };
   window.ZHILINK_EXAMPLE_LOADER_READY = true;
 })();
