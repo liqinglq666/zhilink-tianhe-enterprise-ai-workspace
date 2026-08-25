@@ -8,7 +8,6 @@
     [sessionStorage, "zhilian_results"],
     [sessionStorage, "zhilian_meta"],
   ];
-  const recovered = [];
 
   for (const [storage, key] of targets) {
     const raw = storage.getItem(key);
@@ -17,10 +16,6 @@
       JSON.parse(raw);
     } catch (_) {
       storage.removeItem(key);
-      recovered.push(key);
     }
   }
-
-  window.ZHILINK_STORAGE_RECOVERY = Object.freeze({ recovered: Object.freeze(recovered) });
-  if (recovered.length) console.warn("Recovered invalid workspace storage", recovered);
 })();
