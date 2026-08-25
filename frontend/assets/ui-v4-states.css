@@ -148,17 +148,17 @@ button.ui-v4-loading-control {
   cursor: progress !important;
 }
 
-button[data-ui-v4-disabled="true"],
-input[data-ui-v4-disabled="true"],
-select[data-ui-v4-disabled="true"],
-textarea[data-ui-v4-disabled="true"] {
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
   opacity: .56;
   cursor: not-allowed !important;
   box-shadow: none !important;
 }
 
-button[data-ui-v4-disabled="true"]:hover,
-button[data-ui-v4-disabled="true"]:active {
+button:disabled:hover,
+button:disabled:active {
   transform: none !important;
   box-shadow: none !important;
 }
