@@ -234,8 +234,7 @@
     return { valid, first, message };
   }
 
-  function readinessText(section) {
-    const result = validate(section, { showErrors: false });
+  function readinessText(section, result) {
     if (section === "landing") {
       const filled = MODULES.landing.fields.filter(id => Boolean(value(id))).length;
       return filled ? `已填写 ${filled}/6 项，可生成后继续补充` : "可直接生成；建议补充试点场景与复核机制";
@@ -243,13 +242,13 @@
     return result.valid ? "输入已准备，可开始生成" : result.message;
   }
 
-  function updateReadiness(section) {
+  function updateReadiness(section, result = null) {
     const page = byId(section);
     const status = page?.querySelector(".ui-v4-form-readiness");
     if (!(status instanceof HTMLElement)) return;
-    const result = validate(section, { showErrors: false });
-    status.textContent = readinessText(section);
-    status.dataset.state = result.valid || section === "landing" ? "ready" : "pending";
+    const current = result || validate(section, { showErrors: false });
+    status.textContent = readinessText(section, current);
+    status.dataset.state = current.valid || section === "landing" ? "ready" : "pending";
   }
 
   function insertSectionHeader(section) {
@@ -341,7 +340,7 @@
     const section = Object.keys(MODULES).find(key => MODULES[key].run === button.id);
     if (!section) return;
     const result = validate(section, { showErrors: true });
-    updateReadiness(section);
+    updateReadiness(section, result);
     if (!result.valid && result.first instanceof HTMLElement) {
       window.setTimeout(() => result.first.focus({ preventScroll: false }), 0);
     }
