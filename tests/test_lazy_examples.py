@@ -82,6 +82,8 @@ def test_example_loader_fetches_once_on_demand_and_restores_example_context() ->
     assert "applyExample(exampleKey)" in loader
     assert "ZHILINK_EXAMPLE_LOADER_READY" in loader
     assert "if (window.ZHILINK_EXAMPLE_LOADER_READY) return;" not in loader
+    assert "window.ZHILINK_EXAMPLE_LOADER =" not in loader
+    assert "window.ZHILINK_EXAMPLE_SCENARIOS" not in loader
 
 
 def test_index_does_not_eagerly_request_example_payload() -> None:
