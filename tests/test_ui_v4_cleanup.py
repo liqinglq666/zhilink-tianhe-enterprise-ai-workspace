@@ -7,6 +7,7 @@ from backend.project_routes import UI_BUNDLE_VERSION, UI_SCRIPTS
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
+RECOVERY_MARKER = "/* Recover known workspace JSON keys before feature modules start. */"
 
 
 def test_native_index_loads_v4_styles_at_first_paint_without_runtime_preload() -> None:
@@ -43,8 +44,9 @@ def test_final_bundle_recovers_storage_before_core_and_exposes_v4_runtime() -> N
 
     assert response.status_code == 200
     assert response.headers["x-zhilink-ui-bundle"] == UI_BUNDLE_VERSION
-    assert response.text.index("ZHILINK_STORAGE_RECOVERY") < response.text.index("function loadResultsFromSession")
+    assert response.text.index(RECOVERY_MARKER) < response.text.index("function loadResultsFromSession")
     assert response.text.rfind('key: "meeting-sources"') > response.text.rfind("ZHILINK_MEETING_USER_VIEW_READY")
+    assert "ZHILINK_STORAGE_RECOVERY" not in response.text
     assert "ZHILINK_WORKSPACE_CONTRACTS_READY" in response.text
     assert "ZHILINK_EXAMPLE_LOADER_READY" in response.text
     assert "ZHILINK_WORKSPACE_HOOKS_READY" in response.text

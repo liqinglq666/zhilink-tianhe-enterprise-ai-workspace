@@ -9,6 +9,7 @@ from backend.project_routes import UI_BUNDLE_VERSION, UI_SCRIPTS
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
+RECOVERY_MARKER = "/* Recover known workspace JSON keys before feature modules start. */"
 
 
 def test_production_bundle_is_one_consolidated_v4_runtime() -> None:
@@ -39,9 +40,10 @@ def test_production_bundle_is_one_consolidated_v4_runtime() -> None:
         "ZHILINK_UI_V4_RESULTS_READY",
         "ZHILINK_UI_V4_FINAL_QA_READY",
     )
-    storage_position = response.text.index("ZHILINK_STORAGE_RECOVERY")
+    storage_position = response.text.index(RECOVERY_MARKER)
     core_positions = [response.text.index(marker) for marker in core_runtime]
     consumer_positions = [response.text.index(marker) for marker in consumers]
+    assert "ZHILINK_STORAGE_RECOVERY" not in response.text
     assert storage_position < min(core_positions)
     assert max(core_positions) < min(consumer_positions)
     assert consumer_positions == sorted(consumer_positions)
