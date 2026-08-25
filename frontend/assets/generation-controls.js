@@ -141,7 +141,6 @@
       resetHardTimer();
       const reader = resp.body.getReader();
       const decoder = new TextDecoder("utf-8");
-      let lastRender = 0;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -170,11 +169,6 @@
           } else if (event.type === "delta") {
             task.full += event.content || "";
             setStreamStatus(key, "正在生成");
-            const now = Date.now();
-            if (now - lastRender > 120 || task.full.length < 80) {
-              updateStreamingResult(key, task.full);
-              lastRender = now;
-            }
           } else if (event.type === "verifying") {
             setStreamStatus(key, "正在核对内容");
           } else if (event.type === "verified") {
@@ -184,7 +178,6 @@
             task.full = event.content;
             task.verified = true;
             setStreamStatus(key, "即将完成");
-            updateStreamingResult(key, task.full);
           } else if (event.type === "done") {
             if (task.requiresVerification && !task.verified) {
               throw createGenerationError(
