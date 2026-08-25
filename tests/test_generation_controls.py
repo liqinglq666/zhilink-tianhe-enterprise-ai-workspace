@@ -73,3 +73,13 @@ def test_browser_stream_requires_explicit_done_before_formalizing_result() -> No
     assert "task.requiresVerification && !task.verified" in source
     fallback_finish = 'finishStreamingResult(key, task.full, task.verified ? "AI模型模式（已校验）" : "AI模型流式模式")'
     assert source.index("if (!receivedDone)") < source.index(fallback_finish)
+
+
+def test_generation_task_registry_stays_private_to_transport_module() -> None:
+    source = Path("frontend/assets/generation-controls.js").read_text(encoding="utf-8")
+
+    assert "const activeGenerations = new Map();" in source
+    assert "activeGenerations.set(key, task);" in source
+    assert "activeGenerations.get(key)" in source
+    assert "activeGenerations.clear();" in source
+    assert "window.__activeGenerations" not in source
