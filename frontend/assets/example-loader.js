@@ -1,7 +1,5 @@
 /* Load non-production workspace examples only when they are actually needed. */
 (() => {
-  if (window.ZHILINK_EXAMPLE_LOADER_READY) return;
-
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   if (!contracts) throw new Error("Workspace contracts must load before example data.");
 
