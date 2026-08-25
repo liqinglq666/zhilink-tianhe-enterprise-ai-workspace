@@ -55,6 +55,8 @@ def test_api_drawer_is_native_markup_and_controller_only_manages_open_state() ->
     assert "document.activeElement" not in script
     assert 'document.getElementById("modelConfigAdvancedSettingsSummary")' not in script
     assert ".focus(" not in script
+    assert 'window.ZHILINK_API_DRAWER_V4 = { open: openDrawer, close: closeDrawer };' in script
+    assert "sync: syncOpenState" not in script
 
     assert "window.ZHILINK_API_DRAWER_V4" in shell
     assert "drawer.open()" in shell

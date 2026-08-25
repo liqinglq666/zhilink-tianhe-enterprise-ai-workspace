@@ -44,7 +44,7 @@
     window.ZHILINK_API_DRAWER_V4_READY = true;
   }
 
-  window.ZHILINK_API_DRAWER_V4 = { open: openDrawer, close: closeDrawer, sync: syncOpenState };
+  window.ZHILINK_API_DRAWER_V4 = { open: openDrawer, close: closeDrawer };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
