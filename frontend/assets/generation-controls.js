@@ -20,11 +20,10 @@
     if (target) target.textContent = message;
   }
 
-  function showStoppedResult(key, message, partialContent) {
+  function showStoppedResult(key, message) {
     const panel = $(`${key}Result`);
     if (!panel) return;
     const title = resultTitles[key] || "生成结果";
-    void partialContent;
     panel.className = "result-panel";
     panel.innerHTML = `
       <div class="result-header">
@@ -85,7 +84,6 @@
     let idleTimer = null;
     let hardTimer = null;
     let buffer = "";
-    let receivedDone = false;
 
     const clearTimers = () => {
       clearTimeout(connectTimer);
@@ -188,7 +186,6 @@
             setStreamStatus(key, "即将完成");
             updateStreamingResult(key, task.full);
           } else if (event.type === "done") {
-            receivedDone = true;
             if (task.requiresVerification && !task.verified) {
               throw createGenerationError(
                 "内容核对未完成，本次结果未保存，请重新生成。",
@@ -209,21 +206,11 @@
         updateStreamingResult(key, task.full);
       }
 
-      if (!receivedDone) {
-        throw createGenerationError(
-          "连接提前结束，本次结果未保存，请重新生成。",
-          "STREAM_INCOMPLETE",
-          true,
-        );
-      }
-      if (!task.full.trim()) {
-        throw createGenerationError("处理已结束，但没有生成可用内容，请重新生成。", "MODEL_EMPTY_RESPONSE", true);
-      }
-      if (task.requiresVerification && !task.verified) {
-        throw createGenerationError("内容核对未完成，本次结果未保存。", "STREAM_VERIFICATION_MISSING", true);
-      }
-      finishStreamingResult(key, task.full, task.verified ? "AI模型模式（已校验）" : "AI模型流式模式");
-      return { ok: true, content: task.full, mode: task.verified ? "AI模型模式（已校验）" : "AI模型流式模式" };
+      throw createGenerationError(
+        "连接提前结束，本次结果未保存，请重新生成。",
+        "STREAM_INCOMPLETE",
+        true,
+      );
     } catch (err) {
       let message = err.message || String(err);
       let code = err.code || "GENERATION_FAILED";
@@ -232,7 +219,7 @@
         if (task.cancelledByUser) {
           code = "GENERATION_CANCELLED";
           message = "已停止生成。";
-          showStoppedResult(key, message, task.full);
+          showStoppedResult(key, message);
         } else if (task.timeoutKind === "connect") {
           code = "GENERATION_CONNECT_TIMEOUT";
           message = "服务连接超时，请检查网络后重试。";
@@ -240,14 +227,14 @@
         } else if (task.timeoutKind === "idle") {
           code = "GENERATION_IDLE_TIMEOUT";
           message = "长时间未收到新内容，系统已停止本次生成，请稍后重试。";
-          showStoppedResult(key, message, task.full);
+          showStoppedResult(key, message);
         } else {
           code = "GENERATION_HARD_TIMEOUT";
           message = "本次处理时间较长，系统已自动停止，请精简输入后重试。";
-          showStoppedResult(key, message, task.full);
+          showStoppedResult(key, message);
         }
       } else if (code === "STREAM_INCOMPLETE" || code.startsWith("STREAM_VERIFICATION") || (task.requiresVerification && task.full.trim())) {
-        showStoppedResult(key, message, task.full);
+        showStoppedResult(key, message);
       } else {
         failStreamingResult(key, message);
       }
