@@ -112,15 +112,6 @@
     });
   }
 
-  function decorateDisabledControls(root = document) {
-    root.querySelectorAll?.("button:disabled, input:disabled, select:disabled, textarea:disabled").forEach(control => {
-      control.dataset.uiV4Disabled = "true";
-    });
-    root.querySelectorAll?.("[data-ui-v4-disabled='true']:not(:disabled)").forEach(control => {
-      delete control.dataset.uiV4Disabled;
-    });
-  }
-
   function sync(root = document) {
     root.querySelectorAll?.(STATE_SELECTOR).forEach(element => {
       if (element.matches(".result-panel")) decorateResultPanel(element);
@@ -129,7 +120,6 @@
       else decorateGeneric(element);
     });
     decorateLoadingButtons(root);
-    decorateDisabledControls(root);
   }
 
   function start() {
