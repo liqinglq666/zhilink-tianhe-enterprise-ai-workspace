@@ -56,8 +56,7 @@
     ensureLoaded()
       .then(() => applyExample(exampleKey))
       .catch(error => {
-        if (typeof toast === "function") toast(error.message || "示例数据加载失败，请稍后重试。");
-        else console.error(error);
+        toast(error.message || "示例数据加载失败，请稍后重试。");
       })
       .finally(() => {
         button.disabled = false;
@@ -66,7 +65,7 @@
   }, true);
 
   if (hasExampleContext()) {
-    ensureLoaded().catch(error => console.warn("Example context restore skipped", error));
+    ensureLoaded().catch(() => {});
   }
 
   window.ZHILINK_EXAMPLE_LOADER_READY = true;
