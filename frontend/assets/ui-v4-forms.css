@@ -194,15 +194,9 @@ body.ui-v4-forms .ui-v4-form-page .form-grid.two {
   gap: 18px 20px;
 }
 
+/* Scenario samples remain available to internal tooling, but are not part of the normal customer workflow. */
 body.ui-v4-forms .ui-v4-example-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-top: 14px;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  display: none;
 }
 
 body.ui-v4-forms .ui-v4-example-bar > span {

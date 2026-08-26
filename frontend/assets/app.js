@@ -208,7 +208,7 @@ async function apiPost(url, payload) {
     }
     return await resp.json();
   } catch (err) {
-    if (err.name === "AbortError") throw new Error("请求超时，请缩短输入内容或检查模型接口后重试。");
+    if (err.name === "AbortError") throw new Error("请求超时，请缩短输入内容或检查 AI 服务后重试。");
     throw err;
   } finally {
     clearTimeout(timer);
@@ -340,7 +340,7 @@ function showResult(key, result, source = "render") {
   const timeText = result.time
     ? new Date(result.time).toLocaleString()
     : new Date().toLocaleTimeString();
-  const errorText = result.error ? `<span class="meta-pill danger">调用异常：${escapeHtml(result.error).slice(0, 80)}</span>` : "";
+  const errorText = result.error ? `<span class="meta-pill danger">处理异常：${escapeHtml(result.error).slice(0, 80)}</span>` : "";
   const title = resultTitles[key] || "生成结果";
   const meta = `
     <div class="result-header">
@@ -359,7 +359,6 @@ function showResult(key, result, source = "render") {
       </div>
     </div>
     <div class="result-meta">
-      <span class="meta-pill">${escapeHtml(result.mode || "AI模型模式")}</span>
       <span class="meta-pill">${escapeHtml(timeText)}</span>
       ${errorText}
     </div>`;
@@ -381,7 +380,7 @@ function updateStreamingResult(key, content) {
   const target = $(`${key}StreamContent`);
   if (!target) return;
   if (!content.trim()) {
-    target.textContent = "正在接收模型输出...";
+    target.textContent = "正在生成内容，请稍候...";
     return;
   }
   target.innerHTML = renderStructuredMarkdown(content);
@@ -404,7 +403,7 @@ function failStreamingResult(key, message) {
       </div>
     </div>
     <div class="result-meta">
-      <span class="meta-pill danger">${escapeHtml(message || "流式生成失败")}</span>
+      <span class="meta-pill danger">${escapeHtml(message || "生成失败，请稍后重试。")}</span>
     </div>
   `;
 }
@@ -412,7 +411,7 @@ function failStreamingResult(key, message) {
 async function apiStream(url, payload, key) {
   const hooks = window.ZHILINK_WORKSPACE_HOOKS;
   if (!hooks || typeof hooks.runGeneration !== "function") {
-    throw new Error("生成控制器未就绪，请刷新页面后重试。");
+    throw new Error("生成服务尚未就绪，请刷新页面后重试。");
   }
   return hooks.runGeneration({ url, payload, key });
 }
@@ -479,7 +478,7 @@ function updateRecentMaterials() {
     .slice(0, 5);
   if (!items.length) {
     container.className = "recent-list empty";
-    container.textContent = "暂无生成材料。配置 API 后进入业务模块生成内容，这里会自动显示最近材料。";
+    container.textContent = "暂无生成材料。进入业务模块完成一次任务后，这里会自动显示最近材料。";
     return;
   }
   container.className = "recent-list";
@@ -629,7 +628,7 @@ async function initDefaults() {
 }
 
 function clearAll() {
-  if (!confirm("确认清空当前输入和生成结果吗？API Key 也会从当前会话清除。")) return;
+  if (!confirm("确认清空当前输入和生成结果吗？当前会话中的 AI 服务临时设置也会一并清除。")) return;
   sessionStorage.removeItem("zhilian_api_key");
   sessionStorage.removeItem("zhilian_profile");
   sessionStorage.removeItem("zhilian_results");
@@ -663,13 +662,13 @@ function bindEvents() {
     if (gotoTarget) go(gotoTarget.dataset.goto);
   });
 
-  attachRun("runProfile", runProfile, "流式生成中...");
-  attachRun("runMeeting", runMeeting, "流式生成中...");
-  attachRun("runContract", runContract, "流式生成中...");
-  attachRun("runPolicy", runPolicy, "流式生成中...");
-  attachRun("runMatch", runMatch, "流式生成中...");
-  attachRun("runLanding", runLanding, "流式生成中...");
-  attachRun("runReport", runReport, "流式整合中...");
+  attachRun("runProfile", runProfile, "生成中...");
+  attachRun("runMeeting", runMeeting, "生成中...");
+  attachRun("runContract", runContract, "生成中...");
+  attachRun("runPolicy", runPolicy, "生成中...");
+  attachRun("runMatch", runMatch, "生成中...");
+  attachRun("runLanding", runLanding, "生成中...");
+  attachRun("runReport", runReport, "整合中...");
 }
 
 async function main() {

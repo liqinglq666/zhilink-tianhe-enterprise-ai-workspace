@@ -73,7 +73,7 @@ def test_generation_controls_are_the_only_browser_stream_transport_owner() -> No
 
     assert "const hooks = window.ZHILINK_WORKSPACE_HOOKS;" in bridge
     assert "return hooks.runGeneration({ url, payload, key });" in bridge
-    assert 'throw new Error("生成控制器未就绪，请刷新页面后重试。")' in bridge
+    assert 'throw new Error("生成服务尚未就绪，请刷新页面后重试。")' in bridge
     assert "fetch(" not in bridge
     assert "getReader(" not in bridge
     assert "TextDecoder" not in bridge
