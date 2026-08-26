@@ -24,7 +24,9 @@ def test_meeting_view_keeps_internal_ids_out_of_default_ui_and_exports():
     assert 'hooks.register("results:collect", sanitizeCollectedResults)' in source
     assert "downloadReportFile =" not in source
     assert "collectResultsForReport =" not in source
-    assert "copyText(sanitizeMeetingMarkdown(rawMeeting()))" in source
+    assert "const tools = window.ZHILINK_RESULTS;" in source
+    assert "tools.copyText(sanitizeMeetingMarkdown(rawMeeting()))" in source
+    assert "copyText(sanitizeMeetingMarkdown(rawMeeting()))" not in source.replace("tools.copyText(sanitizeMeetingMarkdown(rawMeeting()))", "")
 
 
 def test_meeting_view_preserves_a_source_drawer_without_exposing_internal_ids():
