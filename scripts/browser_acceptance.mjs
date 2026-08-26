@@ -249,11 +249,20 @@ async function main() {
     await click("#openApiSettings");
     await waitJs("document.body.classList.contains('ui-v4-api-open') && document.getElementById('apiPanel')?.getAttribute('aria-hidden') === 'false'", "AI service drawer open");
     const currentTemperature = Number(await evaluate("document.getElementById('temperature')?.value || 0.35"));
-    const nextTemperature = Math.abs(currentTemperature - 0.42) < 0.001 ? 0.43 : 0.42;
+    const nextTemperature = Number((currentTemperature >= 0.95 ? currentTemperature - 0.05 : currentTemperature + 0.05).toFixed(2));
     await setValue("#temperature", nextTemperature);
+    const acceptedTemperature = String(await evaluate("document.getElementById('temperature')?.value || ''"));
+    assert(acceptedTemperature && Number(acceptedTemperature) !== currentTemperature, "Temperature control did not accept a different valid step value.");
     await waitJs("document.getElementById('saveApiConfig')?.disabled === false && document.getElementById('modelConfigDraftStatus')?.dataset.state === 'dirty'", "model configuration dirty state");
     await click("#saveApiConfig");
-    await waitJs(`localStorage.getItem('zhilian_temperature') === ${JSON.stringify(String(nextTemperature))} && !document.body.classList.contains('ui-v4-api-open')`, "explicit model configuration save");
+    await waitJs(`localStorage.getItem('zhilian_temperature') === ${JSON.stringify(acceptedTemperature)}`, "model configuration persistence").catch(async error => {
+      const saved = await evaluate("({ stored: localStorage.getItem('zhilian_temperature'), active: window.ZHILINK_MODEL_CONFIG?.getActiveConfig?.().temperature, input: document.getElementById('temperature')?.value, indicator: document.getElementById('modelConfigDraftStatus')?.dataset.state, saveDisabled: document.getElementById('saveApiConfig')?.disabled })").catch(() => ({}));
+      throw new Error(`${error.message}\nModel config state: ${JSON.stringify(saved)}`);
+    });
+    await waitJs("!document.body.classList.contains('ui-v4-api-open') && document.getElementById('apiPanel')?.getAttribute('aria-hidden') === 'true'", "AI service drawer close after save").catch(async error => {
+      const drawer = await evaluate("({ bodyOpen: document.body.classList.contains('ui-v4-api-open'), ariaHidden: document.getElementById('apiPanel')?.getAttribute('aria-hidden') })").catch(() => ({}));
+      throw new Error(`${error.message}\nDrawer state: ${JSON.stringify(drawer)}`);
+    });
     console.log("[browser] model configuration save passed");
 
     await click('.nav button[data-section="home"]');
