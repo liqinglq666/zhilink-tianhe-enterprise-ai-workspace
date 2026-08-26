@@ -26,3 +26,5 @@ def test_streaming_does_not_render_partial_markdown_as_final_document():
     section = APP_JS.split("function updateStreamingResult", 1)[1].split("function finishStreamingResult", 1)[0]
     assert "renderStructuredMarkdown(content)" not in section
     assert "正在生成并整理内容，完成后将自动显示正式结果。" in section
+    assert "#meetingResult.streaming .streaming-content" in MEETING_CSS
+    assert "min-height: 260px;" in MEETING_CSS
