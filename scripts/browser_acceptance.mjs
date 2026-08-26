@@ -296,7 +296,11 @@ async function main() {
     const currentProject = await evaluate("JSON.parse(localStorage.getItem('zhilian_current_project_v1') || 'null')");
     assert(currentProject?.id && currentProject.lock_version >= 2, "Saved project state was not retained in localStorage.");
 
-    await evaluate(`fetch('/api/projects/' + encodeURIComponent(${JSON.stringify(currentProject?.id || "")}), { method: 'DELETE' }).then(response => { if (!response.ok) throw new Error('cleanup HTTP ' + response.status); return response.json(); })`);
+    await evaluate(`fetch('/api/projects/' + encodeURIComponent(${JSON.stringify(currentProject?.id || "")}), {
+      method: 'DELETE',
+      headers: { 'X-Workspace-Key': localStorage.getItem('zhilian_workspace_key_v1') || '' },
+      credentials: 'same-origin'
+    }).then(response => { if (!response.ok) throw new Error('cleanup HTTP ' + response.status); return response.json(); })`);
 
     await sleep(300);
     assert(browserErrors.length === 0, `Browser runtime errors detected:\n${browserErrors.join("\n---\n")}`);
