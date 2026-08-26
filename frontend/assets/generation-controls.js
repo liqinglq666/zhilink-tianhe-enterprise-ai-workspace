@@ -62,7 +62,7 @@
     const chars = String(task.full || "").length;
     target.removeAttribute("aria-label");
     if (task.phase === "verifying") {
-      target.textContent = `正文草稿已形成 · 正在核对关键事实与待确认项${chars ? ` · ${chars.toLocaleString()} 字` : ""}`;
+      target.textContent = `正在核对事实与证据 · 检查关键结论与待确认项${chars ? ` · ${chars.toLocaleString()} 字` : ""}`;
     } else if (task.phase === "finishing") {
       target.textContent = "内容核对完成 · 正在生成正式业务版本";
     } else if (task.phase === "generating" && chars > 0) {
