@@ -1,0 +1,43 @@
+/* Shared brand lockup for the V4 workspace shell. */
+.ui-v4-shell .brand {
+  position: relative;
+  display: block;
+  margin: 0 4px 15px;
+  padding: 0 0 15px;
+  border-bottom: 1px solid rgba(148, 163, 184, .14);
+}
+
+.ui-v4-shell .brand::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 64px;
+  border: 1px solid rgba(191, 219, 254, .22);
+  border-radius: 11px;
+  background: #f8fbff url("/assets/brand-logo.svg") center / calc(100% - 12px) auto no-repeat;
+  box-shadow: 0 7px 20px rgba(3, 15, 35, .16), inset 0 1px 0 rgba(255, 255, 255, .88);
+}
+
+/* Keep the semantic brand name available to assistive technology while the visual lockup is supplied by the SVG. */
+.ui-v4-shell .brand > .brand-icon {
+  display: none !important;
+}
+
+.ui-v4-shell .brand > div {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+@media (max-width: 1020px) {
+  .ui-v4-shell .brand::before {
+    height: 62px;
+  }
+}
