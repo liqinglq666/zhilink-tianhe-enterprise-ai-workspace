@@ -41,11 +41,11 @@ def test_meeting_stream_temporarily_caps_completion_budget_and_restores_it():
     assert [event.type for event in events] == ["delta", "verifying", "verified"]
 
 
-def test_generation_ui_reports_elapsed_time_and_received_characters():
+def test_generation_ui_reports_network_driven_character_progress():
     source = (ROOT / "frontend" / "assets" / "generation-controls.js").read_text(encoding="utf-8")
 
-    assert "startedAt: Date.now()" in source
     assert 'phase: "connecting"' in source
-    assert "setInterval(() => updateGenerationProgress(key, task), 1000)" in source
-    assert "已接收约 ${chars.toLocaleString()} 字 · ${seconds} 秒" in source
+    assert "Date.now()" not in source
+    assert "setInterval(" not in source
+    assert "已接收约 ${chars.toLocaleString()} 字，正在继续生成并整理" in source
     assert "正在核对事实与证据" in source
