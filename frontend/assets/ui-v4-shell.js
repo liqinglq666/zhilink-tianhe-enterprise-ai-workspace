@@ -16,7 +16,7 @@
   let latestProjects = { items: [], total: 0 };
   let lastProjectSignature = "";
   let pendingProjectId = "";
-  let pendingMobileNavFocus = null;
+  let pendingMobileNavigationSection = "";
   let bound = false;
 
   const byId = id => document.getElementById(id);
@@ -73,8 +73,32 @@
       focusSoon(focusAfterClose);
     }
   }
+  function requestMobileNavigationFocus(section) {
+    if (!isMobileSidebar()) return;
+    pendingMobileNavigationSection = String(section || "");
+    setSidebarOpen(false);
+    window.ZHILINK_UI_V4_RUNTIME?.schedule?.("mobile-navigation-focus");
+  }
+  function resolveMobileNavigationFocus() {
+    const section = pendingMobileNavigationSection;
+    if (!section || !isMobileSidebar()) return;
+    if (document.querySelector(".page.active-page")?.id !== section) return;
+    const title = byId("pageTitle");
+    if (!title) return;
+    pendingMobileNavigationSection = "";
+    window.requestAnimationFrame(() => {
+      if (document.querySelector(".page.active-page")?.id !== section) return;
+      title.focus?.({ preventScroll: true });
+      window.requestAnimationFrame(() => {
+        if (document.querySelector(".page.active-page")?.id === section && document.activeElement !== title) {
+          title.focus?.({ preventScroll: true });
+        }
+      });
+    });
+  }
   function syncSidebarViewport() {
     if (!isMobileSidebar()) {
+      pendingMobileNavigationSection = "";
       document.body.classList.remove("ui-v4-sidebar-open");
       document.querySelector(".sidebar")?.classList.remove("ui-v4-open");
       byId("uiV4MobileMenu")?.setAttribute("aria-expanded", "false");
@@ -252,15 +276,8 @@
       const menu = byId("uiV4AccountMenu");
       const wrap = document.querySelector(".ui-v4-account-wrap");
       if (menu && wrap && !menu.hidden && !wrap.contains(event.target)) closeAccountMenu();
-      const navButton = event.target.closest?.(".nav button");
-      if (navButton && isMobileSidebar()) {
-        const title = byId("pageTitle");
-        pendingMobileNavFocus = title;
-        setSidebarOpen(false, title);
-        window.setTimeout(() => {
-          if (pendingMobileNavFocus === title) pendingMobileNavFocus = null;
-        }, 1000);
-      }
+      const navButton = event.target.closest?.(".nav button[data-section]");
+      if (navButton && isMobileSidebar()) requestMobileNavigationFocus(navButton.dataset.section);
     });
     document.addEventListener("keydown", event => {
       if (event.key !== "Escape") return;
@@ -274,13 +291,6 @@
         event.preventDefault();
         setSidebarOpen(false, byId("uiV4MobileMenu"));
       }
-    });
-    document.addEventListener("keyup", event => {
-      if (!pendingMobileNavFocus || !["Enter", " "].includes(event.key)) return;
-      const target = pendingMobileNavFocus;
-      pendingMobileNavFocus = null;
-      target.focus?.({ preventScroll: true });
-      focusSoon(target);
     });
     window.addEventListener("storage", event => {
       if ([CURRENT_PROJECT_STORAGE, WORKSPACE_KEY_STORAGE].includes(event.key)) {
@@ -307,6 +317,7 @@
     syncKnowledgeNavigation();
     resolvePendingProjectOpen();
     syncSidebarAccessibility();
+    resolveMobileNavigationFocus();
     const mobile = byId("uiV4MobileMenu");
     if (mobile) {
       const open = document.body.classList.contains("ui-v4-sidebar-open");
