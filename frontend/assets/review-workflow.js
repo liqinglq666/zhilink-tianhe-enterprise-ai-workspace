@@ -184,7 +184,6 @@
       ]);
       activeDetail = detail;
       renderModal(detail, events, String(state.results[module] || "") !== String(detail.working_content || ""));
-      setTimeout(() => document.getElementById("reviewContentInput")?.focus(), 30);
     } catch (error) {
       document.getElementById("reviewStatusCard").innerHTML = `<p class="review-error">${safe(error.message || String(error))}</p>`;
     }
@@ -240,9 +239,6 @@
     if (event.target.closest("[data-close-review]")) { closeReview(); return; }
     const action = event.target.closest("[data-review-action]");
     if (action) perform(action.dataset.reviewAction, action);
-  });
-  document.addEventListener("keydown", event => {
-    if (event.key === "Escape" && document.getElementById("reviewWorkflowModal")?.classList.contains("show")) closeReview();
   });
 
   injectUi();
