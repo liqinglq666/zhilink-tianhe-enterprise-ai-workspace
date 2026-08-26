@@ -38,12 +38,17 @@ def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     assert 'window.ZHILINK_UI_V4_OVERLAYS_READY = true' in script
 
 
-def test_policy_source_modal_delegates_keyboard_and_focus_to_overlay_controller() -> None:
+def test_overlay_dom_changes_delegate_scheduling_to_shared_runtime() -> None:
     policy = (ASSETS / "policy-sources.js").read_text(encoding="utf-8")
+    drawer = (ASSETS / "api-drawer-v4.js").read_text(encoding="utf-8")
+    runtime = (ASSETS / "ui-v4-runtime.js").read_text(encoding="utf-8")
     overlays = (ASSETS / "ui-v4-overlays.js").read_text(encoding="utf-8")
 
-    assert 'window.ZHILINK_UI_V4_RUNTIME?.schedule?.("policy-sources-open")' in policy
-    assert 'window.ZHILINK_UI_V4_RUNTIME?.schedule?.("policy-sources-close")' in policy
+    assert 'window.ZHILINK_UI_V4_RUNTIME?.schedule?.("policy-sources-open")' not in policy
+    assert 'window.ZHILINK_UI_V4_RUNTIME?.schedule?.("policy-sources-close")' not in policy
+    assert 'window.ZHILINK_UI_V4_RUNTIME?.schedule?.("api-open")' not in drawer
+    assert 'window.ZHILINK_UI_V4_RUNTIME?.schedule?.("api-close")' not in drawer
+    assert 'attributeFilter: ["class", "hidden", "aria-hidden", "aria-expanded", "disabled"]' in runtime
     assert 'event.key === "Escape"' not in policy
     assert 'key: "policy-sources"' in overlays
     assert '#officialPolicyModal .policy-source-dialog' in overlays
