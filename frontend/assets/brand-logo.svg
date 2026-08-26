@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 180" role="img" aria-labelledby="brandLogoTitle brandLogoDesc">
+  <title id="brandLogoTitle">智链天河</title>
+  <desc id="brandLogoDesc">智链天河企业运营 AI 工作台品牌标志</desc>
+  <defs>
+    <linearGradient id="ribbonBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b3fbf"/>
+      <stop offset="0.55" stop-color="#1769ee"/>
+      <stop offset="1" stop-color="#18b9f3"/>
+    </linearGradient>
+    <linearGradient id="ribbonCyan" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#0a73dc"/>
+      <stop offset="0.55" stop-color="#08b7e9"/>
+      <stop offset="1" stop-color="#20d8c7"/>
+    </linearGradient>
+    <radialGradient id="node" cx="35%" cy="28%" r="78%">
+      <stop offset="0" stop-color="#5ff1df"/>
+      <stop offset="0.62" stop-color="#11bfd9"/>
+      <stop offset="1" stop-color="#1467d9"/>
+    </radialGradient>
+    <filter id="softShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0a3a8c" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(18 18)" filter="url(#softShadow)">
+    <path d="M55 101C31 78 31 45 54 26c20-16 48-15 68 1l39 32c13 11 30 11 43 1l12-10" fill="none" stroke="url(#ribbonBlue)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M201 43c20 23 18 56-4 76-19 18-48 19-68 3L88 90c-13-10-31-10-44 1l-11 9" fill="none" stroke="url(#ribbonCyan)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M25 113c22 22 71 25 117 6 47-19 81-53 79-80" fill="none" stroke="#13c9d2" stroke-width="3.5" stroke-linecap="round" opacity="0.92"/>
+    <path d="M37 22c23-17 66-20 105-6 34 13 64 34 78 57" fill="none" stroke="#1769ee" stroke-width="3" stroke-linecap="round" opacity="0.88"/>
+    <circle cx="24" cy="113" r="8.5" fill="url(#node)"/>
+    <circle cx="105" cy="10" r="7.5" fill="url(#node)"/>
+    <circle cx="191" cy="112" r="5.5" fill="url(#node)"/>
+  </g>
+
+  <g transform="translate(258 38)">
+    <text x="0" y="56" fill="#0d2f77" font-size="51" font-weight="800" letter-spacing="1.5" font-family="Inter, PingFang SC, Microsoft YaHei, Noto Sans CJK SC, sans-serif">智链天河</text>
+    <rect x="2" y="82" width="38" height="3" rx="1.5" fill="url(#ribbonCyan)"/>
+    <text x="50" y="89" fill="#385b9a" font-size="14.5" font-weight="650" letter-spacing="0.8" font-family="Inter, Arial, sans-serif">Enterprise AI Workspace</text>
+    <rect x="282" y="82" width="38" height="3" rx="1.5" fill="url(#ribbonBlue)"/>
+  </g>
+</svg>
