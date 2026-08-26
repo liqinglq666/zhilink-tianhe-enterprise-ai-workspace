@@ -59,7 +59,7 @@ def test_business_owners_keep_their_own_empty_state_copy() -> None:
     assert "该项目还没有版本记录。" in project
     assert "当前组织还没有可见的知识条目。" in knowledge
     assert "选择一个知识条目，或新建草稿。" in knowledge
-    assert "暂无生成材料。配置 API 后进入业务模块生成内容，这里会自动显示最近材料。" in app_script
+    assert "暂无生成材料。进入业务模块完成一次任务后，这里会自动显示最近材料。" in app_script
     assert "还没有最近结果。完成一次业务任务后，这里会显示你的最新材料。" in html
 
 
