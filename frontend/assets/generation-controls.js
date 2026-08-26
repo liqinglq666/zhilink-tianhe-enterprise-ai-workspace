@@ -20,6 +20,22 @@
     if (target) target.textContent = message;
   }
 
+  function updateGenerationProgress(key, task) {
+    const target = $(`${key}StreamContent`);
+    if (!target || !task) return;
+    const seconds = Math.max(0, Math.floor((Date.now() - task.startedAt) / 1000));
+    const chars = String(task.full || "").length;
+    if (task.phase === "verifying") {
+      target.textContent = `正文已生成约 ${chars.toLocaleString()} 字 · ${seconds} 秒，正在核对事实与证据...`;
+    } else if (task.phase === "finishing") {
+      target.textContent = `内容校验完成 · ${seconds} 秒，正在整理正式结果...`;
+    } else if (chars > 0) {
+      target.textContent = `已接收约 ${chars.toLocaleString()} 字 · ${seconds} 秒，正在继续生成并整理...`;
+    } else {
+      target.textContent = `正在等待模型开始生成 · ${seconds} 秒`;
+    }
+  }
+
   function showStoppedResult(key, message) {
     const panel = $(`${key}Result`);
     if (!panel) return;
@@ -55,7 +71,7 @@
           <button class="cancel-generation" data-cancel-generation="${escapeHtml(key)}" type="button" aria-label="停止当前生成">停止生成</button>
         </div>
       </div>
-      <div id="${key}StreamContent" class="streaming-content" aria-live="polite">正在整理内容，请稍候...</div>
+      <div id="${key}StreamContent" class="streaming-content" aria-live="polite">正在连接模型服务...</div>
     `;
   }
 
@@ -74,6 +90,8 @@
       full: "",
       requiresVerification: false,
       verified: false,
+      phase: "connecting",
+      startedAt: Date.now(),
       idleTimeoutMs: DEFAULT_IDLE_TIMEOUT_MS,
       hardTimeoutMs: DEFAULT_HARD_TIMEOUT_MS,
     };
@@ -82,12 +100,16 @@
     let connectTimer = null;
     let idleTimer = null;
     let hardTimer = null;
+    let progressTimer = setInterval(() => updateGenerationProgress(key, task), 1000);
     let buffer = "";
+    updateGenerationProgress(key, task);
 
     const clearTimers = () => {
       clearTimeout(connectTimer);
       clearTimeout(idleTimer);
       clearTimeout(hardTimer);
+      clearInterval(progressTimer);
+      progressTimer = null;
     };
     const abortFor = kind => {
       if (controller.signal.aborted) return;
@@ -135,7 +157,9 @@
         throw createGenerationError("当前浏览器无法接收实时结果，请更新浏览器后重试。", "STREAM_NOT_SUPPORTED");
       }
 
-      setStreamStatus(key, "正在处理");
+      task.phase = "generating";
+      setStreamStatus(key, "正在生成");
+      updateGenerationProgress(key, task);
       resetIdleTimer();
       resetHardTimer();
       const reader = resp.body.getReader();
@@ -162,13 +186,14 @@
           if (event.type === "meta") {
             task.requiresVerification = event.provisional === true;
             applyServerTimeouts(event);
+            task.phase = "generating";
             setStreamStatus(key, "正在生成");
-            const target = $(`${key}StreamContent`);
-            if (target && !task.full.trim()) target.textContent = "正在生成内容，请稍候...";
           } else if (event.type === "delta") {
             task.full += event.content || "";
+            task.phase = "generating";
             setStreamStatus(key, "正在生成");
           } else if (event.type === "verifying") {
+            task.phase = "verifying";
             setStreamStatus(key, "正在核对内容");
           } else if (event.type === "verified") {
             if (!String(event.content || "").trim()) {
@@ -176,6 +201,7 @@
             }
             task.full = event.content;
             task.verified = true;
+            task.phase = "finishing";
             setStreamStatus(key, "即将完成");
           } else if (event.type === "done") {
             if (task.requiresVerification && !task.verified) {
@@ -186,7 +212,9 @@
               );
             }
             task.full = event.content || task.full;
+            task.phase = "finishing";
             setStreamStatus(key, "已完成");
+            updateGenerationProgress(key, task);
             finishStreamingResult(key, task.full, event.mode || (task.verified ? "AI模型模式（已校验）" : "AI模型流式模式"));
             return { ok: true, content: task.full, mode: event.mode || "AI模型流式模式" };
           } else if (event.type === "error") {
@@ -196,6 +224,7 @@
           }
         }
         updateStreamingResult(key, task.full);
+        updateGenerationProgress(key, task);
       }
 
       throw createGenerationError(
