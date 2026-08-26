@@ -317,17 +317,17 @@ async function main() {
     await click("[data-close-review]");
     console.log("[browser] review entry passed");
 
-    await waitJs("Boolean(document.querySelector('#meetingResult [data-open-structured=\"meeting\"]'))", "structured result action available", 30000);
-    await click('#meetingResult [data-open-structured="meeting"]');
-    await waitJs("document.getElementById('structuredResultModal')?.classList.contains('show') && document.getElementById('structuredRawJson')?.textContent.length > 20", "structured JSON modal");
-    await click("#downloadStructuredJson");
-    await click("[data-close-structured]");
+    await waitJs("Boolean(document.querySelector('#meetingResult .meeting-user-structure-bar')) && !document.querySelector('#meetingResult [data-open-structured]')", "meeting business-facing structured status", 30000);
+    const structuredData = await evaluate("window.ZHILINK_STRUCTURED?.get?.('meeting') || null");
+    assert(structuredData?.schema_version && structuredData?.source_sha256, "Meeting structured data is missing its schema or content hash.");
+    await evaluate("window.ZHILINK_RESULTS.downloadTextFile('会议纪要.structured.json', JSON.stringify(window.ZHILINK_STRUCTURED.get('meeting'), null, 2), 'application/json;charset=utf-8')");
+    console.log("[browser] internal structured data retained while technical JSON UI stays hidden");
 
     const responseStart = responses.length;
     await evaluate("window.ZHILINK_RESULTS.downloadModuleFile('meeting', 'txt')");
     const exportResponse = responses.slice(responseStart).find(item => item.url.includes("/api/report/txt"));
     assert(exportResponse?.status === 200, `Meeting TXT export did not return HTTP 200: ${JSON.stringify(exportResponse || null)}`);
-    console.log("[browser] structured JSON and TXT export passed");
+    console.log("[browser] TXT export passed");
 
     const currentProject = await evaluate("JSON.parse(localStorage.getItem('zhilian_current_project_v1') || 'null')");
     assert(currentProject?.id && currentProject.lock_version >= 2, "Saved project state was not retained in localStorage.");
@@ -339,7 +339,7 @@ async function main() {
 
     await sleep(250);
     assert(browserErrors.length === 0, `Browser runtime errors detected:\n${browserErrors.join("\n---\n")}`);
-    console.log("Browser acceptance smoke passed: navigation, model config save, project versions, result commit, structured JSON, review entry, and export.");
+    console.log("Browser acceptance smoke passed: navigation, model config save, project versions, result commit, business-facing structured status, review entry, and export.");
   } finally {
     client?.close();
     await stopProcess(chromeProcess);
