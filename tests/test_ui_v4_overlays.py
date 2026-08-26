@@ -55,14 +55,18 @@ def test_overlay_dom_changes_delegate_scheduling_to_shared_runtime() -> None:
     assert '[data-close-policy-sources]' in overlays
 
 
-def test_overlay_controller_owns_structured_and_review_keyboard_and_initial_focus() -> None:
+def test_overlay_controller_owns_business_dialog_keyboard_and_review_initial_focus() -> None:
+    meeting = (ASSETS / "meeting-user-view.js").read_text(encoding="utf-8")
     structured = (ASSETS / "structured-results.js").read_text(encoding="utf-8")
     review = (ASSETS / "review-workflow.js").read_text(encoding="utf-8")
     overlays = (ASSETS / "ui-v4-overlays.js").read_text(encoding="utf-8")
 
+    assert 'event.key === "Escape"' not in meeting
     assert 'event.key === "Escape"' not in structured
     assert 'event.key === "Escape"' not in review
     assert 'setTimeout(() => document.getElementById("reviewContentInput")?.focus(), 30)' not in review
+    assert 'key: "meeting-sources"' in overlays
+    assert 'close: () => document.querySelector("#meetingSourceDialog button[data-close-meeting-sources]")' in overlays
     assert 'key: "structured"' in overlays
     assert 'close: () => document.querySelector("#structuredResultModal [data-close-structured]")' in overlays
     assert 'key: "review"' in overlays
