@@ -209,7 +209,6 @@
     trapFocus(event);
   }
   function start() {
-    OVERLAYS.forEach(decorate);
     document.addEventListener("click", event => {
       const opener = event.target.closest?.(OPENER_SELECTOR);
       if (opener instanceof HTMLElement && visible(opener)) pendingOpener = opener;
