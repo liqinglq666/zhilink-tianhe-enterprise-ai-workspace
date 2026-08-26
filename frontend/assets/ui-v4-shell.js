@@ -54,11 +54,15 @@
       return;
     }
     const open = document.body.classList.contains("ui-v4-sidebar-open");
+    if (!open && sidebar.contains(document.activeElement)) {
+      (byId("uiV4MobileMenu") || byId("mainContent"))?.focus?.({ preventScroll: true });
+    }
     sidebar.toggleAttribute("inert", !open);
     sidebar.setAttribute("aria-hidden", String(!open));
   }
   function setSidebarOpen(open, focusAfterClose = null) {
     const shouldOpen = Boolean(open) && isMobileSidebar();
+    if (!shouldOpen && focusAfterClose) focusAfterClose.focus?.({ preventScroll: true });
     document.body.classList.toggle("ui-v4-sidebar-open", shouldOpen);
     document.querySelector(".sidebar")?.classList.toggle("ui-v4-open", shouldOpen);
     byId("uiV4MobileMenu")?.setAttribute("aria-expanded", String(shouldOpen));
@@ -66,7 +70,6 @@
     if (shouldOpen) {
       focusSoon(document.querySelector("#navList button.active") || document.querySelector("#navList button"));
     } else if (focusAfterClose) {
-      focusAfterClose.focus?.({ preventScroll: true });
       focusSoon(focusAfterClose);
     }
   }
