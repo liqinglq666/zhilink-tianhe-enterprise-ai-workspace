@@ -56,6 +56,7 @@ jobs:
             echo "Checking ${file}"
             node --check "${file}"
           done < <(find frontend/assets -type f -name '*.js' -print0 | sort -z)
+          node --check scripts/browser_acceptance.mjs
 
       - name: Upgrade and verify a clean SQLite database
         env:
@@ -115,7 +116,7 @@ jobs:
           python scripts/check_schema.py
 
   container:
-    name: Container build and runtime smoke
+    name: Container build, runtime and browser acceptance
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [test, postgres-migration]
@@ -123,6 +124,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       - name: Build production image
         run: docker build --tag zhilink-tianhe:ci .
@@ -160,3 +166,4 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:8000/ >/tmp/index.html
           grep -q '智链天河' /tmp/index.html
           docker exec zhilink-tianhe-ci python scripts/check_schema.py
+          ZHILINK_BROWSER_BASE_URL=http://127.0.0.1:8000 node scripts/browser_acceptance.mjs
