@@ -18,6 +18,58 @@
   min-width: 110px;
   justify-content: center;
 }
+.streaming-stage {
+  display: flex;
+  min-height: 240px;
+  flex-direction: column;
+}
+.streaming-progress {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #dbe7f6;
+  border-radius: 10px;
+  background: #f7faff;
+  color: #526277;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.streaming-preview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 0 2px;
+}
+.streaming-preview-head strong {
+  color: #172033;
+  font-size: 13px;
+  font-weight: 760;
+}
+.streaming-preview-head span {
+  color: #7a8699;
+  font-size: 11px;
+  font-weight: 600;
+}
+.streaming-preview {
+  min-height: 180px;
+  max-height: min(62vh, 720px);
+  overflow: auto;
+  padding: 16px 17px 22px;
+  border: 1px solid #e3e9f1;
+  border-radius: 12px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.78;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  scrollbar-gutter: stable;
+}
+.streaming-preview[data-empty]::before {
+  content: "正文将在收到内容后实时显示…";
+  color: #94a3b8;
+}
 .partial-result-note {
   margin: 0 0 12px;
   border: 1px solid #fedf89;
@@ -33,5 +85,14 @@
   .cancel-generation,
   .stream-status {
     width: 100%;
+  }
+  .streaming-preview-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .streaming-preview {
+    max-height: 55vh;
+    padding: 14px;
   }
 }
