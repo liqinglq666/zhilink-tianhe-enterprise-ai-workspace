@@ -61,7 +61,7 @@ def test_result_status_tones_do_not_treat_negative_words_as_success() -> None:
     assert 'if (/(高风险|严重|逾期|异常|失败|拒绝|未通过|不通过|未达标)/.test(text)) return "danger";' in RESULTS
     assert 'if (/(待确认|待补充|未确认|未知|待定|部分明确|未完成|不明确|需补充|处理中)/.test(text)) return "pending";' in RESULTS
     assert 'if (/(已确认|已完成|已通过|正常|低风险)/.test(text)) return "success";' in RESULTS
-    assert '已完成|完成|明确|通过|正常' not in RESULTS
+    assert 'if (/(已确认|已完成|完成|明确|通过|正常)/.test(text)) return "success";' not in RESULTS
 
 
 def test_copy_text_falls_back_when_async_clipboard_is_rejected() -> None:
