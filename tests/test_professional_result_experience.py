@@ -56,7 +56,7 @@ def test_result_css_prevents_stretched_spreadsheet_rows() -> None:
     assert "table-layout: auto" in RESULTS_CSS
 
 
-# Result actions are user-facing reliability paths, so keep explicit edge-case coverage here.
+# Lock user-facing result action edge cases so status and copy behavior cannot silently regress.
 def test_result_status_tones_do_not_treat_negative_words_as_success() -> None:
     assert 'if (/(高风险|严重|逾期|异常|失败|拒绝|未通过|不通过|未达标)/.test(text)) return "danger";' in RESULTS
     assert 'if (/(待确认|待补充|未确认|未知|待定|部分明确|未完成|不明确|需补充|处理中)/.test(text)) return "pending";' in RESULTS
