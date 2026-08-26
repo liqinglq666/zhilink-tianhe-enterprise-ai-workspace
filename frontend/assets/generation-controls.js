@@ -23,16 +23,15 @@
   function updateGenerationProgress(key, task) {
     const target = $(`${key}StreamContent`);
     if (!target || !task) return;
-    const seconds = Math.max(0, Math.floor((Date.now() - task.startedAt) / 1000));
     const chars = String(task.full || "").length;
     if (task.phase === "verifying") {
-      target.textContent = `正文已生成约 ${chars.toLocaleString()} 字 · ${seconds} 秒，正在核对事实与证据...`;
+      target.textContent = `正文已生成约 ${chars.toLocaleString()} 字，正在核对事实与证据...`;
     } else if (task.phase === "finishing") {
-      target.textContent = `内容校验完成 · ${seconds} 秒，正在整理正式结果...`;
+      target.textContent = "内容校验完成，正在整理正式结果...";
     } else if (chars > 0) {
-      target.textContent = `已接收约 ${chars.toLocaleString()} 字 · ${seconds} 秒，正在继续生成并整理...`;
+      target.textContent = `已接收约 ${chars.toLocaleString()} 字，正在继续生成并整理...`;
     } else {
-      target.textContent = `正在等待模型开始生成 · ${seconds} 秒`;
+      target.textContent = "正在等待模型开始生成...";
     }
   }
 
@@ -91,7 +90,6 @@
       requiresVerification: false,
       verified: false,
       phase: "connecting",
-      startedAt: Date.now(),
       idleTimeoutMs: DEFAULT_IDLE_TIMEOUT_MS,
       hardTimeoutMs: DEFAULT_HARD_TIMEOUT_MS,
     };
@@ -100,7 +98,6 @@
     let connectTimer = null;
     let idleTimer = null;
     let hardTimer = null;
-    let progressTimer = setInterval(() => updateGenerationProgress(key, task), 1000);
     let buffer = "";
     updateGenerationProgress(key, task);
 
@@ -108,8 +105,6 @@
       clearTimeout(connectTimer);
       clearTimeout(idleTimer);
       clearTimeout(hardTimer);
-      clearInterval(progressTimer);
-      progressTimer = null;
     };
     const abortFor = kind => {
       if (controller.signal.aborted) return;
