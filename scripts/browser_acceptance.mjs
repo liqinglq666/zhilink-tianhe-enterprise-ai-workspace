@@ -212,6 +212,13 @@ async function main() {
       assert(ok, `Missing input element: ${selector}`);
     }
 
+    async function pressKey(key, code, virtualKeyCode) {
+      const text = key === "Enter" ? "\r" : key.length === 1 ? key : "";
+      const params = { key, code, windowsVirtualKeyCode: virtualKeyCode, nativeVirtualKeyCode: virtualKeyCode };
+      await client.send("Input.dispatchKeyEvent", { type: "keyDown", ...params, ...(text ? { text, unmodifiedText: text } : {}) });
+      await client.send("Input.dispatchKeyEvent", { type: "keyUp", ...params });
+    }
+
     console.log(`[browser] opening ${BASE_URL}`);
     await client.send("Page.navigate", { url: BASE_URL });
     await waitJs("document.readyState === 'complete'", "document load", 30000);
@@ -249,6 +256,44 @@ async function main() {
     const legacyFaviconFailure = responses.find(item => item.url.endsWith("/favicon.ico") && item.status >= 400);
     assert(!legacyFaviconFailure, `Browser still requested a failing legacy favicon: ${JSON.stringify(legacyFaviconFailure)}`);
     console.log("[browser] startup network hygiene passed");
+
+    await client.send("Emulation.setDeviceMetricsOverride", {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 1,
+      mobile: true,
+      screenWidth: 390,
+      screenHeight: 844,
+    });
+    await waitJs("window.innerWidth <= 390", "mobile viewport");
+    await waitJs("document.querySelector('.sidebar')?.hasAttribute('inert') && document.querySelector('.sidebar')?.getAttribute('aria-hidden') === 'true'", "closed mobile sidebar accessibility state");
+    assert(await evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "Home layout has horizontal overflow at 390px.");
+    assert(await evaluate("getComputedStyle(document.getElementById('uiV4MobileMenu')).display !== 'none'"), "Mobile navigation trigger is not visible at 390px.");
+
+    await evaluate("document.getElementById('uiV4MobileMenu').focus()");
+    await pressKey("Enter", "Enter", 13);
+    await waitJs("document.body.classList.contains('ui-v4-sidebar-open') && !document.querySelector('.sidebar')?.hasAttribute('inert') && document.querySelector('.sidebar')?.getAttribute('aria-hidden') === 'false'", "mobile sidebar keyboard open");
+    await waitJs("document.activeElement?.matches('#navList button.active')", "focus moved into mobile navigation");
+    await pressKey("Escape", "Escape", 27);
+    await waitJs("!document.body.classList.contains('ui-v4-sidebar-open') && document.querySelector('.sidebar')?.hasAttribute('inert') && document.activeElement?.id === 'uiV4MobileMenu'", "mobile sidebar Escape close and focus restore");
+
+    await pressKey("Enter", "Enter", 13);
+    await waitJs("document.body.classList.contains('ui-v4-sidebar-open')", "mobile sidebar reopen");
+    await evaluate("document.querySelector('.nav button[data-section=\"meeting\"]').focus()");
+    await pressKey("Enter", "Enter", 13);
+    await waitJs("document.querySelector('.page.active-page')?.id === 'meeting' && !document.body.classList.contains('ui-v4-sidebar-open') && document.querySelector('.sidebar')?.hasAttribute('inert')", "mobile keyboard navigation closes sidebar");
+    await waitJs("document.activeElement?.id === 'pageTitle'", "mobile navigation focus moved to page title");
+
+    await client.send("Emulation.clearDeviceMetricsOverride");
+    await waitJs("window.innerWidth > 1020 && !document.querySelector('.sidebar')?.hasAttribute('inert') && !document.querySelector('.sidebar')?.hasAttribute('aria-hidden')", "desktop sidebar accessibility state restored");
+    console.log("[browser] mobile keyboard navigation passed");
+
+    await evaluate("document.getElementById('uiV4AccountToggle').focus()");
+    await pressKey("Enter", "Enter", 13);
+    await waitJs("document.getElementById('uiV4AccountMenu')?.hidden === false && document.activeElement?.matches('#uiV4AccountMenu button')", "account menu keyboard open and focus entry");
+    await pressKey("Escape", "Escape", 27);
+    await waitJs("document.getElementById('uiV4AccountMenu')?.hidden === true && document.activeElement?.id === 'uiV4AccountToggle'", "account menu Escape close and focus restore");
+    console.log("[browser] account menu keyboard focus passed");
 
     for (const section of ["meeting", "contract", "policy", "match", "profile", "landing", "report", "home"]) {
       await click(`.nav button[data-section="${section}"]`);
@@ -349,7 +394,7 @@ async function main() {
 
     await sleep(250);
     assert(browserErrors.length === 0, `Browser runtime errors detected:\n${browserErrors.join("\n---\n")}`);
-    console.log("Browser acceptance smoke passed: startup network hygiene, navigation, model config save, project versions, result commit, business-facing structured status, review entry, and export.");
+    console.log("Browser acceptance smoke passed: startup network hygiene, mobile keyboard navigation, account focus restoration, navigation, model config save, project versions, result commit, business-facing structured status, review entry, and export.");
   } finally {
     client?.close();
     await stopProcess(chromeProcess);

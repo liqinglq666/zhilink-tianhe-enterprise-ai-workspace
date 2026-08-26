@@ -11,6 +11,7 @@
   const PROJECT_CHANGED_EVENT = contracts.events.projectChanged;
   const MODULES = contracts.modules;
   const { readJson, setText, escapeHtml: safe } = HELPERS;
+  const MOBILE_SIDEBAR_QUERY = window.matchMedia?.("(max-width: 1020px)") || null;
 
   let latestProjects = { items: [], total: 0 };
   let lastProjectSignature = "";
@@ -19,6 +20,8 @@
 
   const byId = id => document.getElementById(id);
   const notify = message => typeof toast === "function" ? toast(message) : console.info(message);
+  const focusSoon = target => window.requestAnimationFrame(() => target?.focus?.({ preventScroll: true }));
+  const isMobileSidebar = () => MOBILE_SIDEBAR_QUERY ? MOBILE_SIDEBAR_QUERY.matches : window.innerWidth <= 1020;
 
   function ensureWorkspaceKey() {
     let key = localStorage.getItem(WORKSPACE_KEY_STORAGE) || "";
@@ -41,15 +44,44 @@
     const text = byId("openAccountManager")?.textContent?.trim() || "登录 / 组织";
     return text === "登录 / 组织" ? text : text.split(" · ")[0]?.trim() || "企业账户";
   }
-  function setSidebarOpen(open) {
-    document.body.classList.toggle("ui-v4-sidebar-open", Boolean(open));
-    document.querySelector(".sidebar")?.classList.toggle("ui-v4-open", Boolean(open));
-    byId("uiV4MobileMenu")?.setAttribute("aria-expanded", String(Boolean(open)));
+  function syncSidebarAccessibility() {
+    const sidebar = document.querySelector(".sidebar");
+    if (!sidebar) return;
+    if (!isMobileSidebar()) {
+      sidebar.removeAttribute("inert");
+      sidebar.removeAttribute("aria-hidden");
+      return;
+    }
+    const open = document.body.classList.contains("ui-v4-sidebar-open");
+    sidebar.toggleAttribute("inert", !open);
+    sidebar.setAttribute("aria-hidden", String(!open));
   }
-  function closeAccountMenu() {
+  function setSidebarOpen(open, focusAfterClose = null) {
+    const shouldOpen = Boolean(open) && isMobileSidebar();
+    document.body.classList.toggle("ui-v4-sidebar-open", shouldOpen);
+    document.querySelector(".sidebar")?.classList.toggle("ui-v4-open", shouldOpen);
+    byId("uiV4MobileMenu")?.setAttribute("aria-expanded", String(shouldOpen));
+    syncSidebarAccessibility();
+    if (shouldOpen) {
+      focusSoon(document.querySelector("#navList button.active") || document.querySelector("#navList button"));
+    } else if (focusAfterClose) {
+      focusSoon(focusAfterClose);
+    }
+  }
+  function syncSidebarViewport() {
+    if (!isMobileSidebar()) {
+      document.body.classList.remove("ui-v4-sidebar-open");
+      document.querySelector(".sidebar")?.classList.remove("ui-v4-open");
+      byId("uiV4MobileMenu")?.setAttribute("aria-expanded", "false");
+    }
+    syncSidebarAccessibility();
+  }
+  function closeAccountMenu(returnFocus = false) {
     const menu = byId("uiV4AccountMenu");
     if (menu) menu.hidden = true;
-    byId("uiV4AccountToggle")?.setAttribute("aria-expanded", "false");
+    const toggle = byId("uiV4AccountToggle");
+    toggle?.setAttribute("aria-expanded", "false");
+    if (returnFocus) focusSoon(toggle);
   }
   function openModelConfig() {
     const drawer = window.ZHILINK_API_DRAWER_V4;
@@ -176,8 +208,8 @@
       const project = event.target.closest?.("#uiV4ProjectContext");
       if (project) { triggerExisting("openProjectManager"); return; }
       const mobile = event.target.closest?.("#uiV4MobileMenu");
-      if (mobile) { setSidebarOpen(!document.body.classList.contains("ui-v4-sidebar-open")); return; }
-      if (event.target.closest?.("#uiV4MobileBackdrop")) { setSidebarOpen(false); return; }
+      if (mobile) { setSidebarOpen(!document.body.classList.contains("ui-v4-sidebar-open"), mobile); return; }
+      if (event.target.closest?.("#uiV4MobileBackdrop")) { setSidebarOpen(false, byId("uiV4MobileMenu")); return; }
       if (event.target.closest?.("#uiV4SidebarAllProjects")) { setSidebarOpen(false); triggerExisting("openProjectManager"); return; }
       const recentProject = event.target.closest?.("[data-ui-v4-project-id]");
       if (recentProject) { openProjectFromSidebar(recentProject.dataset.uiV4ProjectId); return; }
@@ -192,8 +224,13 @@
         const menu = byId("uiV4AccountMenu");
         if (!menu) return;
         const opening = menu.hidden;
-        menu.hidden = !opening;
-        toggle.setAttribute("aria-expanded", String(opening));
+        if (!opening) {
+          closeAccountMenu(true);
+          return;
+        }
+        menu.hidden = false;
+        toggle.setAttribute("aria-expanded", "true");
+        focusSoon(menu.querySelector("button:not([disabled])"));
         return;
       }
       const accountAction = event.target.closest?.("[data-ui-v4-account]");
@@ -210,11 +247,21 @@
       const menu = byId("uiV4AccountMenu");
       const wrap = document.querySelector(".ui-v4-account-wrap");
       if (menu && wrap && !menu.hidden && !wrap.contains(event.target)) closeAccountMenu();
-      if (event.target.closest?.(".nav button")) setSidebarOpen(false);
+      const navButton = event.target.closest?.(".nav button");
+      if (navButton && isMobileSidebar()) setSidebarOpen(false, byId("pageTitle"));
     });
     document.addEventListener("keydown", event => {
       if (event.key !== "Escape") return;
-      closeAccountMenu(); setSidebarOpen(false);
+      const accountMenu = byId("uiV4AccountMenu");
+      if (accountMenu && !accountMenu.hidden) {
+        event.preventDefault();
+        closeAccountMenu(true);
+        return;
+      }
+      if (document.body.classList.contains("ui-v4-sidebar-open")) {
+        event.preventDefault();
+        setSidebarOpen(false, byId("uiV4MobileMenu"));
+      }
     });
     window.addEventListener("storage", event => {
       if ([CURRENT_PROJECT_STORAGE, WORKSPACE_KEY_STORAGE].includes(event.key)) {
@@ -227,6 +274,7 @@
       fetchProjects();
       window.ZHILINK_UI_V4_RUNTIME?.schedule?.("account-ready");
     }));
+    MOBILE_SIDEBAR_QUERY?.addEventListener?.("change", syncSidebarViewport);
   }
 
   function apply() {
@@ -239,6 +287,7 @@
     syncPageContext();
     syncKnowledgeNavigation();
     resolvePendingProjectOpen();
+    syncSidebarAccessibility();
     const mobile = byId("uiV4MobileMenu");
     if (mobile) {
       const open = document.body.classList.contains("ui-v4-sidebar-open");
@@ -252,6 +301,7 @@
     ensureWorkspaceKey();
     apply();
     bindControls();
+    syncSidebarViewport();
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(apply, { immediate: false });
     if (window.ACCOUNT_ACCESS_READY) fetchProjects();
   }
