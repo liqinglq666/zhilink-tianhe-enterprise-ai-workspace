@@ -73,7 +73,8 @@ def test_model_config_is_the_only_model_setting_persistence_owner() -> None:
     assert "function saveConfig()" not in core
     assert "function updateModeBadge()" not in core
     assert "function requireApiConfig()" not in core
-    assert 'window.ZHILINK_MODEL_CONFIG.requireRequestConfig()' in core
+    assert "const controller = window.ZHILINK_MODEL_CONFIG;" in core
+    assert "return controller.requireRequestConfig();" in core
     assert "controller.initialize(state.defaults)" in core
     assert '$("testConnection").addEventListener' not in core
     assert '$("clearKey").addEventListener' not in core
