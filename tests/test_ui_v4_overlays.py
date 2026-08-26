@@ -33,6 +33,7 @@ def test_overlay_controller_covers_all_workspace_dialogs() -> None:
     assert 'target.focus({ preventScroll: true })' in script
     assert 'opener instanceof HTMLElement && visible(opener)' in script
     assert 'window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(sync, { immediate: false })' in script
+    assert script.count("OVERLAYS.forEach(decorate);") == 1
     assert "MutationObserver" not in script
     assert 'window.ZHILINK_UI_V4_OVERLAYS_READY = true' in script
 
