@@ -17,7 +17,6 @@ const resultTitles = {
   report: "运营报告",
 };
 
-
 const pageMeta = {
   home: { kicker: "运营总览", title: "企业运营 AI 工作台", subtitle: "面向企业日常运营的会议、合同、政策、供需协作与报告归档能力。" },
   profile: { kicker: "企业档案", title: "企业基础资料管理", subtitle: "补充企业背景，用于提升政策准备、供需协作和实施计划的贴合度。" },
@@ -35,7 +34,6 @@ const formInputIds = [
 ];
 
 const exampleScenarios = {};
-
 const REQUEST_TIMEOUT_MS = 180000;
 
 function $(id) { return document.getElementById(id); }
@@ -63,40 +61,12 @@ function setLoading(button, loading, text) {
   }
 }
 
-function getConfig() {
-  return {
-    api_key: sessionStorage.getItem("zhilian_api_key") || $("apiKey").value.trim(),
-    base_url: $("baseUrl").value.trim(),
-    model: $("modelName").value.trim(),
-    temperature: Number($("temperature").value || 0.35),
-  };
-}
-
-function saveConfig() {
-  sessionStorage.setItem("zhilian_api_key", $("apiKey").value.trim());
-  localStorage.setItem("zhilian_base_url", $("baseUrl").value.trim());
-  localStorage.setItem("zhilian_model", $("modelName").value.trim());
-  localStorage.setItem("zhilian_temperature", $("temperature").value);
-  localStorage.setItem("zhilian_provider", $("providerSelect").value);
-  updateModeBadge();
-}
-
-function updateModeBadge() {
-  const badge = $("modeBadge");
-  const key = $("apiKey").value.trim();
-  const homeStatus = $("homeApiStatus");
-  const topStatus = $("topApiStatus");
-  if (key) {
-    badge.textContent = "已配置";
-    badge.className = "status-badge ai";
-    if (homeStatus) homeStatus.textContent = "已配置";
-    if (topStatus) { topStatus.textContent = "API 已配置"; topStatus.className = "top-status ready"; }
-  } else {
-    badge.textContent = "待配置";
-    badge.className = "status-badge local";
-    if (homeStatus) homeStatus.textContent = "待配置";
-    if (topStatus) { topStatus.textContent = "API 待配置"; topStatus.className = "top-status pending"; }
+function requireModelConfig() {
+  const controller = window.ZHILINK_MODEL_CONFIG;
+  if (!controller || typeof controller.requireRequestConfig !== "function") {
+    throw new Error("AI 服务设置仍在初始化，请刷新页面后重试。");
   }
+  return controller.requireRequestConfig();
 }
 
 function getIdentityLabel() {
@@ -144,14 +114,6 @@ function closeIdentityModal() {
   const modal = $("identityModal");
   modal.classList.remove("show");
   modal.setAttribute("aria-hidden", "true");
-}
-
-function requireApiConfig() {
-  const cfg = getConfig();
-  if (!cfg.api_key || !cfg.base_url || !cfg.model) {
-    throw new Error("请先在左侧模型设置中填写 API Key、Base URL 和模型名称。当前版本不提供本地示例生成。");
-  }
-  return cfg;
 }
 
 function getProfile() {
@@ -229,7 +191,6 @@ function applyExample(exampleKey) {
 }
 
 async function apiPost(url, payload) {
-  saveConfig();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -352,12 +313,27 @@ function renderStructuredMarkdown(md) {
   }).join("")}</div>`;
 }
 
-function showResult(key, result) {
+function emitResultUpdated(key, result, source) {
+  const eventName = window.ZHILINK_WORKSPACE_CONTRACTS?.events?.resultUpdated;
+  if (!eventName) return;
+  window.dispatchEvent(new CustomEvent(eventName, {
+    detail: {
+      key,
+      result: result || {},
+      content: String(result?.content || state.results?.[key] || ""),
+      meta: state.meta?.[key] || {},
+      source,
+    },
+  }));
+}
+
+function showResult(key, result, source = "render") {
   const panel = $(`${key}Result`);
   if (!panel) return;
   if (!result || !result.content) {
     panel.className = "result-panel empty";
     panel.textContent = `${resultTitles[key] || "结果"}会显示在这里。`;
+    emitResultUpdated(key, result || {}, source);
     return;
   }
   panel.className = "result-panel";
@@ -388,16 +364,17 @@ function showResult(key, result) {
       ${errorText}
     </div>`;
   panel.innerHTML = meta + renderStructuredMarkdown(result.content);
+  emitResultUpdated(key, result, source);
 }
+
 function setResult(key, result) {
   const time = new Date().toISOString();
   state.results[key] = result.content || "";
   state.meta[key] = { mode: result.mode || "AI模型模式", error: result.error || "", time };
   sessionStorage.setItem("zhilian_results", JSON.stringify(state.results));
   sessionStorage.setItem("zhilian_meta", JSON.stringify(state.meta));
-  showResult(key, { ...result, time });
+  showResult(key, { ...result, time }, "commit");
   updateProgress();
-  updateModeBadge();
 }
 
 function updateStreamingResult(key, content) {
@@ -413,6 +390,7 @@ function updateStreamingResult(key, content) {
 function finishStreamingResult(key, content, mode = "AI模型流式模式") {
   setResult(key, { ok: true, content, mode, error: "" });
 }
+
 function failStreamingResult(key, message) {
   const panel = $(`${key}Result`);
   if (!panel) return;
@@ -431,8 +409,12 @@ function failStreamingResult(key, message) {
   `;
 }
 
-async function apiStream() {
-  throw new Error("生成控制器未就绪，请刷新页面后重试。");
+async function apiStream(url, payload, key) {
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
+  if (!hooks || typeof hooks.runGeneration !== "function") {
+    throw new Error("生成控制器未就绪，请刷新页面后重试。");
+  }
+  return hooks.runGeneration({ url, payload, key });
 }
 
 function loadResultsFromSession() {
@@ -480,6 +462,11 @@ function updateProgress() {
     card.classList.toggle("done", Boolean(state.results[key]));
   });
   updateRecentMaterials();
+
+  const eventName = window.ZHILINK_WORKSPACE_CONTRACTS?.events?.progressUpdated;
+  if (eventName) {
+    window.dispatchEvent(new CustomEvent(eventName, { detail: { done, total: resultKeys.length } }));
+  }
 }
 
 function updateRecentMaterials() {
@@ -507,7 +494,6 @@ function updateRecentMaterials() {
   }).join("");
 }
 
-
 function go(section) {
   qsa(".page").forEach(p => p.classList.toggle("active-page", p.id === section));
   qsa(".nav button").forEach(b => b.classList.toggle("active", b.dataset.section === section));
@@ -531,48 +517,57 @@ function collectBaseResults() {
 
 function collectResultsForReport(includeAiSummary = false) {
   const base = collectBaseResults();
-  if (includeAiSummary && state.results.report) {
-    return { "AI整合报告": state.results.report, ...base };
-  }
-  return base;
+  const results = includeAiSummary && state.results.report
+    ? { "AI整合报告": state.results.report, ...base }
+    : base;
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
+  const context = hooks?.runSync?.("results:collect", {
+    scope: "report",
+    includeAiSummary: Boolean(includeAiSummary),
+    results: { ...results },
+  });
+  return context?.results || results;
 }
 
 function collectSingleModuleResult(key) {
   const title = resultTitles[key] || "模块结果";
   const content = state.results[key] || "";
-  return { title, results: { [title]: content }, content };
+  const result = { title, results: { [title]: content }, content };
+  const hooks = window.ZHILINK_WORKSPACE_HOOKS;
+  const context = hooks?.runSync?.("results:collect", { scope: "single", key, result });
+  return context?.result || result;
 }
 
-async function runProfile(button) {
+async function runProfile() {
   saveProfileToState();
   if (!state.profile.name && !state.profile.demands) throw new Error("请至少填写企业名称或当前需求。");
-  await apiStream("/api/profile/stream", { config: requireApiConfig(), profile: state.profile }, "profile");
+  await apiStream("/api/profile/stream", { config: requireModelConfig(), profile: state.profile }, "profile");
 }
 
-async function runMeeting(button) {
+async function runMeeting() {
   const text = $("meetingInput").value.trim();
   if (text.length < 8) throw new Error("会议内容过短，请补充会议背景、决策或待办事项。");
-  await apiStream("/api/meeting/stream", { config: requireApiConfig(), text, profile_summary: getProfileContext() }, "meeting");
+  await apiStream("/api/meeting/stream", { config: requireModelConfig(), text, profile_summary: getProfileContext() }, "meeting");
 }
 
-async function runContract(button) {
+async function runContract() {
   const text = $("contractInput").value.trim();
   if (text.length < 12) throw new Error("合同文本过短，请粘贴关键条款后再生成风险提示。");
-  await apiStream("/api/contract/stream", { config: requireApiConfig(), text, profile_summary: getProfileContext() }, "contract");
+  await apiStream("/api/contract/stream", { config: requireModelConfig(), text, profile_summary: getProfileContext() }, "contract");
 }
 
-async function runPolicy(button) {
+async function runPolicy() {
   saveProfileToState();
   const demand = $("policyDemand").value.trim();
   const hasProfile = Object.values(state.profile || {}).some(v => String(v || "").trim());
   if (!demand && !hasProfile) throw new Error("请先填写企业档案或政策需求，系统才能给出更贴合的政策方向建议。");
-  await apiStream("/api/policy/stream", { config: requireApiConfig(), profile: state.profile, demand }, "policy");
+  await apiStream("/api/policy/stream", { config: requireModelConfig(), profile: state.profile, demand }, "policy");
 }
 
-async function runMatch(button) {
+async function runMatch() {
   saveProfileToState();
   const payload = {
-    config: requireApiConfig(), profile: state.profile,
+    config: requireModelConfig(), profile: state.profile,
     offer: $("offerInput").value.trim(),
     need: $("needInput").value.trim(),
     target: $("targetInput").value.trim(),
@@ -582,7 +577,7 @@ async function runMatch(button) {
   await apiStream("/api/match/stream", payload, "match");
 }
 
-async function runLanding(button) {
+async function runLanding() {
   saveProfileToState();
   const landingInfo = {
     pilot_scene: $("pilotScene").value.trim(),
@@ -599,117 +594,13 @@ async function runLanding(button) {
     "政策准备": state.results.policy || "",
     "供需协作": state.results.match || "",
   };
-  await apiStream("/api/landing/stream", { config: requireApiConfig(), profile: state.profile, landing_info: landingInfo, existing_results: existing }, "landing");
+  await apiStream("/api/landing/stream", { config: requireModelConfig(), profile: state.profile, landing_info: landingInfo, existing_results: existing }, "landing");
 }
 
-async function runReport(button) {
+async function runReport() {
   const results = collectResultsForReport(false);
   if (!Object.values(results).some(Boolean)) throw new Error("还没有可整合的模块结果，请先完成至少一个模块。");
-  await apiStream("/api/report/stream", { config: requireApiConfig(), results, use_ai_summary: true }, "report");
-}
-
-async function requestDownload(url, payload, filename, contentType, emptyMessage, timeoutMessage) {
-  const hasContent = payload && payload.results && Object.values(payload.results).some(Boolean);
-  if (!hasContent) throw new Error(emptyMessage || "还没有可导出的结果。");
-  saveConfig();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    if (!resp.ok) {
-      const text = await resp.text();
-      let detail = text;
-      try { detail = JSON.parse(text).detail || text; } catch (_) {}
-      throw new Error(detail);
-    }
-    const blob = await resp.blob();
-    const a = document.createElement("a");
-    const objectUrl = URL.createObjectURL(new Blob([blob], { type: contentType }));
-    a.href = objectUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-  } catch (err) {
-    if (err.name === "AbortError") throw new Error(timeoutMessage || "导出超时，请稍后重试。");
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function downloadReportFile(url, filename, contentType) {
-  const results = collectResultsForReport(true);
-  await requestDownload(
-    url,
-    { config: getConfig(), results, use_ai_summary: false },
-    filename,
-    contentType,
-    "还没有可导出的结果。",
-    "报告导出超时，请精简结果内容后重试。",
-  );
-}
-
-async function downloadModuleFile(key, format) {
-  const single = collectSingleModuleResult(key);
-  if (!single.content) throw new Error("当前模块还没有生成结果，请先点击生成。");
-  const safeTitle = single.title.replace(/[\/:*?"<>|]/g, "_");
-  if (format === "md") {
-    await requestDownload(
-      "/api/report/markdown",
-      { config: getConfig(), results: single.results, use_ai_summary: false },
-      `${safeTitle}.md`,
-      "text/markdown;charset=utf-8",
-      "当前模块还没有可导出的结果。",
-      "模块导出超时，请稍后重试。",
-    );
-    return;
-  }
-  if (format === "txt") {
-    await requestDownload(
-      "/api/report/txt",
-      { config: getConfig(), results: single.results, use_ai_summary: false },
-      `${safeTitle}.txt`,
-      "text/plain;charset=utf-8",
-      "当前模块还没有可导出的结果。",
-      "模块导出超时，请稍后重试。",
-    );
-    return;
-  }
-  if (format === "docx") {
-    await requestDownload(
-      "/api/report/docx",
-      { config: getConfig(), results: single.results, use_ai_summary: false },
-      `${safeTitle}.docx`,
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "当前模块还没有可导出的结果。",
-      "模块导出超时，请稍后重试。",
-    );
-    return;
-  }
-  throw new Error("不支持的导出格式。");
-}
-
-async function copyText(text) {
-  if (navigator.clipboard && window.isSecureContext) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  document.execCommand("copy");
-  document.body.removeChild(textarea);
+  await apiStream("/api/report/stream", { config: requireModelConfig(), results, use_ai_summary: true }, "report");
 }
 
 function attachRun(id, fn, text) {
@@ -730,20 +621,11 @@ function attachRun(id, fn, text) {
 async function initDefaults() {
   const resp = await fetch("/api/defaults");
   state.defaults = await resp.json();
-  const providerSelect = $("providerSelect");
-  providerSelect.innerHTML = Object.keys(state.defaults.provider_presets).map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
-
-  const fallbackProvider = "通义千问 DashScope";
-  const savedProvider = localStorage.getItem("zhilian_provider") || fallbackProvider;
-  const activeProvider = state.defaults.provider_presets[savedProvider] ? savedProvider : fallbackProvider;
-  providerSelect.value = activeProvider;
-  const preset = state.defaults.provider_presets[activeProvider] || state.defaults.provider_presets[fallbackProvider];
-  $("apiKey").value = sessionStorage.getItem("zhilian_api_key") || "";
-  $("baseUrl").value = localStorage.getItem("zhilian_base_url") || preset.base_url;
-  $("modelName").value = localStorage.getItem("zhilian_model") || preset.model;
-  $("temperature").value = localStorage.getItem("zhilian_temperature") || "0.35";
-  $("tempValue").textContent = $("temperature").value;
-  updateModeBadge();
+  const controller = window.ZHILINK_MODEL_CONFIG;
+  if (!controller || typeof controller.initialize !== "function") {
+    throw new Error("AI 服务设置控制器未加载，请刷新页面后重试。");
+  }
+  controller.initialize(state.defaults);
 }
 
 function clearAll() {
@@ -762,16 +644,6 @@ function bindEvents() {
     const el = $(id);
     if (el) el.addEventListener("input", () => { saveFormState(); if (id.startsWith("profile")) saveProfileToState(); });
   });
-  $("providerSelect").addEventListener("change", () => {
-    const preset = state.defaults.provider_presets[$("providerSelect").value];
-    $("baseUrl").value = preset.base_url;
-    $("modelName").value = preset.model;
-    saveConfig();
-    toast(preset.tip);
-  });
-  ["apiKey", "baseUrl", "modelName", "temperature"].forEach(id => $(id).addEventListener("input", () => { $("tempValue").textContent = $("temperature").value; saveConfig(); }));
-  $("toggleKey").addEventListener("click", () => { $("apiKey").type = $("apiKey").type === "password" ? "text" : "password"; });
-  $("clearKey").addEventListener("click", () => { $("apiKey").value = ""; sessionStorage.removeItem("zhilian_api_key"); updateModeBadge(); toast("已清空当前会话 API Key"); });
   $("clearAll").addEventListener("click", clearAll);
   if ($("openIdentity")) $("openIdentity").addEventListener("click", openIdentityModal);
   if ($("identityChip")) $("identityChip").addEventListener("click", openIdentityModal);
@@ -781,47 +653,14 @@ function bindEvents() {
   }
   if ($("saveIdentity")) $("saveIdentity").addEventListener("click", () => { saveIdentity(); closeIdentityModal(); toast("已保存当前使用身份"); });
   if ($("resetIdentity")) $("resetIdentity").addEventListener("click", () => { localStorage.removeItem("zhilian_identity"); state.identity = { role: "企业用户" }; renderIdentity(); toast("已清除当前使用身份"); });
-  document.addEventListener("click", async (e) => {
+  document.addEventListener("click", (e) => {
     const exampleBtn = e.target.closest(".quick-fill-btn");
     if (exampleBtn) {
       applyExample(exampleBtn.dataset.example);
       return;
     }
     const gotoTarget = e.target.closest("[data-goto]");
-    if (gotoTarget) {
-      go(gotoTarget.dataset.goto);
-    }
-    const copyBtn = e.target.closest(".copy-result");
-    const exportBtn = e.target.closest(".export-result");
-    if (copyBtn) {
-      const key = copyBtn.dataset.key;
-      try {
-        await copyText(state.results[key] || "");
-        toast("已复制当前模块结果");
-      } catch (err) {
-        toast("复制失败，请手动选择结果文本复制。");
-      }
-    }
-    if (exportBtn) {
-      const key = exportBtn.dataset.key;
-      const format = exportBtn.dataset.format;
-      try {
-        await downloadModuleFile(key, format);
-        toast(`已开始下载${format.toUpperCase()}文件`);
-      } catch (err) {
-        toast(err.message || String(err));
-      }
-    }
-  });
-  $("testConnection").addEventListener("click", async () => {
-    const btn = $("testConnection");
-    try {
-      setLoading(btn, true, "测试中...");
-      const res = await apiPost("/api/test-connection", getConfig());
-      $("connectionResult").textContent = res.ok ? `连接成功：${res.content || res.mode}` : `连接失败：${res.error}`;
-      updateModeBadge();
-    } catch (err) { $("connectionResult").textContent = `连接失败：${err.message}`; }
-    finally { setLoading(btn, false); }
+    if (gotoTarget) go(gotoTarget.dataset.goto);
   });
 
   attachRun("runProfile", runProfile, "流式生成中...");
@@ -831,25 +670,6 @@ function bindEvents() {
   attachRun("runMatch", runMatch, "流式生成中...");
   attachRun("runLanding", runLanding, "流式生成中...");
   attachRun("runReport", runReport, "流式整合中...");
-
-  function attachDownload(id, url, filename, contentType) {
-    $(id).addEventListener("click", async (e) => {
-      const btn = e.currentTarget;
-      try {
-        setLoading(btn, true, "导出中...");
-        await downloadReportFile(url, filename, contentType);
-        toast("报告已开始下载");
-      } catch (err) {
-        toast(err.message || String(err));
-      } finally {
-        setLoading(btn, false);
-      }
-    });
-  }
-
-  attachDownload("downloadMarkdown", "/api/report/markdown", "智链天河运营报告.md", "text/markdown;charset=utf-8");
-  attachDownload("downloadTxt", "/api/report/txt", "智链天河运营报告.txt", "text/plain;charset=utf-8");
-  attachDownload("downloadDocx", "/api/report/docx", "智链天河运营报告.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
 }
 
 async function main() {

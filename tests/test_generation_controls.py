@@ -64,18 +64,26 @@ def test_immediate_stream_close_closes_upstream_and_releases_slot(monkeypatch):
 
 def test_generation_controls_are_the_only_browser_stream_transport_owner() -> None:
     app = Path("frontend/assets/app.js").read_text(encoding="utf-8")
+    runtime = Path("frontend/assets/ui-v4-runtime.js").read_text(encoding="utf-8")
     source = Path("frontend/assets/generation-controls.js").read_text(encoding="utf-8")
 
-    fallback_start = app.index("async function apiStream()")
-    fallback_end = app.index("function loadResultsFromSession", fallback_start)
-    fallback = app[fallback_start:fallback_end]
+    bridge_start = app.index("async function apiStream(")
+    bridge_end = app.index("function loadResultsFromSession", bridge_start)
+    bridge = app[bridge_start:bridge_end]
 
-    assert 'throw new Error("生成控制器未就绪，请刷新页面后重试。")' in fallback
-    assert "fetch(" not in fallback
-    assert "getReader(" not in fallback
-    assert "TextDecoder" not in fallback
+    assert "const hooks = window.ZHILINK_WORKSPACE_HOOKS;" in bridge
+    assert "return hooks.runGeneration({ url, payload, key });" in bridge
+    assert 'throw new Error("生成控制器未就绪，请刷新页面后重试。")' in bridge
+    assert "fetch(" not in bridge
+    assert "getReader(" not in bridge
+    assert "TextDecoder" not in bridge
     assert "beginStreamingResult" not in app
     assert "downloadTextFile" not in app
+
+    assert "async function runGeneration(request)" in runtime
+    assert 'runHookAsync("generation:request", request)' in runtime
+    assert "runGeneration," in runtime
+    assert "apiStream = async function hookedApiStream" not in runtime
 
     assert "function beginStreamingResult(key)" in source
     assert "beginStreamingResult = function" not in source

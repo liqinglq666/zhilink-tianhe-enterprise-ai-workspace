@@ -1,4 +1,4 @@
-/* UI V4 runtime: one core contract, hook/event bridge and presentation scheduler. */
+/* UI V4 runtime: shared contracts, hook registry, network bridge and presentation scheduler. */
 (() => {
   if (!window.ZHILINK_UI_V4_HELPERS_READY) {
     function readJson(raw, fallback) {
@@ -128,9 +128,12 @@
     generationTransport = handler;
   }
 
-  const originalApiStream = typeof apiStream === "function" ? apiStream : null;
-  const originalCollectResultsForReport = typeof collectResultsForReport === "function" ? collectResultsForReport : null;
-  const originalCollectSingleModuleResult = typeof collectSingleModuleResult === "function" ? collectSingleModuleResult : null;
+  async function runGeneration(request) {
+    const context = await runHookAsync("generation:request", request);
+    if (!generationTransport) throw new Error("Generation transport is not registered.");
+    return generationTransport(context);
+  }
+
   const originalFetch = window.fetch.bind(window);
 
   function requestUrl(input) {
@@ -150,34 +153,6 @@
     const url = requestUrl(input);
     const method = requestMethod(input, init);
     return Boolean(url && url.origin === location.origin && url.pathname.startsWith("/api/projects") && ["POST", "PUT", "PATCH", "DELETE"].includes(method));
-  }
-
-  if (originalApiStream) {
-    apiStream = async function hookedApiStream(url, payload, key) {
-      const request = await runHookAsync("generation:request", { url, payload, key });
-      const transport = generationTransport || (context => originalApiStream(context.url, context.payload, context.key));
-      return transport(request);
-    };
-  }
-
-  if (originalCollectResultsForReport) {
-    collectResultsForReport = function hookedCollectResultsForReport(includeAiSummary = false) {
-      const results = originalCollectResultsForReport.apply(this, arguments);
-      const context = runHookSync("results:collect", {
-        scope: "report",
-        includeAiSummary: Boolean(includeAiSummary),
-        results: { ...(results || {}) },
-      });
-      return context?.results || results;
-    };
-  }
-
-  if (originalCollectSingleModuleResult) {
-    collectSingleModuleResult = function hookedCollectSingleModuleResult(key) {
-      const result = originalCollectSingleModuleResult.apply(this, arguments);
-      const context = runHookSync("results:collect", { scope: "single", key, result });
-      return context?.result || result;
-    };
   }
 
   function emitWindowEvent(name, detail) {
@@ -204,54 +179,15 @@
     runSync: runHookSync,
     runAsync: runHookAsync,
     setGenerationTransport,
+    runGeneration,
     hasGenerationTransport: () => Boolean(generationTransport),
   };
   window.ZHILINK_WORKSPACE_HOOKS_READY = true;
 
-  const RESULT_EVENT = events.resultUpdated;
-  const PROGRESS_EVENT = events.progressUpdated;
-  let commitDepth = 0;
-
-  const originalShowResult = window.showResult;
-  const originalSetResult = window.setResult;
-  const originalUpdateProgress = window.updateProgress;
-
-  if (typeof originalShowResult === "function" && typeof originalSetResult === "function" && typeof originalUpdateProgress === "function") {
-    window.showResult = function eventAwareShowResult(key, result) {
-      const value = originalShowResult.apply(this, arguments);
-      emitWindowEvent(RESULT_EVENT, {
-        key,
-        result: result || {},
-        content: String(result?.content || (typeof state !== "undefined" ? state.results?.[key] || "" : "")),
-        meta: typeof state !== "undefined" ? state.meta?.[key] || {} : {},
-        source: commitDepth > 0 ? "commit" : "render",
-      });
-      return value;
-    };
-
-    window.setResult = function eventAwareSetResult(key, result) {
-      commitDepth += 1;
-      try { return originalSetResult.apply(this, arguments); }
-      finally { commitDepth -= 1; }
-    };
-
-    window.updateProgress = function eventAwareUpdateProgress() {
-      const value = originalUpdateProgress.apply(this, arguments);
-      const results = typeof state !== "undefined" ? state.results || {} : {};
-      emitWindowEvent(PROGRESS_EVENT, {
-        done: contracts.resultKeys.filter(key => Boolean(results[key])).length,
-        total: contracts.resultKeys.length,
-      });
-      return value;
-    };
-  } else {
-    console.error("结果事件桥接器初始化失败：核心结果函数不可用。");
-  }
-
-  window.ZHILINK_RESULT_EVENTS = {
-    resultEvent: RESULT_EVENT,
-    progressEvent: PROGRESS_EVENT,
-  };
+  window.ZHILINK_RESULT_EVENTS = Object.freeze({
+    resultEvent: events.resultUpdated,
+    progressEvent: events.progressUpdated,
+  });
   window.ZHILINK_RESULT_EVENTS_READY = true;
 
   const subscribers = new Set();

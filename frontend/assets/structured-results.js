@@ -188,14 +188,18 @@
   async function copyJson() {
     const data = cache[activeModule];
     if (!data) return;
-    await copyText(JSON.stringify(data, null, 2));
+    const tools = window.ZHILINK_RESULTS;
+    if (!tools?.copyText) throw new Error("结果工具仍在初始化，请稍后重试。");
+    await tools.copyText(JSON.stringify(data, null, 2));
     toast("已复制结构化 JSON。");
   }
   function downloadJson() {
     const data = cache[activeModule];
     if (!data) return;
+    const tools = window.ZHILINK_RESULTS;
+    if (!tools?.downloadTextFile) throw new Error("结果工具仍在初始化，请稍后重试。");
     const title = (TITLES[activeModule] || activeModule).replace(/[\\/:*?"<>|]/g, "_");
-    downloadTextFile(`${title}.structured.json`, JSON.stringify(data, null, 2), "application/json;charset=utf-8");
+    tools.downloadTextFile(`${title}.structured.json`, JSON.stringify(data, null, 2), "application/json;charset=utf-8");
     toast("已开始下载结构化 JSON。");
   }
 
@@ -227,7 +231,10 @@
     if (event.target.closest("[data-close-structured]")) { close(); return; }
   });
   document.getElementById("copyStructuredJson")?.addEventListener("click", () => copyJson().catch(error => toast(error.message || String(error))));
-  document.getElementById("downloadStructuredJson")?.addEventListener("click", downloadJson);
+  document.getElementById("downloadStructuredJson")?.addEventListener("click", () => {
+    try { downloadJson(); }
+    catch (error) { toast(error.message || String(error)); }
+  });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", syncExisting, { once: true });
   else syncExisting();
 

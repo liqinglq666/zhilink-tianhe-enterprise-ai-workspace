@@ -87,6 +87,15 @@ def test_convert_endpoint_rejects_unknown_module_and_extra_fields():
 def test_frontend_assets_expose_structured_controls():
     root = Path(__file__).resolve().parents[1]
     script = (root / "frontend/assets/structured-results.js").read_text(encoding="utf-8")
+    results = (root / "frontend/assets/ui-v4-results.js").read_text(encoding="utf-8")
+
     assert "ZHILINK_STRUCTURED_READY" in script
     assert "/api/structured/convert" in script
     assert "data-open-structured" in script
+    assert "const tools = window.ZHILINK_RESULTS;" in script
+    assert "tools.copyText(JSON.stringify(data, null, 2))" in script
+    assert "tools.downloadTextFile(" in script
+    assert "await copyText(JSON.stringify(data, null, 2))" not in script
+    assert "window.ZHILINK_RESULTS = Object.freeze({" in results
+    assert "copyText," in results
+    assert "downloadTextFile," in results

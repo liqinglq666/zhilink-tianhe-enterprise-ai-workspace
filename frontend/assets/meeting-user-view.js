@@ -253,7 +253,12 @@
       if (event.target.closest('.copy-result[data-key="meeting"]')) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        Promise.resolve(copyText(sanitizeMeetingMarkdown(rawMeeting())))
+        const tools = window.ZHILINK_RESULTS;
+        if (!tools?.copyText) {
+          toast("复制工具仍在初始化，请稍后重试。");
+          return;
+        }
+        Promise.resolve(tools.copyText(sanitizeMeetingMarkdown(rawMeeting())))
           .then(() => toast("已复制会议纪要"))
           .catch(() => toast("复制失败，请手动选择会议纪要文本复制。"));
       }

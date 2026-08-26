@@ -32,8 +32,9 @@ def test_storage_recovery_removes_invalid_json_without_exporting_diagnostics() -
     assert "recovered" not in source
 
 
-def test_core_runtime_owns_contracts_result_events_hooks_and_ui_scheduler() -> None:
+def test_core_runtime_owns_contracts_hooks_network_and_ui_scheduler() -> None:
     runtime = RUNTIME.read_text(encoding="utf-8")
+    core = (ASSETS / "app.js").read_text(encoding="utf-8")
 
     for marker in (
         "ZHILINK_WORKSPACE_CONTRACTS_READY",
@@ -53,27 +54,37 @@ def test_core_runtime_owns_contracts_result_events_hooks_and_ui_scheduler() -> N
     assert 'progressUpdated: "zhilink:progress-updated"' in runtime
     assert 'structuredUpdated: "zhilink:structured-updated"' in runtime
     assert 'reviewUpdated: "zhilink:review-updated"' in runtime
-    assert "apiStream = async function hookedApiStream" in runtime
-    assert "collectResultsForReport = function hookedCollectResultsForReport" in runtime
-    assert "collectSingleModuleResult = function hookedCollectSingleModuleResult" in runtime
-    assert "window.fetch = async function hookedWorkspaceFetch" in runtime
-    assert "window.showResult = function eventAwareShowResult" in runtime
-    assert "window.setResult = function eventAwareSetResult" in runtime
-    assert "window.updateProgress = function eventAwareUpdateProgress" in runtime
-    assert "const RESULT_EVENT = events.resultUpdated" in runtime
-    assert "const PROGRESS_EVENT = events.progressUpdated" in runtime
-    assert 'source: commitDepth > 0 ? "commit" : "render"' in runtime
-    assert "setGenerationTransport" in runtime
-    assert 'runHookAsync("generation:request"' in runtime
-    assert 'runHookSync("results:collect"' in runtime
+
+    assert "async function runGeneration(request)" in runtime
+    assert 'runHookAsync("generation:request", request)' in runtime
     assert 'runHookAsync("fetch:request"' in runtime
+    assert "setGenerationTransport" in runtime
+    assert "runGeneration," in runtime
     assert "isProjectWrite" in runtime
     assert "response.ok && isProjectWrite(finalInput, finalInit)" in runtime
     assert "emitWindowEvent(events.projectChanged" in runtime
     assert 'throw new Error("Generation transport is already registered.")' in runtime
     assert 'throw new TypeError(`Hook ${kind} must be synchronous.`)' in runtime
+    assert "window.fetch = async function hookedWorkspaceFetch" in runtime
     assert "MutationObserver" in runtime
     assert "requestAnimationFrame" in runtime
+
+    for removed_patch in (
+        "apiStream = async function hookedApiStream",
+        "collectResultsForReport = function hookedCollectResultsForReport",
+        "collectSingleModuleResult = function hookedCollectSingleModuleResult",
+        "window.showResult = function eventAwareShowResult",
+        "window.setResult = function eventAwareSetResult",
+        "window.updateProgress = function eventAwareUpdateProgress",
+        "commitDepth",
+    ):
+        assert removed_patch not in runtime
+
+    assert 'hooks.runGeneration({ url, payload, key })' in core
+    assert 'hooks?.runSync?.("results:collect"' in core
+    assert 'source = "render"' in core
+    assert 'showResult(key, { ...result, time }, "commit")' in core
+    assert "window.dispatchEvent(new CustomEvent(eventName" in core
 
 
 def test_runtime_mutation_filter_is_owned_by_observer_options() -> None:
