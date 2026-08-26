@@ -1,4 +1,4 @@
-/* UI V4 model config: draft -> test -> explicit save, with server-side public model support. */
+/* UI V4 model config: sole owner of AI service draft, persistence and request configuration. */
 (() => {
   const IDS = {
     panel: "apiPanel",
@@ -10,16 +10,21 @@
     temperatureValue: "tempValue",
     save: "saveApiConfig",
     test: "testConnection",
+    toggle: "toggleKey",
     clear: "clearKey",
     close: "uiV4ApiClose",
     backdrop: "uiV4ApiBackdrop",
     result: "connectionResult",
   };
-  const originalSaveConfig = typeof window.saveConfig === "function" ? window.saveConfig : null;
+
   let activeConfig = null;
+  let providerPresets = {};
   let sessionOpen = false;
   let dirty = false;
   let observer = null;
+  let started = false;
+  let initialized = false;
+
   const publicModel = {
     loaded: false,
     available: false,
@@ -30,15 +35,6 @@
 
   function byId(id) { return document.getElementById(id); }
 
-  function readDraft() {
-    return {
-      provider: byId(IDS.provider)?.value || "",
-      api_key: byId(IDS.apiKey)?.value.trim() || "",
-      base_url: byId(IDS.baseUrl)?.value.trim() || "",
-      model: byId(IDS.model)?.value.trim() || "",
-      temperature: Number(byId(IDS.temperature)?.value || 0.35),
-    };
-  }
   function cloneConfig(config) {
     return {
       provider: String(config?.provider || ""),
@@ -48,6 +44,27 @@
       temperature: Number(config?.temperature ?? 0.35),
     };
   }
+
+  function readDraft() {
+    return {
+      provider: byId(IDS.provider)?.value || "",
+      api_key: byId(IDS.apiKey)?.value.trim() || "",
+      base_url: byId(IDS.baseUrl)?.value.trim() || "",
+      model: byId(IDS.model)?.value.trim() || "",
+      temperature: Number(byId(IDS.temperature)?.value || 0.35),
+    };
+  }
+
+  function persistActiveConfig(config) {
+    const current = cloneConfig(config);
+    if (current.api_key) sessionStorage.setItem("zhilian_api_key", current.api_key);
+    else sessionStorage.removeItem("zhilian_api_key");
+    localStorage.setItem("zhilian_provider", current.provider);
+    localStorage.setItem("zhilian_base_url", current.base_url);
+    localStorage.setItem("zhilian_model", current.model);
+    localStorage.setItem("zhilian_temperature", String(current.temperature));
+  }
+
   function captureActiveFromStorage() {
     const draft = readDraft();
     activeConfig = {
@@ -59,10 +76,12 @@
     };
     return activeConfig;
   }
+
   function getActiveConfig() {
     if (!activeConfig) captureActiveFromStorage();
     return cloneConfig(activeConfig);
   }
+
   function getActiveRequestConfig() {
     const config = getActiveConfig();
     return {
@@ -72,6 +91,24 @@
       temperature: config.temperature,
     };
   }
+
+  function requireRequestConfig() {
+    const config = getActiveRequestConfig();
+    if (config.api_key) {
+      if (!config.base_url || !config.model) {
+        throw new Error("使用企业自有 AI 服务时，请完整保存访问密钥、服务地址和模型名称。");
+      }
+      return config;
+    }
+    if (!publicModel.loaded) {
+      throw new Error("AI 服务状态仍在检查，请稍后重试。");
+    }
+    if (!publicModel.available) {
+      throw new Error("AI 服务尚未就绪，请打开“AI 服务设置”完成配置后再生成。");
+    }
+    return config;
+  }
+
   function sameConfig(left, right) {
     const a = cloneConfig(left);
     const b = cloneConfig(right);
@@ -81,12 +118,14 @@
       && a.model === b.model
       && Number(a.temperature) === Number(b.temperature);
   }
+
   function modelMode(config = getActiveConfig()) {
     if (publicModel.loaded && !publicModel.userOverrideAllowed) return publicModel.available ? "public" : "unconfigured";
     if (String(config.api_key || "").trim()) return "custom";
     if (!publicModel.loaded) return "checking";
     return publicModel.available ? "public" : "unconfigured";
   }
+
   function modeCopy(mode) {
     if (mode === "custom") return {
       badge: "企业服务",
@@ -151,6 +190,7 @@
   }
 
   function renderModelStatus() {
+    if (!document.body) return;
     const mode = modelMode();
     const copy = modeCopy(mode);
     const badge = byId("modeBadge");
@@ -207,11 +247,6 @@
 
   async function refreshPublicModelStatus() {
     try {
-      const fromState = typeof state !== "undefined" ? state.defaults?.public_model : null;
-      if (fromState) {
-        ingestPublicStatus(fromState);
-        return;
-      }
       const response = await fetch("/api/defaults", { headers: { Accept: "application/json" }, cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
@@ -234,6 +269,7 @@
     }
     return indicator;
   }
+
   function updateDraftState() {
     if (!sessionOpen) return;
     dirty = publicModel.userOverrideAllowed && !sameConfig(readDraft(), getActiveConfig());
@@ -245,6 +281,7 @@
     const save = byId(IDS.save);
     if (save) save.disabled = !dirty;
   }
+
   function restoreDraftFromActive() {
     const config = getActiveConfig();
     const provider = byId(IDS.provider);
@@ -262,6 +299,7 @@
     updateDraftState();
     renderModelStatus();
   }
+
   function beginEditSession() {
     if (sessionOpen) return;
     if (!activeConfig) captureActiveFromStorage();
@@ -271,24 +309,38 @@
     if (result) result.textContent = "";
     updateDraftState();
   }
+
   function endEditSession() {
     sessionOpen = false;
     dirty = false;
   }
+
   function commitDraft() {
     if (!publicModel.userOverrideAllowed) return;
     activeConfig = cloneConfig(readDraft());
-    if (originalSaveConfig) originalSaveConfig();
+    persistActiveConfig(activeConfig);
     dirty = false;
     renderModelStatus();
     updateDraftState();
   }
+
   function shouldAllowClose() {
     if (!sessionOpen || !dirty) return true;
     const discard = window.confirm("AI 服务设置有未保存的修改。要放弃这些修改吗？");
     if (!discard) return false;
     restoreDraftFromActive();
     return true;
+  }
+
+  function applyProviderPreset() {
+    const provider = byId(IDS.provider)?.value || "";
+    const preset = providerPresets[provider];
+    if (!preset) return;
+    const baseUrl = byId(IDS.baseUrl);
+    const model = byId(IDS.model);
+    if (baseUrl) baseUrl.value = preset.base_url || "";
+    if (model) model.value = preset.model || "";
+    if (preset.tip && typeof toast === "function") toast(preset.tip);
   }
 
   async function testDraftConnection() {
@@ -327,28 +379,42 @@
     }
   }
 
-  function installCompatibilityOverrides() {
-    window.getConfig = getActiveRequestConfig;
-    window.saveConfig = function saveConfigWithoutImplicitPersistence() {
-      return getActiveRequestConfig();
+  function initialize(defaults) {
+    providerPresets = { ...(defaults?.provider_presets || {}) };
+    const provider = byId(IDS.provider);
+    const fallbackProvider = providerPresets["通义千问 DashScope"] ? "通义千问 DashScope" : Object.keys(providerPresets)[0] || "";
+    if (provider) {
+      provider.innerHTML = Object.keys(providerPresets)
+        .map(name => `<option value="${String(name).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;")}">${String(name).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</option>`)
+        .join("");
+    }
+
+    const savedProvider = localStorage.getItem("zhilian_provider") || fallbackProvider;
+    const activeProvider = providerPresets[savedProvider] ? savedProvider : fallbackProvider;
+    const preset = providerPresets[activeProvider] || { base_url: "", model: "" };
+    activeConfig = {
+      provider: activeProvider,
+      api_key: sessionStorage.getItem("zhilian_api_key") || "",
+      base_url: localStorage.getItem("zhilian_base_url") || preset.base_url || "",
+      model: localStorage.getItem("zhilian_model") || preset.model || "",
+      temperature: Number(localStorage.getItem("zhilian_temperature") || 0.35),
     };
-    window.updateModeBadge = renderModelStatus;
-    window.requireApiConfig = function requireAvailableModel() {
-      const config = getActiveRequestConfig();
-      if (config.api_key) {
-        if (!config.base_url || !config.model) throw new Error("使用企业自有 AI 服务时，请完整保存访问密钥、服务地址和模型名称。");
-        return config;
-      }
-      if (publicModel.loaded && !publicModel.available) {
-        throw new Error("AI 服务尚未就绪，请打开“AI 服务设置”完成配置后再生成。");
-      }
-      return config;
-    };
+    initialized = true;
+    restoreDraftFromActive();
+    if (defaults?.public_model) ingestPublicStatus(defaults.public_model);
+    else refreshPublicModelStatus();
   }
 
   function handleClick(event) {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+
+    if (target.closest(`#${IDS.toggle}`)) {
+      event.preventDefault();
+      const key = byId(IDS.apiKey);
+      if (key) key.type = key.type === "password" ? "text" : "password";
+      return;
+    }
     if (target.closest(`#${IDS.clear}`)) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -384,14 +450,20 @@
       endEditSession();
     }
   }
+
   function handleDraftChange(event) {
     const panel = byId(IDS.panel);
-    if (!sessionOpen || !panel || !(event.target instanceof Node) || !panel.contains(event.target)) return;
+    if (!panel || !(event.target instanceof Node) || !panel.contains(event.target)) return;
+    if (event.type === "change" && event.target?.id === IDS.provider) applyProviderPreset();
+    if (event.target?.id === IDS.temperature && byId(IDS.temperatureValue)) {
+      byId(IDS.temperatureValue).textContent = String(byId(IDS.temperature)?.value || "0.35");
+    }
     window.setTimeout(() => {
       updateDraftState();
       renderModelStatus();
     }, 0);
   }
+
   function installObserver() {
     if (observer || !document.body) return;
     let wasOpen = document.body.classList.contains("ui-v4-api-open");
@@ -406,19 +478,28 @@
   }
 
   function start() {
+    if (started) return;
+    started = true;
     ensureAdvancedSettings();
-    installCompatibilityOverrides();
     document.addEventListener("click", handleClick, true);
     document.addEventListener("input", handleDraftChange, true);
     document.addEventListener("change", handleDraftChange, true);
     installObserver();
-    window.setTimeout(() => {
-      if (!activeConfig && byId(IDS.provider)?.options?.length) captureActiveFromStorage();
+    if (initialized) {
+      restoreDraftFromActive();
       renderModelStatus();
-      refreshPublicModelStatus();
-    }, 0);
+    }
     window.ZHILINK_MODEL_CONFIG_SAVE_V4_READY = true;
   }
+
+  window.ZHILINK_MODEL_CONFIG = Object.freeze({
+    initialize,
+    getActiveConfig,
+    getRequestConfig: getActiveRequestConfig,
+    requireRequestConfig,
+    renderStatus: renderModelStatus,
+    isInitialized: () => initialized,
+  });
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
