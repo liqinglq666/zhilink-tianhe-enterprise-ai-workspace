@@ -54,3 +54,25 @@ def test_result_css_prevents_stretched_spreadsheet_rows() -> None:
     assert 'min-height: 0 !important;' in RESULTS_CSS
     assert ".ui-v4-table-scroll" in RESULTS_CSS
     assert "table-layout: auto" in RESULTS_CSS
+
+
+# Lock user-facing result action edge cases so status and copy behavior cannot silently regress.
+def test_result_status_tones_do_not_treat_negative_words_as_success() -> None:
+    assert 'if (/(高风险|严重|逾期|异常|失败|拒绝|未通过|不通过|未达标)/.test(text)) return "danger";' in RESULTS
+    assert 'if (/(待确认|待补充|未确认|未知|待定|部分明确|未完成|不明确|需补充|处理中)/.test(text)) return "pending";' in RESULTS
+    assert 'if (/(已确认|已完成|已通过|正常|低风险)/.test(text)) return "success";' in RESULTS
+    assert 'if (/(已确认|已完成|完成|明确|通过|正常)/.test(text)) return "success";' not in RESULTS
+
+
+def test_copy_text_falls_back_when_async_clipboard_is_rejected() -> None:
+    start = RESULTS.index("async function copyText(text)")
+    end = RESULTS.index("function downloadTextFile", start)
+    implementation = RESULTS[start:end]
+    assert 'const value = String(text || "");' in implementation
+    assert "try {" in implementation
+    assert "await navigator.clipboard.writeText(value);" in implementation
+    assert "catch (_) {}" in implementation
+    assert 'document.execCommand("copy")' in implementation
+    assert "if (!copied) throw new Error" in implementation
+    assert "finally {" in implementation
+    assert "textarea.remove();" in implementation
