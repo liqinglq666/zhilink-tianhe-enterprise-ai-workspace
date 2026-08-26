@@ -62,6 +62,27 @@ def test_immediate_stream_close_closes_upstream_and_releases_slot(monkeypatch):
     assert limiter.released == ["client-1"]
 
 
+def test_generation_controls_are_the_only_browser_stream_transport_owner() -> None:
+    app = Path("frontend/assets/app.js").read_text(encoding="utf-8")
+    source = Path("frontend/assets/generation-controls.js").read_text(encoding="utf-8")
+
+    fallback_start = app.index("async function apiStream()")
+    fallback_end = app.index("function loadResultsFromSession", fallback_start)
+    fallback = app[fallback_start:fallback_end]
+
+    assert 'throw new Error("生成控制器未就绪，请刷新页面后重试。")' in fallback
+    assert "fetch(" not in fallback
+    assert "getReader(" not in fallback
+    assert "TextDecoder" not in fallback
+    assert "beginStreamingResult" not in app
+    assert "downloadTextFile" not in app
+
+    assert "function beginStreamingResult(key)" in source
+    assert "beginStreamingResult = function" not in source
+    assert "hooks.setGenerationTransport(runGeneration)" in source
+    assert "resp.body.getReader()" in source
+
+
 def test_browser_stream_only_formalizes_on_explicit_done_event() -> None:
     source = Path("frontend/assets/generation-controls.js").read_text(encoding="utf-8")
 
