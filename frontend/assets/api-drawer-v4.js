@@ -11,13 +11,11 @@
 
   function openDrawer() {
     document.body.classList.add("ui-v4-api-open");
-    window.ZHILINK_UI_V4_RUNTIME?.schedule?.("api-open");
     syncOpenState();
   }
 
   function closeDrawer() {
     document.body.classList.remove("ui-v4-api-open");
-    window.ZHILINK_UI_V4_RUNTIME?.schedule?.("api-close");
     syncOpenState();
   }
 
