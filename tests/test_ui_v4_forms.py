@@ -69,6 +69,22 @@ def test_v4_forms_match_existing_business_validation_without_adding_new_required
     assert 'pilotScene: "必填"' not in text
 
 
+def test_v4_forms_reuse_validation_for_readiness_without_clearing_click_errors() -> None:
+    with TestClient(app) as client:
+        script = client.get("/assets/ui-v4-forms.js?v=20260811.1")
+
+    text = script.text
+    assert "function readinessText(section, result)" in text
+    assert "function updateReadiness(section, result = null)" in text
+    assert "const current = result || validate(section, { showErrors: false });" in text
+    assert "status.textContent = readinessText(section, current);" in text
+    assert "updateReadiness(section, result);" in text
+
+    readiness_start = text.index("function readinessText(section, result)")
+    readiness_end = text.index("function updateReadiness", readiness_start)
+    assert "validate(" not in text[readiness_start:readiness_end]
+
+
 def test_v4_forms_do_not_own_business_or_persistence_state() -> None:
     with TestClient(app) as client:
         script = client.get("/assets/ui-v4-forms.js?v=20260811.1")
