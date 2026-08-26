@@ -30,6 +30,14 @@
     localStorage.setItem(WORKSPACE_KEY_STORAGE, key);
     return key;
   }
+  function ensureFavicon() {
+    if (document.querySelector('link[rel~="icon"]')) return;
+    const icon = document.createElement("link");
+    icon.rel = "icon";
+    icon.type = "image/svg+xml";
+    icon.href = "/assets/favicon.svg";
+    document.head.appendChild(icon);
+  }
   function triggerExisting(id) {
     const target = byId(id);
     if (!target) { notify("该功能仍在初始化，请稍后重试。"); return false; }
@@ -250,10 +258,11 @@
 
   function start() {
     ensureWorkspaceKey();
+    ensureFavicon();
     apply();
     bindControls();
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(apply, { immediate: false });
-    fetchProjects();
+    if (window.ACCOUNT_ACCESS_READY) fetchProjects();
   }
 
   window.ZHILINK_UI_V4_SHELL = {
