@@ -67,10 +67,37 @@ def test_v4_results_classify_business_sections_without_rewriting_generated_conte
     assert 'cell.setAttribute("scope", "col")' in text
 
     for forbidden in (
-        "fetch(", "localStorage", "sessionStorage", "state.results", "setResult(", "showResult =", "apiStream(",
-        "saveConfig(", "downloadModuleFile(", "MutationObserver",
+        "localStorage", "sessionStorage", "state.results", "setResult(", "showResult =", "apiStream(",
+        "saveConfig(", "MutationObserver",
     ):
         assert forbidden not in text
+
+
+def test_v4_results_are_the_only_result_copy_and_export_action_owner() -> None:
+    with TestClient(app) as client:
+        script = client.get("/assets/ui-v4-results.js?v=20260811.1")
+        bundle = client.get("/assets/app.js")
+
+    text = script.text
+    assert "async function copyText(text)" in text
+    assert "function downloadTextFile(filename, content" in text
+    assert "async function requestDownload(" in text
+    assert "async function downloadModuleFile(key, format)" in text
+    assert "async function downloadReportFile(url, filename, contentType)" in text
+    assert "window.ZHILINK_RESULTS = Object.freeze({" in text
+    assert "window.ZHILINK_MODEL_CONFIG?.getRequestConfig?.()" in text
+    assert 'event.target.closest?.(".copy-result")' in text
+    assert 'event.target.closest?.(".export-result")' in text
+    assert '"downloadMarkdown"' in text
+    assert '"downloadDocx"' in text
+
+    core = bundle.text[:bundle.text.index("/* UI V4 runtime:")]
+    assert "async function requestDownload(" not in core
+    assert "async function downloadModuleFile(" not in core
+    assert "async function downloadReportFile(" not in core
+    assert "async function copyText(" not in core
+    assert 'const copyBtn = e.target.closest(".copy-result")' not in core
+    assert 'attachDownload("downloadMarkdown"' not in core
 
 
 def test_v4_results_reduce_plugin_chrome_and_keep_mobile_readability() -> None:
