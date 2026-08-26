@@ -213,8 +213,9 @@ async function main() {
     }
 
     async function pressKey(key, code, virtualKeyCode) {
+      const text = key === "Enter" ? "\r" : key.length === 1 ? key : "";
       const params = { key, code, windowsVirtualKeyCode: virtualKeyCode, nativeVirtualKeyCode: virtualKeyCode };
-      await client.send("Input.dispatchKeyEvent", { type: "keyDown", ...params });
+      await client.send("Input.dispatchKeyEvent", { type: "keyDown", ...params, ...(text ? { text, unmodifiedText: text } : {}) });
       await client.send("Input.dispatchKeyEvent", { type: "keyUp", ...params });
     }
 
