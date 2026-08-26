@@ -76,6 +76,16 @@ def test_core_runtime_owns_contracts_result_events_hooks_and_ui_scheduler() -> N
     assert "requestAnimationFrame" in runtime
 
 
+def test_runtime_mutation_filter_is_owned_by_observer_options() -> None:
+    runtime = RUNTIME.read_text(encoding="utf-8")
+
+    assert 'observer = new MutationObserver(() => schedule("dom"));' in runtime
+    assert 'attributeFilter: ["class", "hidden", "aria-hidden", "aria-expanded", "disabled"]' in runtime
+    assert "mutations.some" not in runtime
+    assert "mutation.type" not in runtime
+    assert "mutation.attributeName" not in runtime
+
+
 def test_business_extensions_register_hooks_and_events_without_wrapping_globals() -> None:
     consumers = {
         "generation-controls.js": ("hooks.setGenerationTransport(runGeneration)",),
