@@ -226,13 +226,11 @@
     const modal = document.getElementById("officialPolicyModal");
     modal?.classList.add("show");
     modal?.setAttribute("aria-hidden", "false");
-    window.ZHILINK_UI_V4_RUNTIME?.schedule?.("policy-sources-open");
   }
   function closeViewer() {
     const modal = document.getElementById("officialPolicyModal");
     modal?.classList.remove("show");
     modal?.setAttribute("aria-hidden", "true");
-    window.ZHILINK_UI_V4_RUNTIME?.schedule?.("policy-sources-close");
   }
 
   hooks.register("generation:request", async request => {
