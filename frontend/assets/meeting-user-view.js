@@ -258,9 +258,6 @@
           .catch(() => toast("复制失败，请手动选择会议纪要文本复制。"));
       }
     }, true);
-    document.addEventListener("keydown", event => {
-      if (event.key === "Escape") closeSources();
-    });
   }
 
   window.addEventListener(contracts.events.resultUpdated, event => {
