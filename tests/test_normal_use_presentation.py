@@ -7,10 +7,11 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "frontend" / "assets"
 
 
-def test_normal_customer_flow_hides_demo_only_examples() -> None:
+def test_normal_customer_flow_keeps_optional_examples_visible() -> None:
     forms_css = (ASSETS / "ui-v4-forms.css").read_text(encoding="utf-8")
 
-    assert "body.ui-v4-forms .ui-v4-example-bar {\n  display: none;\n}" in forms_css
+    assert "body.ui-v4-forms .ui-v4-example-bar {\n  display: flex;" in forms_css
+    assert "body.ui-v4-forms .ui-v4-example-bar {\n  display: none;\n}" not in forms_css
 
 
 def test_customer_copy_does_not_expose_runtime_transport_details() -> None:

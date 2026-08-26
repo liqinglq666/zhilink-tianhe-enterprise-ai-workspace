@@ -16,6 +16,7 @@
   let latestProjects = { items: [], total: 0 };
   let lastProjectSignature = "";
   let pendingProjectId = "";
+  let pendingMobileNavFocus = null;
   let bound = false;
 
   const byId = id => document.getElementById(id);
@@ -66,7 +67,7 @@
       focusSoon(document.querySelector("#navList button.active") || document.querySelector("#navList button"));
     } else if (focusAfterClose) {
       focusAfterClose.focus?.({ preventScroll: true });
-      if (document.activeElement !== focusAfterClose) focusSoon(focusAfterClose);
+      focusSoon(focusAfterClose);
     }
   }
   function syncSidebarViewport() {
@@ -249,7 +250,14 @@
       const wrap = document.querySelector(".ui-v4-account-wrap");
       if (menu && wrap && !menu.hidden && !wrap.contains(event.target)) closeAccountMenu();
       const navButton = event.target.closest?.(".nav button");
-      if (navButton && isMobileSidebar()) setSidebarOpen(false, byId("pageTitle"));
+      if (navButton && isMobileSidebar()) {
+        const title = byId("pageTitle");
+        pendingMobileNavFocus = title;
+        setSidebarOpen(false, title);
+        window.setTimeout(() => {
+          if (pendingMobileNavFocus === title) pendingMobileNavFocus = null;
+        }, 1000);
+      }
     });
     document.addEventListener("keydown", event => {
       if (event.key !== "Escape") return;
@@ -263,6 +271,13 @@
         event.preventDefault();
         setSidebarOpen(false, byId("uiV4MobileMenu"));
       }
+    });
+    document.addEventListener("keyup", event => {
+      if (!pendingMobileNavFocus || !["Enter", " "].includes(event.key)) return;
+      const target = pendingMobileNavFocus;
+      pendingMobileNavFocus = null;
+      target.focus?.({ preventScroll: true });
+      focusSoon(target);
     });
     window.addEventListener("storage", event => {
       if ([CURRENT_PROJECT_STORAGE, WORKSPACE_KEY_STORAGE].includes(event.key)) {
