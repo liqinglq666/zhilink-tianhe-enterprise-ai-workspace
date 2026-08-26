@@ -65,7 +65,8 @@
     if (shouldOpen) {
       focusSoon(document.querySelector("#navList button.active") || document.querySelector("#navList button"));
     } else if (focusAfterClose) {
-      focusSoon(focusAfterClose);
+      focusAfterClose.focus?.({ preventScroll: true });
+      if (document.activeElement !== focusAfterClose) focusSoon(focusAfterClose);
     }
   }
   function syncSidebarViewport() {
