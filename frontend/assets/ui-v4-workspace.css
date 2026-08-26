@@ -253,7 +253,7 @@ body.ui-v4-shell.ui-v4-foundation.ui-v4-workspace .page.ui-v4-business-page.acti
   gap: 9px;
   margin-bottom: 10px;
 }
-.ui-v4-workspace .ui-v4-business-page > .result-panel .result-section-title > span {
+.ui-v4-workspace .ui-v4-business-page > .result-panel .result-section-title > span:first-child {
   width: 30px;
   height: 26px;
   display: grid;
