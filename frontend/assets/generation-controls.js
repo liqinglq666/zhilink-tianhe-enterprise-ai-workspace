@@ -39,7 +39,7 @@
     `;
   }
 
-  beginStreamingResult = function beginStreamingResultWithCancel(key) {
+  function beginStreamingResult(key) {
     const panel = $(`${key}Result`);
     if (!panel) return;
     const title = resultTitles[key] || "生成结果";
@@ -57,7 +57,7 @@
       </div>
       <div id="${key}StreamContent" class="streaming-content" aria-live="polite">正在整理内容，请稍候...</div>
     `;
-  };
+  }
 
   async function runGeneration(request) {
     const { url, payload, key } = request;

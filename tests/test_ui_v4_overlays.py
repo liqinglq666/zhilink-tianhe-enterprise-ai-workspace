@@ -55,7 +55,8 @@ def test_overlay_dom_changes_delegate_scheduling_to_shared_runtime() -> None:
     assert '[data-close-policy-sources]' in overlays
 
 
-def test_overlay_controller_owns_business_dialog_keyboard_and_review_initial_focus() -> None:
+def test_overlay_controller_owns_business_dialog_keyboard_and_initial_focus() -> None:
+    app = (ASSETS / "app.js").read_text(encoding="utf-8")
     meeting = (ASSETS / "meeting-user-view.js").read_text(encoding="utf-8")
     structured = (ASSETS / "structured-results.js").read_text(encoding="utf-8")
     review = (ASSETS / "review-workflow.js").read_text(encoding="utf-8")
@@ -65,6 +66,12 @@ def test_overlay_controller_owns_business_dialog_keyboard_and_review_initial_foc
     assert 'event.key === "Escape"' not in structured
     assert 'event.key === "Escape"' not in review
     assert 'setTimeout(() => document.getElementById("reviewContentInput")?.focus(), 30)' not in review
+    assert 'document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeIdentityModal(); });' not in app
+    assert 'setTimeout(() => $("identityOrg")?.focus(), 30);' not in app
+
+    assert 'key: "identity"' in overlays
+    assert 'close: () => document.getElementById("closeIdentity")' in overlays
+    assert 'initial: () => document.getElementById("identityOrg")' in overlays
     assert 'key: "meeting-sources"' in overlays
     assert 'close: () => document.querySelector("#meetingSourceDialog button[data-close-meeting-sources]")' in overlays
     assert 'key: "structured"' in overlays
