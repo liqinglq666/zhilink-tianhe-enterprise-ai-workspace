@@ -121,7 +121,24 @@ def test_streaming_content_renders_once_per_non_terminal_network_chunk() -> None
 
     assert "lastRender" not in source
     assert "Date.now()" not in source
-    assert source.count("updateStreamingResult(key, task.full);") == 1
+    assert source.count("updateLiveStreamPreview(key, task.full);") == 1
+
+
+def test_live_stream_preview_is_separate_and_plain_text_safe() -> None:
+    source = Path("frontend/assets/generation-controls.js").read_text(encoding="utf-8")
+
+    assert 'id="${key}StreamProgress"' in source
+    assert 'id="${key}StreamPreview"' in source
+    assert 'const target = $(`${key}StreamProgress`);' in source
+    assert 'const target = $(`${key}StreamPreview`);' in source
+    assert "function updateLiveStreamPreview(key, content)" in source
+    preview_start = source.index("function updateLiveStreamPreview(key, content)")
+    preview_end = source.index("function showStoppedResult", preview_start)
+    preview_block = source[preview_start:preview_end]
+    assert "target.textContent = text;" in preview_block
+    assert "innerHTML" not in preview_block
+    assert "renderMarkdown" not in preview_block
+    assert "完成后自动核对并排版" in source
 
 
 def test_generation_transport_does_not_implicitly_save_model_config() -> None:
