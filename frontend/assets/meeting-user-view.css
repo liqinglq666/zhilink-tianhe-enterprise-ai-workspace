@@ -60,3 +60,65 @@
 
 .meeting-source-pending { margin-top: 22px; }
 .meeting-source-pending li { margin: 7px 0; line-height: 1.55; }
+
+/* Meeting result readability: keep semantic labels and evidence references intact. */
+#meetingResult .ui-v4-section-kind-badge {
+  width: auto;
+  height: auto;
+  min-width: max-content;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  writing-mode: horizontal-tb;
+}
+
+#meetingResult .result-section-content code {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+#meetingResult .ui-v4-document-table {
+  table-layout: fixed;
+  min-width: 760px;
+}
+
+#meetingResult .ui-v4-document-table th:nth-child(1),
+#meetingResult .ui-v4-document-table td:nth-child(1) { width: 44%; }
+
+#meetingResult .ui-v4-document-table th:nth-child(2),
+#meetingResult .ui-v4-document-table td:nth-child(2) {
+  width: 14%;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
+#meetingResult .ui-v4-document-table th:nth-child(3),
+#meetingResult .ui-v4-document-table td:nth-child(3) {
+  width: 14%;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
+#meetingResult .ui-v4-document-table th:nth-child(4),
+#meetingResult .ui-v4-document-table td:nth-child(4) { width: 28%; }
+
+#meetingResult .ui-v4-document-table td {
+  line-height: 1.65;
+}
+
+#meetingResult.streaming .streaming-content {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  padding: 48px 32px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.7;
+  text-align: center;
+  border: 1px dashed #dbe3ee;
+  border-radius: 14px;
+  background: #fafcff;
+}
