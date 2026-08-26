@@ -379,11 +379,10 @@ function setResult(key, result) {
 function updateStreamingResult(key, content) {
   const target = $(`${key}StreamContent`);
   if (!target) return;
-  if (!content.trim()) {
-    target.textContent = "正在生成内容，请稍候...";
-    return;
-  }
-  target.innerHTML = renderStructuredMarkdown(content);
+  const hasContent = Boolean(String(content || "").trim());
+  target.textContent = hasContent
+    ? "正在生成并整理内容，完成后将自动显示正式结果。"
+    : "正在生成内容，请稍候...";
 }
 
 function finishStreamingResult(key, content, mode = "AI模型流式模式") {
