@@ -33,19 +33,26 @@
   }
 
   async function copyText(text) {
+    const value = String(text || "");
     if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(String(text || ""));
-      return;
+      try {
+        await navigator.clipboard.writeText(value);
+        return;
+      } catch (_) {}
     }
     const textarea = document.createElement("textarea");
-    textarea.value = String(text || "");
+    textarea.value = value;
     textarea.style.position = "fixed";
     textarea.style.left = "-9999px";
     document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    document.execCommand("copy");
-    textarea.remove();
+    try {
+      textarea.focus();
+      textarea.select();
+      const copied = document.execCommand("copy");
+      if (!copied) throw new Error("复制失败，请手动选择文本复制。");
+    } finally {
+      textarea.remove();
+    }
   }
 
   function downloadTextFile(filename, content, contentType = "text/plain;charset=utf-8") {
@@ -196,9 +203,9 @@
 
   function statusTone(value) {
     const text = cleanText(value);
-    if (/(高风险|严重|逾期|异常|失败|拒绝)/.test(text)) return "danger";
-    if (/(待确认|待补充|未确认|未知|待定|部分明确)/.test(text)) return "pending";
-    if (/(已确认|已完成|完成|明确|通过|正常)/.test(text)) return "success";
+    if (/(高风险|严重|逾期|异常|失败|拒绝|未通过|不通过|未达标)/.test(text)) return "danger";
+    if (/(待确认|待补充|未确认|未知|待定|部分明确|未完成|不明确|需补充|处理中)/.test(text)) return "pending";
+    if (/(已确认|已完成|已通过|正常|低风险)/.test(text)) return "success";
     return "neutral";
   }
 
