@@ -302,14 +302,7 @@
 
   function installObserver() {
     if (observer || !document.body) return;
-    observer = new MutationObserver(mutations => {
-      const relevant = mutations.some(mutation => {
-        if (mutation.type === "characterData") return true;
-        if (mutation.type === "childList") return mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0;
-        return mutation.type === "attributes" && ["class", "hidden", "aria-hidden", "aria-expanded", "disabled"].includes(mutation.attributeName);
-      });
-      if (relevant) schedule("dom");
-    });
+    observer = new MutationObserver(() => schedule("dom"));
     observer.observe(document.body, {
       subtree: true,
       childList: true,
