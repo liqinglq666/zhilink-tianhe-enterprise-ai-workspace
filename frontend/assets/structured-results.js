@@ -226,9 +226,6 @@
     if (openButton) { open(openButton.dataset.openStructured); return; }
     if (event.target.closest("[data-close-structured]")) { close(); return; }
   });
-  document.addEventListener("keydown", event => {
-    if (event.key === "Escape" && document.getElementById("structuredResultModal")?.classList.contains("show")) close();
-  });
   document.getElementById("copyStructuredJson")?.addEventListener("click", () => copyJson().catch(error => toast(error.message || String(error))));
   document.getElementById("downloadStructuredJson")?.addEventListener("click", downloadJson);
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", syncExisting, { once: true });
