@@ -138,7 +138,6 @@ function openIdentityModal() {
   const modal = $("identityModal");
   modal.classList.add("show");
   modal.setAttribute("aria-hidden", "false");
-  setTimeout(() => $("identityOrg")?.focus(), 30);
 }
 
 function closeIdentityModal() {
@@ -401,29 +400,6 @@ function setResult(key, result) {
   updateModeBadge();
 }
 
-function beginStreamingResult(key) {
-  const panel = $(`${key}Result`);
-  if (!panel) return;
-  const title = resultTitles[key] || "生成结果";
-  panel.className = "result-panel streaming";
-  panel.innerHTML = `
-    <div class="result-header">
-      <div>
-        <p class="result-label">${escapeHtml(title)}</p>
-        <h3>${escapeHtml(title)}流式生成中</h3>
-      </div>
-      <div class="result-actions">
-        <span class="streaming-badge"><span class="streaming-dot"></span>正在生成</span>
-      </div>
-    </div>
-    <div class="result-meta">
-      <span class="meta-pill">AI模型流式模式</span>
-      <span class="meta-pill">${escapeHtml(new Date().toLocaleTimeString())}</span>
-    </div>
-    <div id="${key}StreamContent" class="streaming-content">正在连接模型接口，请稍候...</div>
-  `;
-}
-
 function updateStreamingResult(key, content) {
   const target = $(`${key}StreamContent`);
   if (!target) return;
@@ -437,7 +413,6 @@ function updateStreamingResult(key, content) {
 function finishStreamingResult(key, content, mode = "AI模型流式模式") {
   setResult(key, { ok: true, content, mode, error: "" });
 }
-
 function failStreamingResult(key, message) {
   const panel = $(`${key}Result`);
   if (!panel) return;
@@ -456,81 +431,8 @@ function failStreamingResult(key, message) {
   `;
 }
 
-async function apiStream(url, payload, key) {
-  saveConfig();
-  beginStreamingResult(key);
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  let full = "";
-  let buffer = "";
-
-  try {
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-
-    if (!resp.ok) {
-      const text = await resp.text();
-      let detail = text;
-      try { detail = JSON.parse(text).detail || text; } catch (_) {}
-      throw new Error(detail);
-    }
-    if (!resp.body) throw new Error("当前浏览器不支持流式读取，请更新浏览器后重试。");
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let lastRender = 0;
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const frames = buffer.split("\n\n");
-      buffer = frames.pop() || "";
-
-      for (const frame of frames) {
-        const line = frame.split("\n").find(x => x.startsWith("data:"));
-        if (!line) continue;
-
-        const raw = line.slice(5).trim();
-        if (!raw) continue;
-
-        let event;
-        try { event = JSON.parse(raw); } catch (_) { continue; }
-
-        if (event.type === "delta") {
-          full += event.content || "";
-          const now = Date.now();
-          if (now - lastRender > 120 || full.length < 80) {
-            updateStreamingResult(key, full);
-            lastRender = now;
-          }
-        } else if (event.type === "done") {
-          full = event.content || full;
-          finishStreamingResult(key, full, event.mode || "AI模型流式模式");
-          return { ok: true, content: full, mode: event.mode || "AI模型流式模式" };
-        } else if (event.type === "error") {
-          throw new Error(event.error || "模型流式生成失败。");
-        }
-      }
-
-      updateStreamingResult(key, full);
-    }
-
-    finishStreamingResult(key, full, "AI模型流式模式");
-    return { ok: true, content: full, mode: "AI模型流式模式" };
-  } catch (err) {
-    const message = err.name === "AbortError" ? "请求超时，请缩短输入内容或检查模型接口后重试。" : (err.message || String(err));
-    failStreamingResult(key, message);
-    throw new Error(message);
-  } finally {
-    clearTimeout(timer);
-  }
+async function apiStream() {
+  throw new Error("生成控制器未就绪，请刷新页面后重试。");
 }
 
 function loadResultsFromSession() {
@@ -810,18 +712,6 @@ async function copyText(text) {
   document.body.removeChild(textarea);
 }
 
-function downloadTextFile(filename, content, contentType = "text/plain;charset=utf-8") {
-  const blob = new Blob([content], { type: contentType });
-  const a = document.createElement("a");
-  const objectUrl = URL.createObjectURL(blob);
-  a.href = objectUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-}
-
 function attachRun(id, fn, text) {
   $(id).addEventListener("click", async (e) => {
     const btn = e.currentTarget;
@@ -891,7 +781,6 @@ function bindEvents() {
   }
   if ($("saveIdentity")) $("saveIdentity").addEventListener("click", () => { saveIdentity(); closeIdentityModal(); toast("已保存当前使用身份"); });
   if ($("resetIdentity")) $("resetIdentity").addEventListener("click", () => { localStorage.removeItem("zhilian_identity"); state.identity = { role: "企业用户" }; renderIdentity(); toast("已清除当前使用身份"); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeIdentityModal(); });
   document.addEventListener("click", async (e) => {
     const exampleBtn = e.target.closest(".quick-fill-btn");
     if (exampleBtn) {
