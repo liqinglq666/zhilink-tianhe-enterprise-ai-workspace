@@ -35,14 +35,49 @@ def test_model_config_uses_draft_test_and_explicit_commit() -> None:
 
     assert "function readDraft()" in script
     assert "function commitDraft()" in script
-    assert "originalSaveConfig" in script
-    assert 'window.saveConfig = function saveConfigWithoutImplicitPersistence()' in script
-    assert 'window.getConfig = getActiveRequestConfig' in script
+    assert "function persistActiveConfig(config)" in script
+    assert "function initialize(defaults)" in script
+    assert 'window.ZHILINK_MODEL_CONFIG = Object.freeze({' in script
     assert 'await apiPost("/api/test-connection", payload)' in script
     assert "当前编辑设置，尚未保存" in script
     assert "AI 服务设置有未保存的修改" in script
     assert "restoreDraftFromActive" in script
     assert "有未保存更改" in script
+
+    for obsolete in (
+        "originalSaveConfig",
+        "installCompatibilityOverrides",
+        "window.getConfig =",
+        "window.saveConfig =",
+        "window.updateModeBadge =",
+        "window.requireApiConfig =",
+    ):
+        assert obsolete not in script
+
+
+def test_model_config_is_the_only_model_setting_persistence_owner() -> None:
+    controller = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
+    core = (ASSETS / "app.js").read_text(encoding="utf-8")
+
+    for marker in (
+        'sessionStorage.setItem("zhilian_api_key"',
+        'localStorage.setItem("zhilian_provider"',
+        'localStorage.setItem("zhilian_base_url"',
+        'localStorage.setItem("zhilian_model"',
+        'localStorage.setItem("zhilian_temperature"',
+    ):
+        assert marker in controller
+        assert marker not in core
+
+    assert "function getConfig()" not in core
+    assert "function saveConfig()" not in core
+    assert "function updateModeBadge()" not in core
+    assert "function requireApiConfig()" not in core
+    assert 'window.ZHILINK_MODEL_CONFIG.requireRequestConfig()' in core
+    assert "controller.initialize(state.defaults)" in core
+    assert '$("testConnection").addEventListener' not in core
+    assert '$("clearKey").addEventListener' not in core
+    assert '$("toggleKey").addEventListener' not in core
 
 
 def test_model_config_clear_key_is_draft_only_until_save() -> None:
@@ -93,11 +128,14 @@ def test_model_config_supports_platform_and_enterprise_services_with_business_co
 def test_model_config_generation_requires_saved_enterprise_or_available_platform_service() -> None:
     script = (ASSETS / "model-config-save-v4.js").read_text(encoding="utf-8")
 
-    assert 'window.requireApiConfig = function requireAvailableModel()' in script
+    assert "function requireRequestConfig()" in script
     assert "使用企业自有 AI 服务时，请完整保存访问密钥、服务地址和模型名称。" in script
     assert "AI 服务尚未就绪，请打开“AI 服务设置”完成配置后再生成。" in script
+    assert "AI 服务状态仍在检查，请稍后重试。" in script
     assert "renderModelStatus" in script
     assert "zhilink:model-mode-change" in script
+    assert "requireRequestConfig," in script
+    assert "window.requireApiConfig" not in script
 
 
 def test_model_config_owns_dynamic_state_while_customer_copy_is_native() -> None:
