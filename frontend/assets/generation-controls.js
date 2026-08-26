@@ -60,11 +60,14 @@
     const target = $(`${key}StreamProgress`);
     if (!target || !task) return;
     const chars = String(task.full || "").length;
+    target.removeAttribute("aria-label");
     if (task.phase === "verifying") {
       target.textContent = `正文草稿已形成 · 正在核对关键事实与待确认项${chars ? ` · ${chars.toLocaleString()} 字` : ""}`;
     } else if (task.phase === "finishing") {
       target.textContent = "内容核对完成 · 正在生成正式业务版本";
     } else if (task.phase === "generating" && chars > 0) {
+      const networkProgress = `已接收约 ${chars.toLocaleString()} 字，正在继续生成并整理`;
+      target.setAttribute("aria-label", networkProgress);
       target.textContent = `正在形成业务结果 · 已整理 ${chars.toLocaleString()} 字，内容持续更新`;
     } else if (task.phase === "generating") {
       target.textContent = "正在形成业务结果 · 首批内容即将生成";
@@ -308,7 +311,7 @@
             setStreamStatus(key, "正在生成");
           } else if (event.type === "verifying") {
             task.phase = "verifying";
-            setStreamStatus(key, "正在核对");
+            setStreamStatus(key, "正在核对内容");
           } else if (event.type === "verified") {
             if (!String(event.content || "").trim()) {
               throw createGenerationError("内容核对完成，但没有可用结果，请重新生成。", "STREAM_VERIFICATION_EMPTY", true);
