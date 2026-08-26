@@ -12,7 +12,10 @@
     ["summary", /(摘要|概览|总结|总体判断|一句话|核心信息)/],
   ];
   const KIND_LABELS = { summary: "摘要", decision: "决策", action: "执行", risk: "风险", pending: "待确认", evidence: "依据" };
+  const RECORD_KINDS = new Set(["action", "decision", "risk", "pending"]);
+  const STATUS_HEADER_RE = /(确认状态|状态|风险等级|优先级|处理状态)/;
   let actionsBound = false;
+  let resultSyncScheduled = false;
 
   function cleanText(value) { return String(value || "").replace(/\s+/g, " ").trim(); }
   function moduleFromPanel(panel) {
@@ -185,11 +188,121 @@
     });
   }
 
+  function tableData(table) {
+    const headers = Array.from(table.querySelectorAll("thead th")).map(cell => cleanText(cell.textContent));
+    const rows = Array.from(table.querySelectorAll("tbody tr")).map(row => Array.from(row.querySelectorAll("td")).map(cell => cleanText(cell.textContent)));
+    return { headers, rows: rows.filter(row => row.some(Boolean)) };
+  }
+
+  function statusTone(value) {
+    const text = cleanText(value);
+    if (/(高风险|严重|逾期|异常|失败|拒绝)/.test(text)) return "danger";
+    if (/(待确认|待补充|未确认|未知|待定|部分明确)/.test(text)) return "pending";
+    if (/(已确认|已完成|完成|明确|通过|正常)/.test(text)) return "success";
+    return "neutral";
+  }
+
+  function makeStatus(value) {
+    const status = document.createElement("span");
+    status.className = "ui-v4-record-status";
+    status.dataset.tone = statusTone(value);
+    status.textContent = value || "待确认";
+    return status;
+  }
+
+  function replaceSummaryTable(table, model) {
+    if (model.rows.length !== 1 || model.headers.length < 2 || model.headers.length > 8) return false;
+    const grid = document.createElement("dl");
+    grid.className = "ui-v4-fact-grid";
+    model.headers.forEach((header, index) => {
+      const value = model.rows[0][index];
+      if (!header || !value) return;
+      const item = document.createElement("div");
+      item.className = "ui-v4-fact-item";
+      const term = document.createElement("dt");
+      term.textContent = header;
+      const description = document.createElement("dd");
+      description.textContent = value;
+      item.append(term, description);
+      grid.appendChild(item);
+    });
+    if (!grid.children.length) return false;
+    table.replaceWith(grid);
+    return true;
+  }
+
+  function replaceRecordTable(table, model, kind) {
+    if (!model.headers.length || !model.rows.length || model.headers.length > 8 || model.rows.length > 30) return false;
+    const statusIndex = model.headers.findIndex(header => STATUS_HEADER_RE.test(header));
+    const list = document.createElement("div");
+    list.className = `ui-v4-record-list ui-v4-record-list-${kind}`;
+    list.setAttribute("role", "list");
+
+    model.rows.forEach((row, rowIndex) => {
+      const primary = row[0] || `${KIND_LABELS[kind] || "事项"} ${rowIndex + 1}`;
+      const record = document.createElement("article");
+      record.className = `ui-v4-business-record ui-v4-business-record-${kind}`;
+      record.setAttribute("role", "listitem");
+
+      const head = document.createElement("div");
+      head.className = "ui-v4-record-head";
+      const index = document.createElement("span");
+      index.className = "ui-v4-record-index";
+      index.textContent = String(rowIndex + 1).padStart(2, "0");
+      const title = document.createElement("strong");
+      title.className = "ui-v4-record-title";
+      title.textContent = primary;
+      head.append(index, title);
+      if (statusIndex >= 0 && row[statusIndex]) head.appendChild(makeStatus(row[statusIndex]));
+      record.appendChild(head);
+
+      const meta = document.createElement("dl");
+      meta.className = "ui-v4-record-meta";
+      model.headers.forEach((header, columnIndex) => {
+        if (columnIndex === 0 || columnIndex === statusIndex) return;
+        const value = row[columnIndex];
+        if (!header || !value) return;
+        const item = document.createElement("div");
+        const term = document.createElement("dt");
+        term.textContent = header;
+        const description = document.createElement("dd");
+        description.textContent = value;
+        item.append(term, description);
+        meta.appendChild(item);
+      });
+      if (meta.children.length) record.appendChild(meta);
+      list.appendChild(record);
+    });
+
+    if (!list.children.length) return false;
+    table.replaceWith(list);
+    return true;
+  }
+
   function decorateTable(table, sectionTitle) {
     if (!(table instanceof HTMLTableElement)) return;
     table.classList.add("ui-v4-document-table");
     if (!table.hasAttribute("aria-label")) table.setAttribute("aria-label", `${sectionTitle || "结果"}表格`);
     table.querySelectorAll("thead th").forEach(cell => cell.setAttribute("scope", "col"));
+    if (!table.parentElement?.classList.contains("ui-v4-table-scroll")) {
+      const wrap = document.createElement("div");
+      wrap.className = "ui-v4-table-scroll";
+      wrap.tabIndex = 0;
+      wrap.setAttribute("role", "region");
+      wrap.setAttribute("aria-label", `${sectionTitle || "结果"}表格，可横向滚动`);
+      table.replaceWith(wrap);
+      wrap.appendChild(table);
+    }
+  }
+
+  function upgradeBusinessTables(section, sectionTitle, kind) {
+    section.querySelectorAll("table").forEach(table => {
+      if (!(table instanceof HTMLTableElement)) return;
+      const model = tableData(table);
+      if (kind === "summary" && replaceSummaryTable(table, model)) return;
+      if (RECORD_KINDS.has(kind) && replaceRecordTable(table, model, kind)) return;
+      decorateTable(table, sectionTitle);
+    });
   }
 
   function decorateSection(section, index, module) {
@@ -215,7 +328,7 @@
         badge.textContent = KIND_LABELS[kind] || "";
       } else badge?.remove();
     }
-    section.querySelectorAll("table").forEach(table => decorateTable(table, titleText));
+    upgradeBusinessTables(section, titleText, kind);
   }
 
   function decorateBody(panel) {
@@ -227,10 +340,9 @@
   }
 
   function decorateStreaming(panel) {
-    const streaming = panel.querySelector(".streaming-content");
+    const streaming = panel.querySelector(".streaming-stage, .streaming-content");
     if (!(streaming instanceof HTMLElement)) return;
     streaming.classList.add("ui-v4-document-streaming");
-    streaming.setAttribute("aria-live", "polite");
   }
 
   function decoratePanel(panel) {
@@ -249,6 +361,14 @@
   }
 
   function sync() { document.querySelectorAll(PANEL_SELECTOR).forEach(decoratePanel); }
+  function scheduleResultSync() {
+    if (resultSyncScheduled) return;
+    resultSyncScheduled = true;
+    queueMicrotask(() => queueMicrotask(() => {
+      resultSyncScheduled = false;
+      sync();
+    }));
+  }
 
   function bindActions() {
     if (actionsBound) return;
@@ -302,6 +422,8 @@
     bindActions();
     sync();
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(sync, { immediate: false });
+    const resultUpdatedEvent = window.ZHILINK_WORKSPACE_CONTRACTS?.events?.resultUpdated;
+    if (resultUpdatedEvent) window.addEventListener(resultUpdatedEvent, scheduleResultSync);
     window.ZHILINK_UI_V4_RESULTS_READY = true;
   }
 

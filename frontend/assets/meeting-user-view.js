@@ -206,6 +206,10 @@
         button.textContent = "核对原文";
         actions.appendChild(button);
       }
+
+      /* Meeting sanitization can replace the result body after review/structured events.
+         Hand presentation control back to the results owner so risk/action tables stay upgraded. */
+      window.ZHILINK_RESULTS?.refreshPresentation?.();
     } finally {
       decorating = false;
     }

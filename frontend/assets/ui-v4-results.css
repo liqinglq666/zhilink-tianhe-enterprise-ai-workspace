@@ -1,194 +1,189 @@
-/* UI V4 result reading layer: make generated output read like a business document, not stacked plugin cards. */
+/* UI V4 result reading layer: business-document presentation for generated output. */
 
 .ui-v4-results .ui-v4-document-result:not(.empty) {
   color: var(--ui4-text, #172033);
   background: #fff;
 }
 
+/* Result header and document actions */
 .ui-v4-results .ui-v4-document-result .ui-v4-document-header {
-  min-height: 62px;
-  padding-top: 13px;
-  padding-bottom: 12px;
+  min-height: 60px;
+  margin-bottom: 0;
+  padding: 0 0 14px;
+  border-bottom: 1px solid #e8edf3;
 }
-
 .ui-v4-results .ui-v4-document-result .ui-v4-document-header .result-label {
   margin-bottom: 3px;
-  color: #7a8699;
+  color: #7d8898;
   font-size: 11px;
+  font-weight: 650;
   letter-spacing: .02em;
 }
-
 .ui-v4-results .ui-v4-document-result .ui-v4-document-header h3 {
-  font-size: 17px;
+  color: #172033;
+  font-size: 18px;
+  font-weight: 760;
   line-height: 1.35;
-  letter-spacing: -.01em;
+  letter-spacing: -.012em;
 }
-
 .ui-v4-results .ui-v4-document-result .result-actions {
   gap: 7px;
 }
-
 .ui-v4-results .ui-v4-document-result .result-actions .copy-result {
   min-height: 34px;
   padding-inline: 11px;
-  color: #0f172a;
-  border-color: #cbd5e1;
+  color: #27364a;
+  border-color: #d8e0ea;
+  border-radius: 8px;
   background: #fff;
+  font-weight: 680;
 }
-
 .ui-v4-results .ui-v4-document-result .result-actions .copy-result:hover {
-  border-color: #94a3b8;
+  border-color: #b8c5d6;
   background: #f8fafc;
 }
-
 .ui-v4-results .ui-v4-document-result .ui-v4-export-group {
   min-height: 34px;
   gap: 0;
   padding: 0 3px 0 9px;
   overflow: hidden;
-  border: 1px solid #d8dee8;
+  border: 1px solid #d8e0ea;
   border-radius: 8px;
   background: #f8fafc;
 }
-
 .ui-v4-results .ui-v4-document-result .ui-v4-export-group .download-group-label {
   margin-right: 5px;
-  color: #64748b;
+  color: #7a8698;
   font-size: 11px;
   font-weight: 650;
 }
-
 .ui-v4-results .ui-v4-document-result .ui-v4-export-group .inline-action {
   min-height: 30px;
   padding: 4px 7px;
   border: 0;
   border-radius: 5px;
   background: transparent;
+  font-weight: 680;
 }
+.ui-v4-results .ui-v4-document-result .ui-v4-export-group .inline-action:hover { background: #fff; }
 
-.ui-v4-results .ui-v4-document-result .ui-v4-export-group .inline-action:hover {
-  background: #fff;
-}
-
-/* Generation metadata should read as metadata, not as another row of cards. */
+/* Metadata should stay quiet and secondary. */
 .ui-v4-results .ui-v4-document-result .ui-v4-document-meta {
   gap: 0;
-  margin: 0 0 14px;
-  padding: 0 0 12px;
-  color: #7a8699;
+  margin: 0 0 18px;
+  padding: 9px 0 11px;
+  color: #8a96a6;
   border-bottom: 1px solid #edf1f5;
 }
-
 .ui-v4-results .ui-v4-document-result .ui-v4-document-meta-item {
   min-height: auto;
   padding: 0;
-  color: #7a8699;
+  color: #8a96a6;
   font-size: 11px;
   font-weight: 560;
   border: 0;
   border-radius: 0;
   background: transparent;
 }
-
 .ui-v4-results .ui-v4-document-result .ui-v4-document-meta-item + .ui-v4-document-meta-item::before {
   content: "·";
   display: inline-block;
   margin: 0 7px;
-  color: #c1c8d2;
+  color: #c2cad4;
 }
+.ui-v4-results .ui-v4-document-result .ui-v4-document-meta-item.danger { color: #b42318; }
 
-.ui-v4-results .ui-v4-document-result .ui-v4-document-meta-item.danger {
-  color: #b42318;
-}
-
-/* Human review + structured validation become one compact document-status rail. */
+/* Human review and validation are one compact status rail. */
 .ui-v4-results .ui-v4-document-status-rail {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 8px;
-  margin: 0 0 22px;
+  margin: -4px 0 20px;
   padding: 0 0 14px;
   border-bottom: 1px solid #edf1f5;
 }
-
 .ui-v4-results .ui-v4-document-status-rail .ui-v4-document-status-item {
   min-width: 0;
-  min-height: 56px;
+  min-height: 54px;
   margin: 0;
-  padding: 10px 11px;
+  padding: 9px 10px;
   gap: 10px;
-  border: 1px solid #e4e9f0;
+  border: 1px solid #e5eaf0;
   border-radius: 9px;
   background: #fafbfc;
   box-shadow: none;
 }
-
 .ui-v4-results .ui-v4-document-status-rail .ui-v4-document-status-item strong {
-  color: #334155;
+  color: #344256;
   font-size: 12px;
   font-weight: 700;
 }
-
 .ui-v4-results .ui-v4-document-status-rail .ui-v4-document-status-item small {
-  color: #7a8699;
+  color: #7d8999;
   font-size: 11px;
   line-height: 1.45;
 }
-
 .ui-v4-results .ui-v4-document-status-rail .inline-action {
   flex: 0 0 auto;
   min-height: 30px;
   padding: 4px 8px;
   font-size: 11px;
 }
-
 .ui-v4-results .ui-v4-document-status-rail .review-state-dot {
   width: 8px;
   height: 8px;
   box-shadow: none;
 }
 
-/* Main document body */
+/* Main document: remove plugin-card chrome and read as one coherent business document. */
 .ui-v4-results .ui-v4-document-body {
   display: block;
   width: 100%;
 }
-
 .ui-v4-results .ui-v4-document-section {
   position: relative;
-  padding-bottom: 28px;
+  overflow: visible;
+  margin: 0;
+  padding: 0 0 25px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
-
 .ui-v4-results .ui-v4-document-section + .ui-v4-document-section {
-  padding-top: 26px;
+  padding-top: 23px;
+  border-top: 1px solid #edf1f5;
 }
-
 .ui-v4-results .ui-v4-document-section .result-section-title {
-  grid-template-columns: 26px minmax(0, 1fr) auto;
-  gap: 10px;
-  margin-bottom: 13px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 13px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
-
 .ui-v4-results .ui-v4-document-section .result-section-title > span:first-child {
-  width: 26px;
-  height: 24px;
-  color: #7a8699;
+  width: auto;
+  height: auto;
+  display: block;
+  color: #a0a9b5;
   font-variant-numeric: tabular-nums;
   font-size: 10px;
-  font-weight: 700;
-  border: 1px solid #e4e9f0;
-  background: #fff;
-}
-
-.ui-v4-results .ui-v4-document-section .result-section-title h3 {
-  color: #172033;
-  font-size: 16px;
   font-weight: 760;
-  line-height: 1.4;
+  border: 0;
+  background: transparent;
 }
-
+.ui-v4-results .ui-v4-document-section .result-section-title h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 15px;
+  font-weight: 760;
+  line-height: 1.45;
+}
 .ui-v4-results .ui-v4-section-kind-badge {
-  min-height: 22px;
+  min-height: 21px;
   display: inline-flex;
   align-items: center;
   padding: 2px 7px;
@@ -199,93 +194,71 @@
   border-radius: 999px;
   background: #f8fafc;
 }
-
 .ui-v4-results .ui-v4-section-kind-badge[data-kind="decision"],
 .ui-v4-results .ui-v4-section-kind-badge[data-kind="summary"] {
-  color: #1d4ed8;
-  border-color: #dbeafe;
-  background: #eff6ff;
+  color: #2457b8;
+  border-color: #d9e5fb;
+  background: #f5f8ff;
 }
-
 .ui-v4-results .ui-v4-section-kind-badge[data-kind="action"] {
-  color: #047857;
-  border-color: #d1fae5;
-  background: #ecfdf5;
+  color: #067647;
+  border-color: #d6ecde;
+  background: #f5fbf7;
 }
-
 .ui-v4-results .ui-v4-section-kind-badge[data-kind="risk"] {
-  color: #b45309;
-  border-color: #fde68a;
-  background: #fffbeb;
+  color: #a15c07;
+  border-color: #f2dfbd;
+  background: #fffaf1;
 }
-
 .ui-v4-results .ui-v4-section-kind-badge[data-kind="pending"] {
-  color: #a16207;
-  border-color: #fef08a;
-  background: #fefce8;
+  color: #8a6508;
+  border-color: #efe4b5;
+  background: #fffdf3;
 }
-
 .ui-v4-results .ui-v4-section-kind-badge[data-kind="evidence"] {
-  color: #475569;
+  color: #5d6978;
   border-color: #e2e8f0;
   background: #f8fafc;
 }
-
 .ui-v4-results .ui-v4-document-section .result-section-content {
-  color: #334155;
-  font-size: 14px;
+  padding: 0;
+  color: #3b485b;
+  font-size: 13px;
   line-height: 1.78;
 }
-
 .ui-v4-results .ui-v4-document-section .result-section-content p,
 .ui-v4-results .ui-v4-document-section .result-section-content ul,
 .ui-v4-results .ui-v4-document-section .result-section-content ol,
 .ui-v4-results .ui-v4-document-section .result-section-content blockquote {
   max-width: 78ch;
 }
-
-.ui-v4-results .ui-v4-document-section .result-section-content p {
-  margin: 9px 0;
-}
-
+.ui-v4-results .ui-v4-document-section .result-section-content p { margin: 8px 0; }
 .ui-v4-results .ui-v4-document-section .result-section-content ul,
 .ui-v4-results .ui-v4-document-section .result-section-content ol {
-  margin: 10px 0;
-  padding-left: 1.55em;
+  margin: 9px 0;
+  padding-left: 1.5em;
 }
-
-.ui-v4-results .ui-v4-document-section .result-section-content li {
-  margin: 6px 0;
-  padding-left: 2px;
-}
-
-.ui-v4-results .ui-v4-document-section .result-section-content strong {
-  color: #1e293b;
-  font-weight: 720;
-}
-
+.ui-v4-results .ui-v4-document-section .result-section-content li { margin: 5px 0; padding-left: 2px; }
+.ui-v4-results .ui-v4-document-section .result-section-content strong { color: #223044; font-weight: 720; }
 .ui-v4-results .ui-v4-document-section .result-section-content h1,
 .ui-v4-results .ui-v4-document-section .result-section-content h2,
 .ui-v4-results .ui-v4-document-section .result-section-content h3 {
   max-width: 78ch;
-  margin: 17px 0 8px;
-  color: #1e293b;
+  margin: 16px 0 7px;
+  color: #223044;
   line-height: 1.45;
 }
-
 .ui-v4-results .ui-v4-document-section .result-section-content h1 { font-size: 16px; }
 .ui-v4-results .ui-v4-document-section .result-section-content h2 { font-size: 15px; }
 .ui-v4-results .ui-v4-document-section .result-section-content h3 { font-size: 14px; }
-
 .ui-v4-results .ui-v4-document-section .result-section-content blockquote {
-  margin: 12px 0;
-  padding: 10px 13px;
+  margin: 11px 0;
+  padding: 9px 12px;
   color: #475569;
   border-left: 3px solid #cbd5e1;
-  border-radius: 0 7px 7px 0;
+  border-radius: 0 6px 6px 0;
   background: #f8fafc;
 }
-
 .ui-v4-results .ui-v4-document-section .result-section-content code {
   padding: 1px 5px;
   color: #334155;
@@ -296,107 +269,226 @@
   overflow-wrap: anywhere;
 }
 
-/* Business tables: restrained header, stable row rhythm, contained overflow. */
+/* Executive-summary tables become compact fact tiles. */
+.ui-v4-results .ui-v4-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 4px 0 0;
+}
+.ui-v4-results .ui-v4-fact-item {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid #e7ebf0;
+  border-radius: 9px;
+  background: #fafbfc;
+}
+.ui-v4-results .ui-v4-fact-item dt {
+  margin: 0 0 4px;
+  color: #8793a3;
+  font-size: 10px;
+  font-weight: 700;
+}
+.ui-v4-results .ui-v4-fact-item dd {
+  margin: 0;
+  color: #263548;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+/* Decisions, actions, risks and pending items become SaaS-style business records instead of spreadsheet rows. */
+.ui-v4-results .ui-v4-record-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+.ui-v4-results .ui-v4-business-record {
+  position: relative;
+  min-width: 0;
+  padding: 11px 12px 10px;
+  border: 1px solid #e5eaf0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 1px rgba(15, 23, 42, .02);
+}
+.ui-v4-results .ui-v4-business-record::before {
+  content: "";
+  position: absolute;
+  inset: 9px auto 9px 0;
+  width: 2px;
+  border-radius: 2px;
+  background: #d7dee8;
+}
+.ui-v4-results .ui-v4-business-record-action::before { background: #56a674; }
+.ui-v4-results .ui-v4-business-record-decision::before { background: #6f98e8; }
+.ui-v4-results .ui-v4-business-record-risk::before { background: #d8a64f; }
+.ui-v4-results .ui-v4-business-record-pending::before { background: #cbb04d; }
+.ui-v4-results .ui-v4-record-head {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.ui-v4-results .ui-v4-record-index {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: #8a96a6;
+  font-size: 9px;
+  font-weight: 760;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+.ui-v4-results .ui-v4-record-title {
+  min-width: 0;
+  color: #263548;
+  font-size: 13px;
+  font-weight: 720;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.ui-v4-results .ui-v4-record-status {
+  min-height: 23px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  color: #5d6978;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+}
+.ui-v4-results .ui-v4-record-status[data-tone="success"] {
+  color: #067647;
+  border-color: #cfe7d7;
+  background: #f3faf5;
+}
+.ui-v4-results .ui-v4-record-status[data-tone="pending"] {
+  color: #8a6508;
+  border-color: #ece0aa;
+  background: #fffdf2;
+}
+.ui-v4-results .ui-v4-record-status[data-tone="danger"] {
+  color: #b42318;
+  border-color: #f0cfcb;
+  background: #fff7f6;
+}
+.ui-v4-results .ui-v4-record-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px 14px;
+  margin: 9px 0 0 34px;
+}
+.ui-v4-results .ui-v4-record-meta > div { min-width: 0; }
+.ui-v4-results .ui-v4-record-meta dt {
+  margin: 0 0 2px;
+  color: #929dab;
+  font-size: 9px;
+  font-weight: 700;
+}
+.ui-v4-results .ui-v4-record-meta dd {
+  margin: 0;
+  color: #566376;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* Fallback business tables stay compact and never stretch rows to panel height. */
+.ui-v4-results .ui-v4-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  margin: 11px 0 4px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  border: 1px solid #e5eaf0;
+  border-radius: 9px;
+  background: #fff;
+}
+.ui-v4-results .ui-v4-table-scroll:focus-visible {
+  outline: 3px solid rgba(36, 94, 234, .16);
+  outline-offset: 2px;
+}
 .ui-v4-results .ui-v4-document-section .ui-v4-document-table {
   width: 100%;
   min-width: 620px;
-  margin: 13px 0 4px;
-  overflow: hidden;
-  border: 1px solid #e4e9f0;
-  border-radius: 9px;
+  height: auto !important;
+  margin: 0;
+  border: 0;
   border-collapse: separate;
   border-spacing: 0;
   background: #fff;
+  table-layout: auto;
 }
-
+.ui-v4-results .ui-v4-document-section .ui-v4-document-table thead,
+.ui-v4-results .ui-v4-document-section .ui-v4-document-table tbody,
+.ui-v4-results .ui-v4-document-section .ui-v4-document-table tr,
 .ui-v4-results .ui-v4-document-section .ui-v4-document-table th,
 .ui-v4-results .ui-v4-document-section .ui-v4-document-table td {
-  padding: 10px 11px;
+  height: auto !important;
+  min-height: 0 !important;
+}
+.ui-v4-results .ui-v4-document-section .ui-v4-document-table th,
+.ui-v4-results .ui-v4-document-section .ui-v4-document-table td {
+  padding: 9px 10px;
   vertical-align: top;
   text-align: left;
   border: 0;
   border-right: 1px solid #edf1f5;
   border-bottom: 1px solid #edf1f5;
-  line-height: 1.55;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
-
 .ui-v4-results .ui-v4-document-section .ui-v4-document-table th:last-child,
-.ui-v4-results .ui-v4-document-section .ui-v4-document-table td:last-child {
-  border-right: 0;
-}
-
-.ui-v4-results .ui-v4-document-section .ui-v4-document-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
+.ui-v4-results .ui-v4-document-section .ui-v4-document-table td:last-child { border-right: 0; }
+.ui-v4-results .ui-v4-document-section .ui-v4-document-table tbody tr:last-child td { border-bottom: 0; }
 .ui-v4-results .ui-v4-document-section .ui-v4-document-table th {
-  color: #475569;
-  font-size: 11px;
+  color: #596678;
+  font-size: 10px;
   font-weight: 720;
   background: #f8fafc;
 }
-
 .ui-v4-results .ui-v4-document-section .ui-v4-document-table td {
-  color: #334155;
-  font-size: 12px;
+  color: #3f4d60;
+  font-size: 11px;
   background: #fff;
 }
+.ui-v4-results .ui-v4-document-section .ui-v4-document-table tbody tr:nth-child(even) td { background: #fcfdfe; }
 
-.ui-v4-results .ui-v4-document-section .ui-v4-document-table tbody tr:nth-child(even) td {
-  background: #fcfdfe;
-}
-
-/* A few section types get a subtle reading cue without turning the document into colored cards. */
-.ui-v4-results .ui-v4-document-section[data-ui-v4-section-kind="risk"] .result-section-title {
-  border-left: 3px solid #f59e0b;
-  padding-left: 9px;
-}
-
-.ui-v4-results .ui-v4-document-section[data-ui-v4-section-kind="pending"] .result-section-title {
-  border-left: 3px solid #eab308;
-  padding-left: 9px;
-}
-
-.ui-v4-results .ui-v4-document-section[data-ui-v4-section-kind="decision"] .result-section-title {
-  border-left: 3px solid #3b82f6;
-  padding-left: 9px;
-}
-
-.ui-v4-results .ui-v4-document-section[data-ui-v4-section-kind="action"] .result-section-title {
-  border-left: 3px solid #10b981;
-  padding-left: 9px;
-}
+/* Section cues: restrained color, no large tinted cards. */
+.ui-v4-results .ui-v4-document-section[data-ui-v4-section-kind="risk"] .result-section-title { border-left: 2px solid #d8a64f; padding-left: 8px; }
+.ui-v4-results .ui-v4-document-section[data-ui-v4-section-kind="pending"] .result-section-title { border-left: 2px solid #cbb04d; padding-left: 8px; }
+.ui-v4-results .ui-v4-document-section[data-ui-v4-section-kind="decision"] .result-section-title { border-left: 2px solid #6f98e8; padding-left: 8px; }
+.ui-v4-results .ui-v4-document-section[data-ui-v4-section-kind="action"] .result-section-title { border-left: 2px solid #56a674; padding-left: 8px; }
 
 .ui-v4-results .ui-v4-document-streaming {
   color: #475569;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.75;
 }
 
-/* Error results should stay easy to scan and clearly separate from a normal document. */
-.ui-v4-results .ui-v4-document-result[data-ui-v4-document-state="error"] {
-  border-color: #fecaca;
-}
-
-.ui-v4-results .ui-v4-document-result[data-ui-v4-document-state="error"] .ui-v4-document-header h3 {
-  color: #991b1b;
-}
+/* Error results remain distinct from a normal business document. */
+.ui-v4-results .ui-v4-document-result[data-ui-v4-document-state="error"] { border-color: #fecaca; }
+.ui-v4-results .ui-v4-document-result[data-ui-v4-document-state="error"] .ui-v4-document-header h3 { color: #991b1b; }
 
 @media (max-width: 900px) {
-  .ui-v4-results .ui-v4-document-status-rail {
-    grid-template-columns: 1fr;
-  }
-
+  .ui-v4-results .ui-v4-document-status-rail { grid-template-columns: 1fr; }
   .ui-v4-results .ui-v4-document-section .result-section-content p,
   .ui-v4-results .ui-v4-document-section .result-section-content ul,
   .ui-v4-results .ui-v4-document-section .result-section-content ol,
   .ui-v4-results .ui-v4-document-section .result-section-content blockquote,
   .ui-v4-results .ui-v4-document-section .result-section-content h1,
   .ui-v4-results .ui-v4-document-section .result-section-content h2,
-  .ui-v4-results .ui-v4-document-section .result-section-content h3 {
-    max-width: none;
-  }
+  .ui-v4-results .ui-v4-document-section .result-section-content h3 { max-width: none; }
 }
 
 @media (max-width: 720px) {
@@ -405,7 +497,6 @@
     flex-direction: column;
     gap: 10px;
   }
-
   .ui-v4-results .ui-v4-document-result .result-actions {
     width: 100%;
     justify-content: flex-start;
@@ -414,56 +505,34 @@
     padding-bottom: 2px;
     scrollbar-width: none;
   }
-
-  .ui-v4-results .ui-v4-document-result .result-actions::-webkit-scrollbar {
-    display: none;
-  }
-
+  .ui-v4-results .ui-v4-document-result .result-actions::-webkit-scrollbar { display: none; }
   .ui-v4-results .ui-v4-document-result .result-actions .copy-result,
-  .ui-v4-results .ui-v4-document-result .ui-v4-export-group {
-    flex: 0 0 auto;
-  }
-
-  .ui-v4-results .ui-v4-document-result .ui-v4-document-meta {
-    line-height: 1.7;
-  }
-
+  .ui-v4-results .ui-v4-document-result .ui-v4-export-group { flex: 0 0 auto; }
   .ui-v4-results .ui-v4-document-status-rail .ui-v4-document-status-item {
     align-items: stretch;
     flex-direction: column;
   }
-
-  .ui-v4-results .ui-v4-document-status-rail .inline-action {
-    width: 100%;
-    min-height: 40px;
-  }
-
-  .ui-v4-results .ui-v4-document-section {
-    padding-bottom: 23px;
-  }
-
-  .ui-v4-results .ui-v4-document-section + .ui-v4-document-section {
-    padding-top: 22px;
-  }
-
+  .ui-v4-results .ui-v4-document-status-rail .inline-action { width: 100%; min-height: 40px; }
+  .ui-v4-results .ui-v4-document-section { padding-bottom: 21px; }
+  .ui-v4-results .ui-v4-document-section + .ui-v4-document-section { padding-top: 20px; }
   .ui-v4-results .ui-v4-document-section .result-section-title {
-    grid-template-columns: 24px minmax(0, 1fr);
-    gap: 8px;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 7px;
   }
-
   .ui-v4-results .ui-v4-section-kind-badge {
     grid-column: 2;
     justify-self: start;
   }
+  .ui-v4-results .ui-v4-document-section .result-section-content { font-size: 13px; line-height: 1.72; }
+  .ui-v4-results .ui-v4-record-head { grid-template-columns: 24px minmax(0, 1fr); }
+  .ui-v4-results .ui-v4-record-status { grid-column: 2; justify-self: start; }
+  .ui-v4-results .ui-v4-record-meta { grid-template-columns: 1fr 1fr; margin-left: 32px; }
+  .ui-v4-results .ui-v4-document-section .ui-v4-document-table { min-width: 560px; }
+}
 
-  .ui-v4-results .ui-v4-document-section .result-section-content {
-    font-size: 13px;
-    line-height: 1.72;
-  }
-
-  .ui-v4-results .ui-v4-document-section .ui-v4-document-table {
-    min-width: 560px;
-  }
+@media (max-width: 520px) {
+  .ui-v4-results .ui-v4-fact-grid { grid-template-columns: 1fr; }
+  .ui-v4-results .ui-v4-record-meta { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -483,18 +552,11 @@
     border: 0 !important;
     box-shadow: none !important;
   }
-
   .ui-v4-results .ui-v4-document-result .result-actions,
   .ui-v4-results .ui-v4-document-result .ui-v4-document-meta,
-  .ui-v4-results .ui-v4-document-status-rail {
-    display: none !important;
-  }
-
-  .ui-v4-results .ui-v4-document-section {
-    break-inside: avoid;
-  }
-
-  .ui-v4-results .ui-v4-document-section .ui-v4-document-table {
-    min-width: 0;
-  }
+  .ui-v4-results .ui-v4-document-status-rail { display: none !important; }
+  .ui-v4-results .ui-v4-document-section,
+  .ui-v4-results .ui-v4-business-record { break-inside: avoid; }
+  .ui-v4-results .ui-v4-document-section .ui-v4-document-table { min-width: 0; }
+  .ui-v4-results .ui-v4-table-scroll { overflow: visible; border: 0; }
 }

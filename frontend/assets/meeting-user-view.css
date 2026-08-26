@@ -78,35 +78,26 @@
   overflow-wrap: normal;
 }
 
+/* Fallback tables must remain readable even before the SaaS record upgrader runs.
+   Do not reserve fixed column widths or force long Chinese business text onto one line. */
 #meetingResult .ui-v4-document-table {
-  table-layout: fixed;
-  min-width: 760px;
+  table-layout: auto;
+  min-width: 720px;
 }
 
-#meetingResult .ui-v4-document-table th:nth-child(1),
-#meetingResult .ui-v4-document-table td:nth-child(1) { width: 44%; }
-
-#meetingResult .ui-v4-document-table th:nth-child(2),
-#meetingResult .ui-v4-document-table td:nth-child(2) {
-  width: 14%;
-  white-space: nowrap;
-  word-break: keep-all;
-  overflow-wrap: normal;
-}
-
-#meetingResult .ui-v4-document-table th:nth-child(3),
-#meetingResult .ui-v4-document-table td:nth-child(3) {
-  width: 14%;
-  white-space: nowrap;
-  word-break: keep-all;
-  overflow-wrap: normal;
-}
-
-#meetingResult .ui-v4-document-table th:nth-child(4),
-#meetingResult .ui-v4-document-table td:nth-child(4) { width: 28%; }
-
+#meetingResult .ui-v4-document-table th,
 #meetingResult .ui-v4-document-table td {
+  width: auto;
+  max-width: 36rem;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   line-height: 1.65;
+}
+
+#meetingResult .ui-v4-document-table th {
+  white-space: normal;
+  word-break: keep-all;
 }
 
 #meetingResult.streaming .streaming-content {
