@@ -21,7 +21,7 @@
   }
 
   function updateGenerationProgress(key, task) {
-    const target = $(`${key}StreamContent`);
+    const target = $(`${key}StreamProgress`);
     if (!target || !task) return;
     const chars = String(task.full || "").length;
     if (task.phase === "verifying") {
@@ -31,8 +31,16 @@
     } else if (chars > 0) {
       target.textContent = `已接收约 ${chars.toLocaleString()} 字，正在继续生成并整理...`;
     } else {
-      target.textContent = "正在等待模型开始生成...";
+      target.textContent = "正在等待开始生成...";
     }
+  }
+
+  function updateLiveStreamPreview(key, content) {
+    const target = $(`${key}StreamPreview`);
+    if (!target) return;
+    const text = String(content || "");
+    target.textContent = text;
+    target.toggleAttribute("data-empty", !text.trim());
   }
 
   function showStoppedResult(key, message) {
@@ -70,7 +78,14 @@
           <button class="cancel-generation" data-cancel-generation="${escapeHtml(key)}" type="button" aria-label="停止当前生成">停止生成</button>
         </div>
       </div>
-      <div id="${key}StreamContent" class="streaming-content" aria-live="polite">正在连接模型服务...</div>
+      <div class="streaming-stage">
+        <div id="${key}StreamProgress" class="streaming-progress" aria-live="polite">正在准备生成...</div>
+        <div class="streaming-preview-head">
+          <strong>实时生成内容</strong>
+          <span>完成后自动核对并排版</span>
+        </div>
+        <div id="${key}StreamPreview" class="streaming-preview" aria-live="off" data-empty></div>
+      </div>
     `;
   }
 
@@ -218,7 +233,7 @@
             throw error;
           }
         }
-        updateStreamingResult(key, task.full);
+        updateLiveStreamPreview(key, task.full);
         updateGenerationProgress(key, task);
       }
 
