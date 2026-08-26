@@ -308,9 +308,8 @@
       });
       normalizeActiveOrganization();
       localStorage.removeItem(CURRENT_PROJECT_STORAGE);
-      applyRoleState();
-      renderAccountManager();
-      notify(path.endsWith("register") ? "账户和组织已创建。" : "登录成功。" );
+      notify(path.endsWith("register") ? "账户和组织已创建，正在进入组织工作区。" : "登录成功，正在进入工作区。" );
+      location.reload();
     } catch (error) {
       notify(error.message || String(error));
     } finally {
