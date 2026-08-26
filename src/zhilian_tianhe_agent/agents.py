@@ -44,6 +44,18 @@ from .prompts import (
 from .utils import load_json
 
 
+MEETING_COMPLETION_TOKEN_LIMIT = 4096
+MEETING_COMPACT_OUTPUT_RULES = """
+【会议纪要精简输出要求】
+1. 在不遗漏关键决策、原文待办、风险和待确认信息的前提下，正文默认控制在约 1800–2500 个中文字符。
+2. 不要在正文重复抄写完整会议原文或证据摘录；事实只保留必要概括与证据编号，完整证据索引由系统在结果末尾追加。
+3. 同一事实只出现一次；能合并的相近事项合并成一行，避免在会议摘要、关键决策和待办中重复描述。
+4. 会议摘要最多 4 行，关键决策最多 5 行，原文待办事项最多 8 行，AI 建议补充动作最多 3 行，风险提醒最多 4 行，待确认信息最多 6 条，下次会议议题固定 3 条。
+5. 表格单元格使用短句，不写长段解释；优先保留负责人、截止时间、证据编号、确认状态等可执行信息。
+6. 如果原文事项较少，不要为了凑数量补充内容；事实边界和证据规则优先于长度要求。
+""".strip()
+
+
 @dataclass
 class AgentResult:
     content: str
@@ -148,12 +160,26 @@ class MeetingAgent(BaseAgent):
             profile_summary,
             bundle.to_prompt_dict(),
         )
-        prompt = f"{prompt}\n\n{MEETING_FACT_SAFETY_RULES}"
+        prompt = f"{prompt}\n\n{MEETING_FACT_SAFETY_RULES}\n\n{MEETING_COMPACT_OUTPUT_RULES}"
         return prompt, bundle
+
+    def _apply_completion_limit(self) -> int | None:
+        previous = getattr(self.llm, "_max_completion_tokens", None)
+        if isinstance(previous, int):
+            self.llm._max_completion_tokens = min(previous, MEETING_COMPLETION_TOKEN_LIMIT)
+        return previous if isinstance(previous, int) else None
+
+    def _restore_completion_limit(self, previous: int | None) -> None:
+        if previous is not None:
+            self.llm._max_completion_tokens = previous
 
     def run(self, meeting_text: str, profile_summary: str = "") -> AgentResult:
         prompt, bundle = self._prepare(meeting_text, profile_summary)
-        result = self._run(prompt)
+        previous_limit = self._apply_completion_limit()
+        try:
+            result = self._run(prompt)
+        finally:
+            self._restore_completion_limit(previous_limit)
         checked = audit_meeting_output(result.content, meeting_text, bundle)
         return AgentResult(
             content=append_evidence_appendix(checked, bundle),
@@ -165,9 +191,13 @@ class MeetingAgent(BaseAgent):
         """Stream a provisional draft immediately, then replace it with verified content."""
         prompt, bundle = self._prepare(meeting_text, profile_summary)
         chunks: list[str] = []
-        for chunk in self._stream(prompt):
-            chunks.append(chunk)
-            yield AgentStreamEvent(type="delta", content=chunk)
+        previous_limit = self._apply_completion_limit()
+        try:
+            for chunk in self._stream(prompt):
+                chunks.append(chunk)
+                yield AgentStreamEvent(type="delta", content=chunk)
+        finally:
+            self._restore_completion_limit(previous_limit)
 
         yield AgentStreamEvent(type="verifying")
         checked = audit_meeting_output("".join(chunks), meeting_text, bundle)
