@@ -14,12 +14,14 @@ def test_section_kind_badges_are_not_forced_into_sequence_width():
     assert "writing-mode: horizontal-tb;" in MEETING_CSS
 
 
-def test_meeting_evidence_table_keeps_reference_columns_readable():
+def test_meeting_fallback_tables_wrap_long_business_content_safely():
     assert "#meetingResult .ui-v4-document-table" in MEETING_CSS
-    assert "table-layout: fixed;" in MEETING_CSS
-    assert "td:nth-child(2)" in MEETING_CSS
-    assert "td:nth-child(3)" in MEETING_CSS
-    assert "word-break: keep-all;" in MEETING_CSS
+    assert "table-layout: auto;" in MEETING_CSS
+    assert "white-space: normal;" in MEETING_CSS
+    assert "word-break: break-word;" in MEETING_CSS
+    assert "overflow-wrap: anywhere;" in MEETING_CSS
+    assert "td:nth-child(2)" not in MEETING_CSS
+    assert "td:nth-child(3)" not in MEETING_CSS
 
 
 def test_streaming_does_not_render_partial_markdown_as_final_document():
