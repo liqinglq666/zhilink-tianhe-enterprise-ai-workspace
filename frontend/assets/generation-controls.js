@@ -5,6 +5,9 @@
   const DEFAULT_HARD_TIMEOUT_MS = 210000;
   const activeGenerations = new Map();
   const hooks = window.ZHILINK_WORKSPACE_HOOKS;
+  const PREVIEW_INTERNAL_REF_RE = /\[(?:MT-\d{2}|MP-\d{2}|MT-C\d{2})\]/g;
+  const PREVIEW_HIDDEN_SECTIONS = new Set(["自动一致性校验", "输入证据与待确认索引", "证据索引", "AI 建议补充动作"]);
+  const PREVIEW_TECHNICAL_HEADERS = /(证据编号|原文证据|依据编号|证据引用|来源编号|输入摘录)/;
 
   if (!hooks) throw new Error("Workspace hooks must load before generation controls.");
 
@@ -20,27 +23,121 @@
     if (target) target.textContent = message;
   }
 
+  function setGenerationStep(key, step, state) {
+    const target = document.querySelector(`[data-generation-step="${key}-${step}"]`);
+    if (!target) return;
+    target.classList.toggle("is-active", state === "active");
+    target.classList.toggle("is-done", state === "done");
+    target.setAttribute("aria-current", state === "active" ? "step" : "false");
+  }
+
+  function updateGenerationSteps(key, task) {
+    if (!task) return;
+    if (task.phase === "connecting") {
+      setGenerationStep(key, 1, "active");
+      setGenerationStep(key, 2, "pending");
+      setGenerationStep(key, 3, "pending");
+      return;
+    }
+    if (task.phase === "generating") {
+      setGenerationStep(key, 1, "done");
+      setGenerationStep(key, 2, "active");
+      setGenerationStep(key, 3, "pending");
+      return;
+    }
+    if (task.phase === "verifying") {
+      setGenerationStep(key, 1, "done");
+      setGenerationStep(key, 2, "done");
+      setGenerationStep(key, 3, "active");
+      return;
+    }
+    setGenerationStep(key, 1, "done");
+    setGenerationStep(key, 2, "done");
+    setGenerationStep(key, 3, "done");
+  }
+
   function updateGenerationProgress(key, task) {
     const target = $(`${key}StreamProgress`);
     if (!target || !task) return;
     const chars = String(task.full || "").length;
     if (task.phase === "verifying") {
-      target.textContent = `正文已生成约 ${chars.toLocaleString()} 字，正在核对事实与证据...`;
+      target.textContent = `正文草稿已形成 · 正在核对关键事实与待确认项${chars ? ` · ${chars.toLocaleString()} 字` : ""}`;
     } else if (task.phase === "finishing") {
-      target.textContent = "内容校验完成，正在整理正式结果...";
-    } else if (chars > 0) {
-      target.textContent = `已接收约 ${chars.toLocaleString()} 字，正在继续生成并整理...`;
+      target.textContent = "内容核对完成 · 正在生成正式业务版本";
+    } else if (task.phase === "generating" && chars > 0) {
+      target.textContent = `正在形成业务结果 · 已整理 ${chars.toLocaleString()} 字，内容持续更新`;
+    } else if (task.phase === "generating") {
+      target.textContent = "正在形成业务结果 · 首批内容即将生成";
     } else {
-      target.textContent = "正在等待开始生成...";
+      target.textContent = "正在理解材料 · 提取关键事实、决策与任务上下文";
     }
+    updateGenerationSteps(key, task);
+  }
+
+  function stripPreviewInlineMarkdown(value) {
+    return String(value || "")
+      .replace(PREVIEW_INTERNAL_REF_RE, "")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/__([^_]+)__/g, "$1")
+      .replace(/^\s*>\s?/, "")
+      .replace(/^\s*[-*+]\s+/, "• ")
+      .replace(/[ \t]+([，。；：！？])/g, "$1")
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
+  }
+
+  function buildBusinessPreview(content) {
+    const output = [];
+    let hiddenSection = false;
+    let tableHeaders = null;
+
+    for (const rawLine of String(content || "").split(/\r?\n/)) {
+      const trimmed = rawLine.trim();
+      const heading = trimmed.match(/^#{1,6}\s+(.+?)\s*$/);
+      if (heading) {
+        const title = stripPreviewInlineMarkdown(heading[1]);
+        hiddenSection = PREVIEW_HIDDEN_SECTIONS.has(title);
+        tableHeaders = null;
+        if (!hiddenSection && title) output.push(`\n${title}\n`);
+        continue;
+      }
+      if (hiddenSection) continue;
+      if (!trimmed) {
+        tableHeaders = null;
+        continue;
+      }
+
+      if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+        const cells = trimmed.slice(1, -1).split("|").map(cell => stripPreviewInlineMarkdown(cell));
+        if (cells.every(cell => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")))) continue;
+        if (!tableHeaders) {
+          tableHeaders = cells;
+          continue;
+        }
+        const visible = cells.filter((_, index) => !PREVIEW_TECHNICAL_HEADERS.test(tableHeaders[index] || ""));
+        const primary = visible.shift();
+        if (!primary) continue;
+        const details = visible.filter(Boolean).slice(0, 3);
+        output.push(`• ${primary}${details.length ? ` — ${details.join(" · ")}` : ""}`);
+        continue;
+      }
+
+      tableHeaders = null;
+      const line = stripPreviewInlineMarkdown(trimmed);
+      if (line) output.push(line);
+    }
+
+    return output.join("\n").replace(/\n{3,}/g, "\n\n").trim();
   }
 
   function updateLiveStreamPreview(key, content) {
     const target = $(`${key}StreamPreview`);
     if (!target) return;
-    const text = String(content || "");
+    const text = buildBusinessPreview(content);
     target.textContent = text;
     target.toggleAttribute("data-empty", !text.trim());
+    if (text.trim()) target.scrollTop = target.scrollHeight;
   }
 
   function showStoppedResult(key, message) {
@@ -71,20 +168,27 @@
       <div class="result-header">
         <div>
           <p class="result-label">${escapeHtml(title)}</p>
-          <h3>${escapeHtml(title)}生成中</h3>
+          <h3>正在生成${escapeHtml(title)}</h3>
         </div>
         <div class="result-actions">
-          <span class="streaming-badge stream-status" data-stream-status="${escapeHtml(key)}"><span class="streaming-dot"></span>正在处理</span>
-          <button class="cancel-generation" data-cancel-generation="${escapeHtml(key)}" type="button" aria-label="停止当前生成">停止生成</button>
+          <span class="streaming-badge stream-status" data-stream-status="${escapeHtml(key)}"><span class="streaming-dot"></span>正在准备</span>
+          <button class="cancel-generation" data-cancel-generation="${escapeHtml(key)}" type="button" aria-label="停止当前生成">停止</button>
         </div>
       </div>
       <div class="streaming-stage">
-        <div id="${key}StreamProgress" class="streaming-progress" aria-live="polite">正在准备生成...</div>
-        <div class="streaming-preview-head">
-          <strong>实时生成内容</strong>
-          <span>完成后自动核对并排版</span>
-        </div>
-        <div id="${key}StreamPreview" class="streaming-preview" aria-live="off" data-empty></div>
+        <ol class="generation-steps" aria-label="AI 处理进度">
+          <li class="generation-step is-active" data-generation-step="${escapeHtml(key)}-1" aria-current="step"><span class="generation-step-index">1</span><span><strong>理解材料</strong><small>识别事实与上下文</small></span></li>
+          <li class="generation-step" data-generation-step="${escapeHtml(key)}-2" aria-current="false"><span class="generation-step-index">2</span><span><strong>形成结果</strong><small>组织业务结论与行动项</small></span></li>
+          <li class="generation-step" data-generation-step="${escapeHtml(key)}-3" aria-current="false"><span class="generation-step-index">3</span><span><strong>核对排版</strong><small>检查关键事实并生成正式版</small></span></li>
+        </ol>
+        <div id="${key}StreamProgress" class="streaming-progress" aria-live="polite">正在理解材料 · 提取关键事实、决策与任务上下文</div>
+        <section class="streaming-preview-shell" aria-label="生成草稿预览">
+          <div class="streaming-preview-head">
+            <div><strong>业务草稿</strong><span class="streaming-preview-live"><i></i>实时更新</span></div>
+            <span>完成后自动核对并排版</span>
+          </div>
+          <div id="${key}StreamPreview" class="streaming-preview" aria-live="off" data-empty></div>
+        </section>
       </div>
     `;
   }
@@ -204,7 +308,7 @@
             setStreamStatus(key, "正在生成");
           } else if (event.type === "verifying") {
             task.phase = "verifying";
-            setStreamStatus(key, "正在核对内容");
+            setStreamStatus(key, "正在核对");
           } else if (event.type === "verified") {
             if (!String(event.content || "").trim()) {
               throw createGenerationError("内容核对完成，但没有可用结果，请重新生成。", "STREAM_VERIFICATION_EMPTY", true);
@@ -212,7 +316,7 @@
             task.full = event.content;
             task.verified = true;
             task.phase = "finishing";
-            setStreamStatus(key, "即将完成");
+            setStreamStatus(key, "正在排版");
           } else if (event.type === "done") {
             if (task.requiresVerification && !task.verified) {
               throw createGenerationError(
