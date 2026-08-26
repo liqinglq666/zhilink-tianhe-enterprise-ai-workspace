@@ -253,7 +253,7 @@
     apply();
     bindControls();
     window.ZHILINK_UI_V4_RUNTIME?.subscribe?.(apply, { immediate: false });
-    fetchProjects();
+    if (window.ACCOUNT_ACCESS_READY) fetchProjects();
   }
 
   window.ZHILINK_UI_V4_SHELL = {

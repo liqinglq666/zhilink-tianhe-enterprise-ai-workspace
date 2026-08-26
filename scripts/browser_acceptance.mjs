@@ -239,6 +239,16 @@ async function main() {
 
     assert(await evaluate("document.documentElement.dataset.zhilinkUi") === "v4", "V4 shell marker is missing.");
     assert(await evaluate("document.querySelector('.page.active-page')?.id") === "home", "Home is not the initial active page.");
+    await waitFor(() => responses.some(item => item.url.includes("/api/projects?limit=4&offset=0")), "initial recent-project request");
+    const startupProjectRequests = responses.filter(item => item.url.includes("/api/projects?limit=4&offset=0"));
+    assert(startupProjectRequests.length === 1, `Expected one startup recent-project request, got ${startupProjectRequests.length}: ${JSON.stringify(startupProjectRequests)}`);
+    assert(await evaluate("document.querySelector('link[rel~=\"icon\"]')?.getAttribute('href')") === "/assets/favicon.svg", "Workspace favicon link is missing.");
+    await waitFor(() => responses.some(item => item.url.includes("/assets/favicon.svg")), "favicon asset request");
+    const faviconResponse = responses.find(item => item.url.includes("/assets/favicon.svg"));
+    assert(faviconResponse?.status === 200, `Favicon asset did not return HTTP 200: ${JSON.stringify(faviconResponse || null)}`);
+    const legacyFaviconFailure = responses.find(item => item.url.endsWith("/favicon.ico") && item.status >= 400);
+    assert(!legacyFaviconFailure, `Browser still requested a failing legacy favicon: ${JSON.stringify(legacyFaviconFailure)}`);
+    console.log("[browser] startup network hygiene passed");
 
     for (const section of ["meeting", "contract", "policy", "match", "profile", "landing", "report", "home"]) {
       await click(`.nav button[data-section="${section}"]`);
@@ -339,7 +349,7 @@ async function main() {
 
     await sleep(250);
     assert(browserErrors.length === 0, `Browser runtime errors detected:\n${browserErrors.join("\n---\n")}`);
-    console.log("Browser acceptance smoke passed: navigation, model config save, project versions, result commit, business-facing structured status, review entry, and export.");
+    console.log("Browser acceptance smoke passed: startup network hygiene, navigation, model config save, project versions, result commit, business-facing structured status, review entry, and export.");
   } finally {
     client?.close();
     await stopProcess(chromeProcess);
