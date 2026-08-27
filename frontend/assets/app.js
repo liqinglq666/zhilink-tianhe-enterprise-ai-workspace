@@ -34,7 +34,6 @@ const formInputIds = [
 ];
 
 const exampleScenarios = {};
-const REQUEST_TIMEOUT_MS = 180000;
 
 function $(id) { return document.getElementById(id); }
 function qsa(sel) { return Array.from(document.querySelectorAll(sel)); }
@@ -188,31 +187,6 @@ function applyExample(exampleKey) {
   saveFormState();
   saveProfileToState();
   toast(`已填入示例：${example.label}`);
-}
-
-async function apiPost(url, payload) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    if (!resp.ok) {
-      const text = await resp.text();
-      let detail = text;
-      try { detail = JSON.parse(text).detail || text; } catch (_) {}
-      throw new Error(detail);
-    }
-    return await resp.json();
-  } catch (err) {
-    if (err.name === "AbortError") throw new Error("请求超时，请缩短输入内容或检查 AI 服务后重试。");
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 function escapeHtml(text) {
