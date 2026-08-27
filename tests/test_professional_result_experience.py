@@ -76,3 +76,18 @@ def test_copy_text_falls_back_when_async_clipboard_is_rejected() -> None:
     assert "if (!copied) throw new Error" in implementation
     assert "finally {" in implementation
     assert "textarea.remove();" in implementation
+
+
+def test_export_errors_use_business_messages_instead_of_backend_details() -> None:
+    start = RESULTS.index("function exportFailureMessage(status)")
+    end = RESULTS.index("async function downloadReportFile", start)
+    implementation = RESULTS[start:end]
+    assert 'status === 401' in implementation
+    assert 'status === 403' in implementation
+    assert 'status === 413' in implementation
+    assert 'status === 429' in implementation
+    assert 'status >= 500' in implementation
+    assert 'failure.name = "ExportRequestError";' in implementation
+    assert 'throw new Error("导出失败，请检查网络连接后重试。");' in implementation
+    assert "response.text()" not in implementation
+    assert "JSON.parse" not in implementation
