@@ -8,6 +8,7 @@
   const CURRENT_PROJECT_STORAGE = contracts.storage.currentProject;
   const WORKSPACE_KEY_STORAGE = contracts.storage.workspaceKey;
   const ACCOUNT_READY_EVENT = contracts.events.accountReady;
+  const ACCOUNT_TECHNICAL_DETAIL_RE = /(?:<!doctype|<html|traceback|exception|stack\s*trace|internal\s+server\s+error|bad\s+gateway|gateway\s+timeout|sql(?:ite)?|postgres|psycopg|uvicorn|fastapi|pydantic|api[_ -]?key|base[_ -]?url|localhost|127\.0\.0\.1|connection\s+refused|fetch\s+failed|networkerror|typeerror|nginx|cloudflare|render\.com)/i;
   let account = {
     authenticated: false,
     user: null,
@@ -76,13 +77,32 @@
     };
   });
 
+  function accountFailureMessage(status, detail) {
+    const message = String(detail || "").replace(/\s+/g, " ").trim();
+    const safeDetail = message.length > 0 && message.length <= 180 && !ACCOUNT_TECHNICAL_DETAIL_RE.test(message);
+    if ([400, 401, 403, 404, 409, 422].includes(status) && safeDetail) return message;
+    if (status === 401) return "登录状态已失效，请重新登录后再试。";
+    if (status === 403) return "当前账号没有执行此操作的权限。";
+    if (status === 409) return "当前数据已发生变化，请刷新后重试。";
+    if (status === 429) return "操作较频繁，请稍后再试。";
+    if (status >= 500) return "账户服务暂时不可用，请稍后重试。";
+    return safeDetail ? message : "操作未完成，请稍后重试。";
+  }
+
   async function request(path, options = {}) {
-    const response = await fetch(path, options);
+    let response;
+    try {
+      response = await fetch(path, options);
+    } catch (_) {
+      const error = new Error("网络连接异常，请稍后重试。");
+      error.code = "ACCOUNT_NETWORK_ERROR";
+      throw error;
+    }
     const text = await response.text();
     let data = {};
     try { data = text ? JSON.parse(text) : {}; } catch (_) { data = {}; }
     if (!response.ok) {
-      const error = new Error(data.detail || text || "操作失败。");
+      const error = new Error(accountFailureMessage(response.status, data.detail));
       error.code = data.code || "ACCOUNT_REQUEST_FAILED";
       throw error;
     }
@@ -277,7 +297,7 @@
         </article>`;
       }).join("") || '<p class="account-empty">当前组织没有成员。</p>';
     } catch (error) {
-      list.innerHTML = `<p class="account-empty error">${safe(error.message || String(error))}</p>`;
+      list.innerHTML = `<p class="account-empty error">${safe(error.message || "成员列表暂时无法读取，请稍后重试。")}</p>`;
     }
   }
 
@@ -311,7 +331,7 @@
       notify(path.endsWith("register") ? "账户和组织已创建，正在进入组织工作区。" : "登录成功，正在进入工作区。" );
       location.reload();
     } catch (error) {
-      notify(error.message || String(error));
+      notify(error.message || "登录未完成，请稍后重试。");
     } finally {
       button.disabled = false;
     }
@@ -333,7 +353,7 @@
       notify("组织已创建，正在切换工作空间。");
       location.reload();
     } catch (error) {
-      notify(error.message || String(error));
+      notify(error.message || "组织创建未完成，请稍后重试。");
     }
   }
 
@@ -351,7 +371,7 @@
       await loadMembers();
       notify("组织成员已添加。" );
     } catch (error) {
-      notify(error.message || String(error));
+      notify(error.message || "成员添加未完成，请稍后重试。");
     }
   }
 
@@ -367,7 +387,7 @@
       await loadMembers();
       notify("成员角色已更新。" );
     } catch (error) {
-      notify(error.message || String(error));
+      notify(error.message || "成员角色更新未完成，请稍后重试。");
       await loadMembers();
     }
   }
@@ -380,7 +400,7 @@
       await loadMembers();
       notify("成员已移出组织。" );
     } catch (error) {
-      notify(error.message || String(error));
+      notify(error.message || "成员移除未完成，请稍后重试。");
     }
   }
 
@@ -408,7 +428,7 @@
       notify(`已迁移 ${data.claimed} 个本机项目。`);
       location.reload();
     } catch (error) {
-      notify(error.message || String(error));
+      notify(error.message || "项目迁移未完成，请稍后重试。");
     }
   }
 
@@ -416,7 +436,7 @@
     try {
       await request("/api/auth/logout", { method: "POST" });
     } catch (error) {
-      notify(error.message || String(error));
+      notify(error.message || "退出登录未完成，请稍后重试。");
       return;
     }
     account = { authenticated: false, user: null, organizations: [], csrf_token: "", expires_at: null };
