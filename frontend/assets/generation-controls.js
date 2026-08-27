@@ -8,6 +8,7 @@
   const PREVIEW_INTERNAL_REF_RE = /\[(?:MT-\d{2}|MP-\d{2}|MT-C\d{2})\]/g;
   const PREVIEW_HIDDEN_SECTIONS = new Set(["自动一致性校验", "输入证据与待确认索引", "证据索引", "AI 建议补充动作"]);
   const PREVIEW_TECHNICAL_HEADERS = /(证据编号|原文证据|依据编号|证据引用|来源编号|输入摘录)/;
+  const GENERATION_TECHNICAL_DETAIL_RE = /(?:traceback|exception|internal server error|bad gateway|gateway timeout|nginx|cloudflare|uvicorn|fastapi|sql(?:alchemy)?|stack trace|api[_ -]?key|base[_ -]?url|bearer\s|authorization|endpoint|provider|request id|response body|https?:\/\/|localhost|127\.0\.0\.1|<html|<!doctype)/i;
 
   if (!hooks) throw new Error("Workspace hooks must load before generation controls.");
 
@@ -15,7 +16,28 @@
     const error = new Error(message);
     error.code = code;
     error.retryable = retryable;
+    error.userFacing = true;
     return error;
+  }
+
+  function cleanGenerationErrorText(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function safeGenerationTransportDetail(detail, fallback) {
+    const message = cleanGenerationErrorText(detail);
+    if (!message || message.length > 120 || GENERATION_TECHNICAL_DETAIL_RE.test(message)) return fallback;
+    return message;
+  }
+
+  function generationHttpFailureMessage(status, detail) {
+    const code = Number(status || 0);
+    if (code === 401 || code === 403) return "AI 服务授权未通过，请检查服务配置后重试。";
+    if (code === 413) return "输入内容较大，请精简后重试。";
+    if (code === 404) return "生成服务暂时不可用，请稍后重试。";
+    if (code === 429) return "当前生成请求较多，请稍后重试。";
+    if (code >= 500) return "生成服务暂时不可用，请稍后重试。";
+    return safeGenerationTransportDetail(detail, "生成请求未完成，请检查输入后重试。");
   }
 
   function setStreamStatus(key, message) {
@@ -263,10 +285,13 @@
       clearTimeout(connectTimer);
 
       if (!resp.ok) {
-        const text = await resp.text();
         let parsed = {};
-        try { parsed = JSON.parse(text); } catch (_) {}
-        const error = createGenerationError(parsed.detail || text || "处理请求失败，请稍后重试。", parsed.code || "GENERATION_HTTP_ERROR", Boolean(parsed.retryable));
+        try { parsed = await resp.json(); } catch (_) {}
+        const error = createGenerationError(
+          generationHttpFailureMessage(resp.status, parsed.detail),
+          parsed.code || `GENERATION_HTTP_${resp.status}`,
+          Boolean(parsed.retryable),
+        );
         error.retryAfter = parsed.retry_after;
         throw error;
       }
@@ -335,7 +360,11 @@
             finishStreamingResult(key, task.full, event.mode || (task.verified ? "AI模型模式（已校验）" : "AI模型流式模式"));
             return { ok: true, content: task.full, mode: event.mode || "AI模型流式模式" };
           } else if (event.type === "error") {
-            const error = createGenerationError(event.error || "生成失败，请稍后重试。", event.code || "STREAM_ERROR", Boolean(event.retryable));
+            const error = createGenerationError(
+              safeGenerationTransportDetail(event.error, "生成服务暂时不可用，请稍后重试。"),
+              event.code || "STREAM_ERROR",
+              Boolean(event.retryable),
+            );
             error.retryAfter = event.retry_after;
             throw error;
           }
@@ -350,7 +379,9 @@
         true,
       );
     } catch (err) {
-      let message = err.message || String(err);
+      let message = err.userFacing
+        ? (err.message || "生成失败，请稍后重试。")
+        : "网络连接异常，生成未完成，请稍后重试。";
       let code = err.code || "GENERATION_FAILED";
 
       if (err.name === "AbortError") {
