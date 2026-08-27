@@ -76,3 +76,15 @@ def test_copy_text_falls_back_when_async_clipboard_is_rejected() -> None:
     assert "if (!copied) throw new Error" in implementation
     assert "finally {" in implementation
     assert "textarea.remove();" in implementation
+
+
+def test_non_ai_exports_do_not_resend_model_credentials() -> None:
+    assert "function activeRequestConfig()" not in RESULTS
+    export_start = RESULTS.index("async function downloadReportFile")
+    export_end = RESULTS.index("function decorateToolbar", export_start)
+    export_implementation = RESULTS[export_start:export_end]
+    assert "{ results, use_ai_summary: false }" in export_implementation
+    assert "{ results: single.results, use_ai_summary: false }" in export_implementation
+    assert "api_key" not in export_implementation
+    assert "base_url" not in export_implementation
+    assert "ZHILINK_MODEL_CONFIG" not in export_implementation

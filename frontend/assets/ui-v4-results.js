@@ -28,10 +28,6 @@
     return "default";
   }
 
-  function activeRequestConfig() {
-    return window.ZHILINK_MODEL_CONFIG?.getRequestConfig?.() || { api_key: "", base_url: "", model: "", temperature: 0.35 };
-  }
-
   async function copyText(text) {
     const value = String(text || "");
     if (navigator.clipboard && window.isSecureContext) {
@@ -107,7 +103,7 @@
     const results = collectResultsForReport(true);
     await requestDownload(
       url,
-      { config: activeRequestConfig(), results, use_ai_summary: false },
+      { results, use_ai_summary: false },
       filename,
       contentType,
       "还没有可导出的结果。",
@@ -129,7 +125,7 @@
     if (!selected) throw new Error("不支持的导出格式。");
     await requestDownload(
       selected[0],
-      { config: activeRequestConfig(), results: single.results, use_ai_summary: false },
+      { results: single.results, use_ai_summary: false },
       selected[1],
       selected[2],
       "当前模块还没有可导出的结果。",
