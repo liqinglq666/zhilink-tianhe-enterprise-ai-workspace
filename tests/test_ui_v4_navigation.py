@@ -47,3 +47,20 @@ def test_shell_navigation_preserves_existing_business_entry_points() -> None:
     assert "saveConfig(" not in script.text
     assert "MutationObserver" not in script.text
     assert "ZHILINK_UI_V4_RUNTIME" in script.text
+
+
+def test_mobile_navigation_closes_in_capture_phase_without_keyup_race() -> None:
+    shell = (ROOT / "frontend" / "assets" / "ui-v4-shell.js").read_text(encoding="utf-8")
+    app_script = (ROOT / "frontend" / "assets" / "app.js").read_text(encoding="utf-8")
+
+    assert "function prepareMobileNavigation(event)" in shell
+    assert 'event.target.closest?.("#navList button[data-section]")' in shell
+    assert 'setSidebarOpen(false, byId("pageTitle"));' in shell
+    assert 'document.addEventListener("click", prepareMobileNavigation, true);' in shell
+    assert "pendingMobileNavFocus" not in shell
+    assert 'document.addEventListener("keyup"' not in shell
+    assert "window.setTimeout(() =>" not in shell
+
+    # app.js remains the single owner of business navigation/page activation.
+    assert 'qsa(".nav button").forEach(btn => btn.addEventListener("click", () => go(btn.dataset.section)));' in app_script
+    assert "function go(section)" in app_script
