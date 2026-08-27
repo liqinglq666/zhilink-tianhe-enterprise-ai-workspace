@@ -103,3 +103,19 @@ def test_export_errors_are_sanitized_before_reaching_user_toasts() -> None:
     assert 'failure.name = "ExportRequestError";' in implementation
     assert 'if (error.name === "ExportRequestError") throw error;' in implementation
     assert 'throw new Error("网络连接异常，导出未完成，请稍后重试。");' in implementation
+
+
+def test_generation_transport_errors_are_sanitized_before_reaching_result_ui() -> None:
+    assert "GENERATION_TECHNICAL_DETAIL_RE" in GENERATION
+    assert "function safeGenerationTransportDetail(detail, fallback)" in GENERATION
+    assert "function generationHttpFailureMessage(status, detail)" in GENERATION
+    assert 'if (code >= 500) return "生成服务暂时不可用，请稍后重试。";' in GENERATION
+    assert "error.userFacing = true;" in GENERATION
+    start = GENERATION.index("async function runGeneration(request)")
+    implementation = GENERATION[start:]
+    assert "resp.text()" not in implementation
+    assert "parsed.detail || text" not in implementation
+    assert "generationHttpFailureMessage(resp.status, parsed.detail)" in implementation
+    assert 'safeGenerationTransportDetail(event.error, "生成服务暂时不可用，请稍后重试。")' in implementation
+    assert 'err.userFacing' in implementation
+    assert '"网络连接异常，生成未完成，请稍后重试。"' in implementation
