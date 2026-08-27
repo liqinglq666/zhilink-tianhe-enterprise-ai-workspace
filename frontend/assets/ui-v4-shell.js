@@ -16,7 +16,6 @@
   let latestProjects = { items: [], total: 0 };
   let lastProjectSignature = "";
   let pendingProjectId = "";
-  let pendingMobileNavFocus = null;
   let bound = false;
 
   const byId = id => document.getElementById(id);
@@ -205,10 +204,16 @@
     pendingProjectId = "";
     button.click();
   }
+  function prepareMobileNavigation(event) {
+    const navButton = event.target.closest?.("#navList button[data-section]");
+    if (!navButton || !isMobileSidebar()) return;
+    setSidebarOpen(false, byId("pageTitle"));
+  }
 
   function bindControls() {
     if (bound) return;
     bound = true;
+    document.addEventListener("click", prepareMobileNavigation, true);
     document.addEventListener("click", event => {
       const project = event.target.closest?.("#uiV4ProjectContext");
       if (project) { triggerExisting("openProjectManager"); return; }
@@ -252,15 +257,6 @@
       const menu = byId("uiV4AccountMenu");
       const wrap = document.querySelector(".ui-v4-account-wrap");
       if (menu && wrap && !menu.hidden && !wrap.contains(event.target)) closeAccountMenu();
-      const navButton = event.target.closest?.(".nav button");
-      if (navButton && isMobileSidebar()) {
-        const title = byId("pageTitle");
-        pendingMobileNavFocus = title;
-        setSidebarOpen(false, title);
-        window.setTimeout(() => {
-          if (pendingMobileNavFocus === title) pendingMobileNavFocus = null;
-        }, 1000);
-      }
     });
     document.addEventListener("keydown", event => {
       if (event.key !== "Escape") return;
@@ -274,13 +270,6 @@
         event.preventDefault();
         setSidebarOpen(false, byId("uiV4MobileMenu"));
       }
-    });
-    document.addEventListener("keyup", event => {
-      if (!pendingMobileNavFocus || !["Enter", " "].includes(event.key)) return;
-      const target = pendingMobileNavFocus;
-      pendingMobileNavFocus = null;
-      target.focus?.({ preventScroll: true });
-      focusSoon(target);
     });
     window.addEventListener("storage", event => {
       if ([CURRENT_PROJECT_STORAGE, WORKSPACE_KEY_STORAGE].includes(event.key)) {
