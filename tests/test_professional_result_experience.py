@@ -88,3 +88,18 @@ def test_non_ai_exports_do_not_resend_model_credentials() -> None:
     assert "api_key" not in export_implementation
     assert "base_url" not in export_implementation
     assert "ZHILINK_MODEL_CONFIG" not in export_implementation
+
+
+def test_export_errors_are_sanitized_before_reaching_user_toasts() -> None:
+    assert "function exportFailureMessage(status, detail)" in RESULTS
+    assert 'if (code === 413) return "导出内容过大，请精简后重试。";' in RESULTS
+    assert 'if (code >= 500) return "导出服务暂时不可用，请稍后重试。";' in RESULTS
+    assert "EXPORT_TECHNICAL_DETAIL_RE" in RESULTS
+    start = RESULTS.index("async function requestDownload(")
+    end = RESULTS.index("async function downloadReportFile", start)
+    implementation = RESULTS[start:end]
+    assert "response.text()" not in implementation
+    assert "throw new Error(detail)" not in implementation
+    assert 'failure.name = "ExportRequestError";' in implementation
+    assert 'if (error.name === "ExportRequestError") throw error;' in implementation
+    assert 'throw new Error("网络连接异常，导出未完成，请稍后重试。");' in implementation
