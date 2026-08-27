@@ -67,6 +67,15 @@
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   }
 
+  function exportFailureMessage(status) {
+    if (status === 401) return "登录状态已失效，请重新登录后再导出。";
+    if (status === 403) return "当前账号没有导出权限。";
+    if (status === 413) return "当前结果内容较长，请精简后再导出。";
+    if (status === 429) return "导出请求较多，请稍后重试。";
+    if (status >= 500) return "导出服务暂时不可用，请稍后重试。";
+    return "导出失败，请稍后重试。";
+  }
+
   async function requestDownload(url, payload, filename, contentType, emptyMessage, timeoutMessage) {
     const hasContent = payload && payload.results && Object.values(payload.results).some(Boolean);
     if (!hasContent) throw new Error(emptyMessage || "还没有可导出的结果。");
@@ -80,10 +89,9 @@
         signal: controller.signal,
       });
       if (!response.ok) {
-        const text = await response.text();
-        let detail = text;
-        try { detail = JSON.parse(text).detail || text; } catch (_) {}
-        throw new Error(detail);
+        const failure = new Error(exportFailureMessage(response.status));
+        failure.name = "ExportRequestError";
+        throw failure;
       }
       const blob = await response.blob();
       const anchor = document.createElement("a");
@@ -96,14 +104,15 @@
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (error) {
       if (error.name === "AbortError") throw new Error(timeoutMessage || "导出超时，请稍后重试。");
-      throw error;
+      if (error.name === "ExportRequestError") throw error;
+      throw new Error("导出失败，请检查网络连接后重试。");
     } finally {
       clearTimeout(timer);
     }
   }
 
   async function downloadReportFile(url, filename, contentType) {
-    if (typeof collectResultsForReport !== "function") throw new Error("结果汇总模块未就绪。");
+    if (typeof collectResultsForReport !== "function") throw new Error("当前结果暂时无法导出，请刷新页面后重试。");
     const results = collectResultsForReport(true);
     await requestDownload(
       url,
@@ -116,7 +125,7 @@
   }
 
   async function downloadModuleFile(key, format) {
-    if (typeof collectSingleModuleResult !== "function") throw new Error("结果汇总模块未就绪。");
+    if (typeof collectSingleModuleResult !== "function") throw new Error("当前结果暂时无法导出，请刷新页面后重试。");
     const single = collectSingleModuleResult(key);
     if (!single.content) throw new Error("当前模块还没有生成结果，请先点击生成。");
     const safeTitle = single.title.replace(/[\/:*?"<>|]/g, "_");
@@ -398,7 +407,7 @@
           await downloadModuleFile(exportButton.dataset.key, exportButton.dataset.format);
           if (typeof toast === "function") toast(`已开始下载${String(exportButton.dataset.format || "").toUpperCase()}文件`);
         } catch (error) {
-          if (typeof toast === "function") toast(error.message || String(error));
+          if (typeof toast === "function") toast(error.message || "导出失败，请稍后重试。");
         }
       }
     });
@@ -416,7 +425,7 @@
           await downloadReportFile(url, filename, contentType);
           if (typeof toast === "function") toast("报告已开始下载");
         } catch (error) {
-          if (typeof toast === "function") toast(error.message || String(error));
+          if (typeof toast === "function") toast(error.message || "导出失败，请稍后重试。");
         } finally {
           if (typeof setLoading === "function") setLoading(button, false);
         }
