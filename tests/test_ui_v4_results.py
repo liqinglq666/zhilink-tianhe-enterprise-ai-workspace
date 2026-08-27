@@ -85,7 +85,9 @@ def test_v4_results_are_the_only_result_copy_and_export_action_owner() -> None:
     assert "async function downloadModuleFile(key, format)" in text
     assert "async function downloadReportFile(url, filename, contentType)" in text
     assert "window.ZHILINK_RESULTS = Object.freeze({" in text
-    assert "window.ZHILINK_MODEL_CONFIG?.getRequestConfig?.()" in text
+    assert "window.ZHILINK_MODEL_CONFIG?.getRequestConfig?.()" not in text
+    assert "{ results, use_ai_summary: false }" in text
+    assert "{ results: single.results, use_ai_summary: false }" in text
     assert 'event.target.closest?.(".copy-result")' in text
     assert 'event.target.closest?.(".export-result")' in text
     assert '"downloadMarkdown"' in text
