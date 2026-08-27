@@ -3,6 +3,7 @@
   const PANEL_SELECTOR = ".result-panel";
   const REQUEST_TIMEOUT_MS = 180000;
   const INTERNAL_META_RE = /(AI\s*模型|流式模式|模型模式|本地报告模式|含证据索引|本地规则预检|连接超时|生成超时|请求已发送|服务端协调)/i;
+  const EXPORT_TECHNICAL_DETAIL_RE = /(?:traceback|exception|internal server error|bad gateway|gateway timeout|nginx|cloudflare|uvicorn|fastapi|sql(?:alchemy)?|api[_ -]?key|base[_ -]?url|stack trace|<html|<!doctype)/i;
   const KIND_RULES = [
     ["pending", /(待确认|待补充|需确认|未确认|信息缺口|未知事项|待核实)/],
     ["risk", /(风险|问题|注意事项|合规|警示|隐患|异常)/],
@@ -63,6 +64,18 @@
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   }
 
+  function exportFailureMessage(status, detail) {
+    const code = Number(status || 0);
+    if (code === 413) return "导出内容过大，请精简后重试。";
+    if (code === 401 || code === 403) return "导出请求未通过权限校验，请刷新页面后重试。";
+    if (code === 404) return "导出服务暂时不可用，请稍后重试。";
+    if (code === 429) return "导出请求较多，请稍后重试。";
+    if (code >= 500) return "导出服务暂时不可用，请稍后重试。";
+    const message = typeof detail === "string" ? cleanText(detail) : "";
+    if ((code === 400 || code === 422) && message && message.length <= 120 && !EXPORT_TECHNICAL_DETAIL_RE.test(message)) return message;
+    return "导出失败，请检查结果后重试。";
+  }
+
   async function requestDownload(url, payload, filename, contentType, emptyMessage, timeoutMessage) {
     const hasContent = payload && payload.results && Object.values(payload.results).some(Boolean);
     if (!hasContent) throw new Error(emptyMessage || "还没有可导出的结果。");
@@ -76,10 +89,16 @@
         signal: controller.signal,
       });
       if (!response.ok) {
-        const text = await response.text();
-        let detail = text;
-        try { detail = JSON.parse(text).detail || text; } catch (_) {}
-        throw new Error(detail);
+        let detail = "";
+        if (response.status === 400 || response.status === 422) {
+          try {
+            const data = await response.json();
+            if (typeof data?.detail === "string") detail = data.detail;
+          } catch (_) {}
+        }
+        const failure = new Error(exportFailureMessage(response.status, detail));
+        failure.name = "ExportRequestError";
+        throw failure;
       }
       const blob = await response.blob();
       const anchor = document.createElement("a");
@@ -92,7 +111,8 @@
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (error) {
       if (error.name === "AbortError") throw new Error(timeoutMessage || "导出超时，请稍后重试。");
-      throw error;
+      if (error.name === "ExportRequestError") throw error;
+      throw new Error("网络连接异常，导出未完成，请稍后重试。");
     } finally {
       clearTimeout(timer);
     }
@@ -394,7 +414,7 @@
           await downloadModuleFile(exportButton.dataset.key, exportButton.dataset.format);
           if (typeof toast === "function") toast(`已开始下载${String(exportButton.dataset.format || "").toUpperCase()}文件`);
         } catch (error) {
-          if (typeof toast === "function") toast(error.message || String(error));
+          if (typeof toast === "function") toast(error.message || "导出失败，请稍后重试。");
         }
       }
     });
@@ -412,7 +432,7 @@
           await downloadReportFile(url, filename, contentType);
           if (typeof toast === "function") toast("报告已开始下载");
         } catch (error) {
-          if (typeof toast === "function") toast(error.message || String(error));
+          if (typeof toast === "function") toast(error.message || "导出失败，请稍后重试。");
         } finally {
           if (typeof setLoading === "function") setLoading(button, false);
         }
