@@ -20,9 +20,18 @@ from .limits import ClientConcurrencyLimiter
 from .schemas import APIConfig, ProfileData
 from .service import make_hub, profile_to_dict
 
+
+def _positive_env_int(name: str, default: int = 1) -> int:
+    try:
+        value = int(os.getenv(name, str(default)).strip())
+    except ValueError:
+        value = default
+    return max(1, value)
+
+
 router = APIRouter(prefix="/api/policy/official", tags=["official-policy"])
-MAX_POLICY_CONCURRENCY = max(1, int(os.getenv("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", "1") or "1"))
-MAX_POLICY_SEARCH_CONCURRENCY = max(1, int(os.getenv("MAX_CONCURRENT_POLICY_SEARCHES_PER_CLIENT", "1") or "1"))
+MAX_POLICY_CONCURRENCY = _positive_env_int("MAX_CONCURRENT_GENERATIONS_PER_CLIENT")
+MAX_POLICY_SEARCH_CONCURRENCY = _positive_env_int("MAX_CONCURRENT_POLICY_SEARCHES_PER_CLIENT")
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "").strip().lower() in {"1", "true", "yes", "on"}
 POLICY_GENERATION_LIMITER = ClientConcurrencyLimiter(MAX_POLICY_CONCURRENCY)
 POLICY_SEARCH_LIMITER = ClientConcurrencyLimiter(MAX_POLICY_SEARCH_CONCURRENCY)

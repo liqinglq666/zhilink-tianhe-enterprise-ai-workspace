@@ -108,6 +108,17 @@ def test_same_query_uses_deterministic_cache(monkeypatch):
     assert len(calls) == count
 
 
+def test_cache_distinguishes_requested_result_limit(monkeypatch):
+    monkeypatch.setenv("POLICY_MAX_CATALOG_PAGES", "1")
+    service = retriever()
+
+    one = service.search({"industry": "软件"}, "软件 政策", limit=1)
+    two = service.search({"industry": "软件"}, "软件 政策", limit=2)
+
+    assert len(one.sources) == 1
+    assert len(two.sources) == 2
+
+
 def test_cache_is_bounded(monkeypatch):
     monkeypatch.setenv("POLICY_MAX_CATALOG_PAGES", "1")
     monkeypatch.setenv("POLICY_CACHE_MAX_ENTRIES", "16")
