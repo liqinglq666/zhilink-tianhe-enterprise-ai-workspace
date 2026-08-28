@@ -103,12 +103,12 @@ def _clip(value: object, limit: int) -> str:
     return text[:limit]
 
 
-def _evidence_ids(text: str) -> list[str]:
-    return list(dict.fromkeys(EVIDENCE_RE.findall(text or "")))
+def _evidence_ids(text: str, limit: int = 500) -> list[str]:
+    return list(dict.fromkeys(EVIDENCE_RE.findall(text or "")))[:limit]
 
 
 def _split_cells(line: str) -> list[str]:
-    return [_clip(cell, 1000) for cell in line.strip().strip("|").split("|")]
+    return [_clip(cell, 1000) for cell in line.strip().strip("|").split("|")][:20]
 
 
 def _parse_table(lines: list[str]) -> StructuredTable | None:
@@ -198,7 +198,7 @@ def _make_items(section: StructuredSection, fragments: list[str], prefix: str) -
             status = "待确认"
         output.append(StructuredItem(
             id=f"{prefix}{len(output)+1:02d}", text=text, section_id=section.id,
-            evidence_ids=_evidence_ids(text), status=status,
+            evidence_ids=_evidence_ids(text, 30), status=status,
         ))
         if len(output) >= MAX_ITEMS:
             break
@@ -250,7 +250,7 @@ def structure_markdown(module: StructuredModule, markdown: str) -> StructuredRes
             text=_section_text(lines),
             items=items,
             table=table,
-            evidence_ids=_evidence_ids("\n".join(lines)),
+            evidence_ids=_evidence_ids("\n".join(lines), 100),
         ))
 
     summary = ""
