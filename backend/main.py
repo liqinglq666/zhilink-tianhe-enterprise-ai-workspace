@@ -218,7 +218,10 @@ async def runtime_error_handler(request: Request, exc: RuntimeError):  # noqa: A
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):  # noqa: ARG001
-    return JSONResponse(status_code=400, content={"detail": str(exc)})
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "服务处理过程中发生异常，请稍后重试。", "code": "INTERNAL_VALUE_ERROR", "retryable": True},
+    )
 
 
 app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
