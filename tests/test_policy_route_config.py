@@ -3,12 +3,18 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _import_policy_routes(generation: str, search: str) -> tuple[int, int]:
     env = os.environ.copy()
     env["MAX_CONCURRENT_GENERATIONS_PER_CLIENT"] = generation
     env["MAX_CONCURRENT_POLICY_SEARCHES_PER_CLIENT"] = search
+    env["PYTHONPATH"] = os.pathsep.join(
+        part for part in (str(ROOT), str(ROOT / "src"), env.get("PYTHONPATH", "")) if part
+    )
     completed = subprocess.run(
         [
             sys.executable,
@@ -22,6 +28,7 @@ def _import_policy_routes(generation: str, search: str) -> tuple[int, int]:
         capture_output=True,
         text=True,
         env=env,
+        cwd=ROOT,
     )
     generation_value, search_value = completed.stdout.strip().split()
     return int(generation_value), int(search_value)
