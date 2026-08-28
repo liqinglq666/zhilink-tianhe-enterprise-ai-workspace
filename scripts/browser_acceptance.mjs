@@ -278,12 +278,52 @@ async function main() {
     await pressKey("Escape", "Escape", 27);
     await waitJs("!document.body.classList.contains('ui-v4-sidebar-open') && document.querySelector('.sidebar')?.hasAttribute('inert') && document.activeElement?.id === 'uiV4MobileMenu'", "mobile sidebar Escape close and focus restore");
 
+    await evaluate(`(() => {
+      const describe = node => {
+        if (!node) return "";
+        return node.id || node.getAttribute?.("data-section") || node.tagName || "";
+      };
+      window.__zhilinkFocusTrace = [];
+      for (const type of ["keydown", "keyup", "click", "focusin", "focusout"]) {
+        document.addEventListener(type, event => {
+          window.__zhilinkFocusTrace.push({
+            type,
+            key: event.key || "",
+            target: describe(event.target),
+            related: describe(event.relatedTarget),
+            active: describe(document.activeElement),
+            defaultPrevented: Boolean(event.defaultPrevented),
+            sidebarOpen: document.body.classList.contains("ui-v4-sidebar-open"),
+          });
+          if (window.__zhilinkFocusTrace.length > 60) window.__zhilinkFocusTrace.shift();
+        });
+      }
+    })()`);
     await pressKey("Enter", "Enter", 13);
     await waitJs("document.body.classList.contains('ui-v4-sidebar-open')", "mobile sidebar reopen");
     await evaluate("document.querySelector('.nav button[data-section=\"meeting\"]').focus()");
     await pressKey("Enter", "Enter", 13);
     await waitJs("document.querySelector('.page.active-page')?.id === 'meeting' && !document.body.classList.contains('ui-v4-sidebar-open') && document.querySelector('.sidebar')?.hasAttribute('inert')", "mobile keyboard navigation closes sidebar");
-    await waitJs("document.activeElement?.id === 'pageTitle'", "mobile navigation focus moved to page title");
+    await waitJs("document.activeElement?.id === 'pageTitle'", "mobile navigation focus moved to page title").catch(async error => {
+      const focusState = await evaluate(`(() => {
+        const active = document.activeElement;
+        const sidebar = document.querySelector(".sidebar");
+        return {
+          activeId: active?.id || "",
+          activeTag: active?.tagName || "",
+          activeSection: active?.getAttribute?.("data-section") || "",
+          activeClass: active?.className || "",
+          documentHasFocus: document.hasFocus(),
+          page: document.querySelector(".page.active-page")?.id || "",
+          sidebarOpen: document.body.classList.contains("ui-v4-sidebar-open"),
+          sidebarInert: Boolean(sidebar?.hasAttribute("inert")),
+          sidebarAriaHidden: sidebar?.getAttribute("aria-hidden") || "",
+          sidebarContainsActive: Boolean(sidebar?.contains(active)),
+          trace: window.__zhilinkFocusTrace || [],
+        };
+      })()` ).catch(() => ({}));
+      throw new Error(`${error.message}\nMobile focus state: ${JSON.stringify(focusState)}`);
+    });
 
     await client.send("Emulation.clearDeviceMetricsOverride");
     await waitJs("window.innerWidth > 1020 && !document.querySelector('.sidebar')?.hasAttribute('inert') && !document.querySelector('.sidebar')?.hasAttribute('aria-hidden')", "desktop sidebar accessibility state restored");
@@ -357,7 +397,6 @@ async function main() {
     await waitJs("document.getElementById('openProjectManager')?.textContent.includes('未保存')", "project dirty state after committed result");
     await waitJs("Boolean(window.ZHILINK_STRUCTURED?.get?.('meeting'))", "structured meeting result", 30000);
     console.log("[browser] result commit and structured conversion passed");
-
     await click("#uiV4ProjectContext");
     await waitJs("document.getElementById('projectManagerModal')?.classList.contains('show')", "project manager reopen");
     await click("#saveProjectButton");
