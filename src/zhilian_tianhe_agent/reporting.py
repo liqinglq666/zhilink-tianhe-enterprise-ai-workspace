@@ -83,10 +83,6 @@ def build_markdown_report(results: Dict[str, str]) -> str:
     return "\n".join(parts).strip()
 
 
-def build_txt_bytes(results: Dict[str, str]) -> bytes:
-    return build_markdown_report(results).encode("utf-8")
-
-
 def _set_east_asian_font(run, font_name: str = "微软雅黑") -> None:
     run.font.name = font_name
     run._element.rPr.rFonts.set(qn("w:eastAsia"), font_name)
