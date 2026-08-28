@@ -54,20 +54,24 @@ from .security import (  # noqa: E402
 from .service import agent_response, build_docx, build_markdown, make_hub, profile_to_dict  # noqa: E402
 
 
-def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+def _env_int(name: str, default: int) -> int:
     try:
-        value = int(os.getenv(name, str(default)).strip())
+        return int(os.getenv(name, str(default)).strip())
     except ValueError:
-        value = default
+        return default
+
+
+def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    value = _env_int(name, default)
     return max(minimum, min(value, maximum))
 
 
 APP_VERSION = "2.8.1"
-MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "1500000"))
-RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", "30"))
-RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
-MAX_CONCURRENT_GENERATIONS_PER_CLIENT = int(os.getenv("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", "1"))
-MODEL_TEST_TIMEOUT_SECONDS = max(5, min(int(os.getenv("MODEL_TEST_TIMEOUT_SECONDS", "20")), 120))
+MAX_BODY_BYTES = _env_int("MAX_BODY_BYTES", 1500000)
+RATE_LIMIT_REQUESTS = _env_int("RATE_LIMIT_REQUESTS", 30)
+RATE_LIMIT_WINDOW_SECONDS = _env_int("RATE_LIMIT_WINDOW_SECONDS", 60)
+MAX_CONCURRENT_GENERATIONS_PER_CLIENT = _env_int("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", 1)
+MODEL_TEST_TIMEOUT_SECONDS = _bounded_env_int("MODEL_TEST_TIMEOUT_SECONDS", 20, 5, 120)
 MODEL_REQUEST_TIMEOUT_SECONDS = _bounded_env_int("MODEL_REQUEST_TIMEOUT_SECONDS", 120, 10, 600)
 MODEL_MAX_STREAM_SECONDS = _bounded_env_int("MODEL_MAX_STREAM_SECONDS", max(MODEL_REQUEST_TIMEOUT_SECONDS, 180), 10, 1800)
 CLIENT_STREAM_IDLE_TIMEOUT_MS = (MODEL_REQUEST_TIMEOUT_SECONDS + 15) * 1000
@@ -78,7 +82,7 @@ CLIENT_STREAM_HARD_TIMEOUT_MS = max(
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "").strip().lower() in {"1", "true", "yes", "on"}
 ALLOW_WILDCARD_CORS = os.getenv("ALLOW_WILDCARD_CORS", "").strip().lower() in {"1", "true", "yes", "on"}
 ENABLE_HSTS = os.getenv("ENABLE_HSTS", "").strip().lower() in {"1", "true", "yes", "on"}
-HSTS_MAX_AGE = int(os.getenv("HSTS_MAX_AGE", "31536000"))
+HSTS_MAX_AGE = _env_int("HSTS_MAX_AGE", 31536000)
 CONTENT_SECURITY_POLICY = os.getenv("CONTENT_SECURITY_POLICY", DEFAULT_CONTENT_SECURITY_POLICY).strip()
 PERMISSIONS_POLICY = os.getenv("PERMISSIONS_POLICY", DEFAULT_PERMISSIONS_POLICY).strip()
 FRONTEND_DIR = ROOT / "frontend"
