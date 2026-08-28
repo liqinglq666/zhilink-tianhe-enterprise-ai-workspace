@@ -35,6 +35,8 @@ except Exception:  # noqa: BLE001
 from .constants import APP_FULL_NAME, LEGAL_DISCLAIMER
 
 
+MAX_DOCX_TABLE_COLUMNS = 20
+
 KNOWN_SECTION_TITLES = {
     "一句话结论",
     "风险总览",
@@ -248,7 +250,7 @@ def _split_table_row(line: str) -> List[str]:
     if line.endswith("|"):
         line = line[:-1]
 
-    return [cell.strip() for cell in line.split("|")]
+    return [cell.strip() for cell in line.split("|")][:MAX_DOCX_TABLE_COLUMNS]
 
 
 def _is_probable_table_line(line: str) -> bool:
