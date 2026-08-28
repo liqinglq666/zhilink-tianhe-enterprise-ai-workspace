@@ -234,7 +234,10 @@ class OfficialPolicyRetriever:
         if not self.enabled:
             return OfficialPolicyRetrieval(query=combined_query, status="disabled", retrieved_at=retrieved_at, warnings=["官方政策检索已由部署配置关闭。"])
 
-        cache_key = hashlib.sha256((combined_query + "\n" + "\n".join(self.catalog_urls)).encode("utf-8")).hexdigest()
+        result_limit = max(1, min(int(limit or self.max_results), 12))
+        cache_key = hashlib.sha256(
+            (combined_query + "\n" + "\n".join(self.catalog_urls) + f"\nlimit={result_limit}").encode("utf-8")
+        ).hexdigest()
         now = time.time()
         with self._lock:
             self._prune_cache(now)
@@ -243,7 +246,6 @@ class OfficialPolicyRetriever:
                 self._cache.move_to_end(cache_key)
                 return cached.value.model_copy(deep=True)
 
-        result_limit = max(1, min(int(limit or self.max_results), 12))
         warnings: list[str] = []
         candidates: dict[str, str] = {}
         searched_catalogs: list[str] = []
