@@ -9,9 +9,12 @@ def test_mobile_navigation_uses_deterministic_keyboard_focus_path() -> None:
     index = (root / "frontend/index.html").read_text(encoding="utf-8")
 
     assert 'id="pageTitle" tabindex="-1"' in index
+    assert 'let pendingMobileNavKey = "";' in shell
     assert "focusAfterNavigation" not in shell
-    assert "setSidebarOpen(false);\n        title?.focus?.({ preventScroll: true });" in shell
+    assert "setSidebarOpen(false);\n        if (!pendingMobileNavKey) title?.focus?.({ preventScroll: true });" in shell
     assert 'navButton && isMobileSidebar() && ["Enter", " "].includes(event.key)' in shell
-    assert "event.preventDefault();\n        navButton.click();" in shell
+    assert "pendingMobileNavKey = event.key;\n        navButton.click();" in shell
+    assert 'document.addEventListener("keyup"' in shell
+    assert 'if (!pendingMobileNavKey || event.key !== pendingMobileNavKey) return;' in shell
+    assert 'pendingMobileNavKey = "";\n      byId("pageTitle")?.focus?.({ preventScroll: true });' in shell
     assert "pendingMobileNavFocus" not in shell
-    assert 'document.addEventListener("keyup"' not in shell
