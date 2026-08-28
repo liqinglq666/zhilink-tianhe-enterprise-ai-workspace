@@ -229,6 +229,7 @@ async function main() {
       results: Boolean(window.ZHILINK_UI_V4_RESULTS_READY),
       drawer: Boolean(window.ZHILINK_API_DRAWER_V4_READY),
       modelConfig: Boolean(window.ZHILINK_MODEL_CONFIG_SAVE_V4_READY),
+      modelInitialized: Boolean(window.ZHILINK_MODEL_CONFIG?.isInitialized?.()),
       projects: Boolean(window.PROJECT_STORAGE_READY),
       dashboard: Boolean(window.ZHILINK_UI_V4_DASHBOARD_READY),
       structured: Boolean(window.ZHILINK_STRUCTURED_READY),
