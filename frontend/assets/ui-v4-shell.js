@@ -16,12 +16,12 @@
   let latestProjects = { items: [], total: 0 };
   let lastProjectSignature = "";
   let pendingProjectId = "";
-  let pendingMobileNavFocus = null;
   let bound = false;
 
   const byId = id => document.getElementById(id);
   const notify = message => typeof toast === "function" ? toast(message) : console.info(message);
   const focusSoon = target => window.requestAnimationFrame(() => target?.focus?.({ preventScroll: true }));
+  const focusAfterNavigation = target => window.requestAnimationFrame(() => focusSoon(target));
   const isMobileSidebar = () => MOBILE_SIDEBAR_QUERY ? MOBILE_SIDEBAR_QUERY.matches : window.innerWidth <= 1020;
 
   function ensureWorkspaceKey() {
@@ -255,14 +255,17 @@
       const navButton = event.target.closest?.(".nav button");
       if (navButton && isMobileSidebar()) {
         const title = byId("pageTitle");
-        pendingMobileNavFocus = title;
-        setSidebarOpen(false, title);
-        window.setTimeout(() => {
-          if (pendingMobileNavFocus === title) pendingMobileNavFocus = null;
-        }, 1000);
+        setSidebarOpen(false);
+        focusAfterNavigation(title);
       }
     });
     document.addEventListener("keydown", event => {
+      const navButton = event.target.closest?.(".nav button");
+      if (navButton && isMobileSidebar() && ["Enter", " "].includes(event.key)) {
+        event.preventDefault();
+        navButton.click();
+        return;
+      }
       if (event.key !== "Escape") return;
       const accountMenu = byId("uiV4AccountMenu");
       if (accountMenu && !accountMenu.hidden) {
@@ -274,13 +277,6 @@
         event.preventDefault();
         setSidebarOpen(false, byId("uiV4MobileMenu"));
       }
-    });
-    document.addEventListener("keyup", event => {
-      if (!pendingMobileNavFocus || !["Enter", " "].includes(event.key)) return;
-      const target = pendingMobileNavFocus;
-      pendingMobileNavFocus = null;
-      target.focus?.({ preventScroll: true });
-      focusSoon(target);
     });
     window.addEventListener("storage", event => {
       if ([CURRENT_PROJECT_STORAGE, WORKSPACE_KEY_STORAGE].includes(event.key)) {
