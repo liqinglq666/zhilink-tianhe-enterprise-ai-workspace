@@ -21,7 +21,6 @@
   const byId = id => document.getElementById(id);
   const notify = message => typeof toast === "function" ? toast(message) : console.info(message);
   const focusSoon = target => window.requestAnimationFrame(() => target?.focus?.({ preventScroll: true }));
-  const focusAfterNavigation = target => window.requestAnimationFrame(() => focusSoon(target));
   const isMobileSidebar = () => MOBILE_SIDEBAR_QUERY ? MOBILE_SIDEBAR_QUERY.matches : window.innerWidth <= 1020;
 
   function ensureWorkspaceKey() {
@@ -256,7 +255,7 @@
       if (navButton && isMobileSidebar()) {
         const title = byId("pageTitle");
         setSidebarOpen(false);
-        focusAfterNavigation(title);
+        title?.focus?.({ preventScroll: true });
       }
     });
     document.addEventListener("keydown", event => {
