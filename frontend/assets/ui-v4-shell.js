@@ -260,6 +260,12 @@
       }
     });
     document.addEventListener("keydown", event => {
+      const navButton = event.target.closest?.(".nav button");
+      if (navButton && isMobileSidebar() && ["Enter", " "].includes(event.key)) {
+        event.preventDefault();
+        navButton.click();
+        return;
+      }
       if (event.key !== "Escape") return;
       const accountMenu = byId("uiV4AccountMenu");
       if (accountMenu && !accountMenu.hidden) {
