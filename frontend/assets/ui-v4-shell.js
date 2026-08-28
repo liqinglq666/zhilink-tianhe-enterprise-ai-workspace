@@ -16,6 +16,7 @@
   let latestProjects = { items: [], total: 0 };
   let lastProjectSignature = "";
   let pendingProjectId = "";
+  let pendingMobileNavKey = "";
   let bound = false;
 
   const byId = id => document.getElementById(id);
@@ -255,13 +256,14 @@
       if (navButton && isMobileSidebar()) {
         const title = byId("pageTitle");
         setSidebarOpen(false);
-        title?.focus?.({ preventScroll: true });
+        if (!pendingMobileNavKey) title?.focus?.({ preventScroll: true });
       }
     });
     document.addEventListener("keydown", event => {
       const navButton = event.target.closest?.(".nav button");
       if (navButton && isMobileSidebar() && ["Enter", " "].includes(event.key)) {
         event.preventDefault();
+        pendingMobileNavKey = event.key;
         navButton.click();
         return;
       }
@@ -277,6 +279,13 @@
         setSidebarOpen(false, byId("uiV4MobileMenu"));
       }
     });
+    document.addEventListener("keyup", event => {
+      if (!pendingMobileNavKey || event.key !== pendingMobileNavKey) return;
+      event.preventDefault();
+      pendingMobileNavKey = "";
+      byId("pageTitle")?.focus?.({ preventScroll: true });
+    });
+    window.addEventListener("blur", () => { pendingMobileNavKey = ""; });
     window.addEventListener("storage", event => {
       if ([CURRENT_PROJECT_STORAGE, WORKSPACE_KEY_STORAGE].includes(event.key)) {
         fetchProjects();
