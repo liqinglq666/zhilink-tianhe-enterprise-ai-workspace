@@ -370,31 +370,30 @@ class OfficialPolicyRetriever:
         for _ in range(4):
             self._validate_url(current)
             response = self._session.get(current, timeout=(min(self.timeout, 5.0), self.timeout), allow_redirects=False, stream=True)
-            if response.status_code in {301, 302, 303, 307, 308}:
-                location = response.headers.get("Location", "")
-                response.close()
-                if not location:
-                    raise ValueError("官方页面重定向缺少目标地址。")
-                current = urljoin(current, location)
-                continue
-            response.raise_for_status()
-            content_type = response.headers.get("Content-Type", "").lower()
-            if content_type and not any(item in content_type for item in ("text/html", "text/plain", "application/xhtml")):
-                response.close()
-                raise ValueError("官方页面返回了不支持的内容类型。")
-            chunks: list[bytes] = []
-            total = 0
-            for chunk in response.iter_content(65536):
-                if not chunk:
+            try:
+                if response.status_code in {301, 302, 303, 307, 308}:
+                    location = response.headers.get("Location", "")
+                    if not location:
+                        raise ValueError("官方页面重定向缺少目标地址。")
+                    current = urljoin(current, location)
                     continue
-                total += len(chunk)
-                if total > MAX_RESPONSE_BYTES:
-                    response.close()
-                    raise ValueError("官方页面内容超过安全读取上限。")
-                chunks.append(chunk)
-            encoding = response.encoding or response.apparent_encoding or "utf-8"
-            response.close()
-            return b"".join(chunks).decode(encoding, errors="replace")
+                response.raise_for_status()
+                content_type = response.headers.get("Content-Type", "").lower()
+                if content_type and not any(item in content_type for item in ("text/html", "text/plain", "application/xhtml")):
+                    raise ValueError("官方页面返回了不支持的内容类型。")
+                chunks: list[bytes] = []
+                total = 0
+                for chunk in response.iter_content(65536):
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    if total > MAX_RESPONSE_BYTES:
+                        raise ValueError("官方页面内容超过安全读取上限。")
+                    chunks.append(chunk)
+                encoding = response.encoding or response.apparent_encoding or "utf-8"
+                return b"".join(chunks).decode(encoding, errors="replace")
+            finally:
+                response.close()
         raise ValueError("官方页面重定向次数过多。")
 
 
@@ -575,5 +574,6 @@ def _select_excerpt(text: str, query: str, title: str) -> str:
 
 
 def _safe_error(exc: Exception) -> str:
-    message = _space(str(exc))
-    return (message or exc.__class__.__name__)[:180]
+    if isinstance(exc, ValueError):
+        return (_space(str(exc)) or "官方页面内容不符合安全读取要求。")[:180]
+    return "官方页面暂时无法读取，请稍后重试。"
