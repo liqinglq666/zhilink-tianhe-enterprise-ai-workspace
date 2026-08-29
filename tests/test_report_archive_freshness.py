@@ -18,7 +18,7 @@ def test_source_changes_invalidate_old_derived_report() -> None:
     assert "previousContent === incomingContent" in source
     assert "delete state.results.report" in source
     assert "mode: REPORT_REFRESH_MODE" in source
-    assert "源材料已发生变化" in source
+    assert "源材料已更新" in source
     assert "重新整合运营报告" in source
     assert 'panel.className = "result-panel report-needs-refresh"' in source
 
