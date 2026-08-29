@@ -11,7 +11,8 @@ def test_mobile_navigation_uses_deterministic_keyboard_focus_path() -> None:
     assert 'id="pageTitle" tabindex="-1"' in index
     assert 'let pendingMobileNavKey = "";' in shell
     assert "focusAfterNavigation" not in shell
-    assert "setSidebarOpen(false);\n        if (!pendingMobileNavKey) title?.focus?.({ preventScroll: true });" in shell
+    assert 'const title = byId("pageTitle");\n        setSidebarOpen(false, title);' in shell
+    assert 'setSidebarOpen(false);\n        if (!pendingMobileNavKey) title?.focus?.({ preventScroll: true });' not in shell
     assert 'navButton && isMobileSidebar() && ["Enter", " "].includes(event.key)' in shell
     assert "pendingMobileNavKey = event.key;\n        navButton.click();" in shell
     assert 'document.addEventListener("keyup"' in shell
