@@ -228,6 +228,21 @@ class ServiceWorkflowStore:
             raise AccountStoreError(422, "WORKFLOW_ASSIGNEE_INVALID", "负责人不是当前组织可处理流程的有效成员。")
         return row
 
+    @staticmethod
+    def _current_actor_role(session, organization_id: str, user_id: str, allowed_roles: set[str], message: str) -> str:
+        membership = session.scalar(
+            select(OrganizationMembershipRecord)
+            .where(
+                OrganizationMembershipRecord.organization_id == organization_id,
+                OrganizationMembershipRecord.user_id == user_id,
+                OrganizationMembershipRecord.status == "active",
+            )
+            .with_for_update()
+        )
+        if membership is None or membership.role not in allowed_roles:
+            raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", message)
+        return membership.role
+
     def kbrefs(self, session, organization_id: str, citations: list[str]) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         today = date.today()
@@ -358,10 +373,17 @@ class ServiceWorkflowStore:
             )
 
     def create(self, *, organization_id, actor_user_id, actor_name, actor_role, payload: WorkflowCreateRequest):
-        if actor_role not in EDITORS:
-            raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "当前角色不能创建企业服务流程。")
         try:
             with self.sessions.begin() as session:
+                current_role = self._current_actor_role(
+                    session,
+                    organization_id,
+                    actor_user_id,
+                    EDITORS,
+                    "当前角色不能创建企业服务流程。",
+                )
+                if current_role == "editor" and payload.owner_user_id and payload.owner_user_id != actor_user_id:
+                    raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "编辑者只能把自己设为流程负责人。")
                 project = self.project(session, organization_id, payload.project_id)
                 owner = payload.owner_user_id or actor_user_id
                 self.member(session, organization_id, owner, True)
@@ -401,7 +423,7 @@ class ServiceWorkflowStore:
                     "draft",
                     actor_user_id,
                     actor_name,
-                    actor_role,
+                    current_role,
                     "创建企业服务流程",
                     {"project_id": project.id, "knowledge_citations": payload.knowledge_citations},
                 )
@@ -512,9 +534,14 @@ class ServiceWorkflowStore:
         }
 
     def update(self, *, organization_id, case_id, actor_user_id, actor_name, actor_role, lock_version, title, objective, priority, owner_user_id, due_date, clear_due_date):
-        if actor_role not in EDITORS:
-            raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "当前角色不能修改企业服务流程。")
         with self.sessions.begin() as session:
+            current_role = self._current_actor_role(
+                session,
+                organization_id,
+                actor_user_id,
+                EDITORS,
+                "当前角色不能修改企业服务流程。",
+            )
             case = self.case(session, organization_id, case_id, True)
             self.check(case, lock_version)
             before = case.status
@@ -525,7 +552,7 @@ class ServiceWorkflowStore:
             if priority is not None:
                 case.priority = priority
             if owner_user_id is not None:
-                if actor_role not in REVIEWERS and owner_user_id != actor_user_id:
+                if current_role not in REVIEWERS and owner_user_id != actor_user_id:
                     raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "编辑者只能把自己设为流程负责人。")
                 self.member(session, organization_id, owner_user_id, True)
                 case.owner_user_id = owner_user_id
@@ -535,13 +562,18 @@ class ServiceWorkflowStore:
                 case.due_date = None
             case.lock_version += 1
             case.updated_at = now()
-            self.event(session, case, None, "update", before, case.status, actor_user_id, actor_name, actor_role, "更新流程信息", {"owner": owner_user_id, "due": due_date})
+            self.event(session, case, None, "update", before, case.status, actor_user_id, actor_name, current_role, "更新流程信息", {"owner": owner_user_id, "due": due_date})
         return self.get(organization_id=organization_id, case_id=case_id)
 
     def refresh_context(self, *, organization_id, case_id, actor_user_id, actor_name, actor_role, lock_version, citations, note):
-        if actor_role not in EDITORS:
-            raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "当前角色不能刷新流程依据。")
         with self.sessions.begin() as session:
+            current_role = self._current_actor_role(
+                session,
+                organization_id,
+                actor_user_id,
+                EDITORS,
+                "当前角色不能刷新流程依据。",
+            )
             case = self.case(session, organization_id, case_id, True)
             self.check(case, lock_version)
             project = self.project(session, organization_id, case.project_id)
@@ -559,16 +591,21 @@ class ServiceWorkflowStore:
                     str(context.context_version),
                     actor_user_id,
                     actor_name,
-                    actor_role,
+                    current_role,
                     note or "刷新办理依据",
                     {"project_version": project.lock_version, "knowledge_citations": citations},
                 )
         return self.get(organization_id=organization_id, case_id=case_id)
 
     def update_node(self, *, organization_id, case_id, node_id, actor_user_id, actor_name, actor_role, lock_version, assignee_user_id, due_date, clear_due_date, description):
-        if actor_role not in REVIEWERS:
-            raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "只有管理员或所有者可以调整节点责任。")
         with self.sessions.begin() as session:
+            current_role = self._current_actor_role(
+                session,
+                organization_id,
+                actor_user_id,
+                REVIEWERS,
+                "只有管理员或所有者可以调整节点责任。",
+            )
             case = self.case(session, organization_id, case_id, True)
             self.check(case, lock_version)
             node = self.node(session, case.id, node_id, True)
@@ -585,19 +622,24 @@ class ServiceWorkflowStore:
             node.updated_at = now()
             case.lock_version += 1
             case.updated_at = now()
-            self.event(session, case, node, "update_node", before, node.status, actor_user_id, actor_name, actor_role, "调整节点责任或期限", {"assignee": assignee_user_id, "due": due_date})
+            self.event(session, case, node, "update_node", before, node.status, actor_user_id, actor_name, current_role, "调整节点责任或期限", {"assignee": assignee_user_id, "due": due_date})
         return self.get(organization_id=organization_id, case_id=case_id)
 
     def node_action(self, *, organization_id, case_id, node_id, actor_user_id, actor_name, actor_role, action, lock_version, note, output_summary):
-        if actor_role not in EDITORS:
-            raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "当前角色不能处理流程节点。")
         with self.sessions.begin() as session:
+            current_role = self._current_actor_role(
+                session,
+                organization_id,
+                actor_user_id,
+                EDITORS,
+                "当前角色不能处理流程节点。",
+            )
             case = self.case(session, organization_id, case_id, True)
             self.check(case, lock_version)
             if case.status in {"completed", "cancelled"}:
                 raise AccountStoreError(409, "WORKFLOW_ACTION_INVALID", "已结项或已取消的流程不能继续处理节点。")
             node = self.node(session, case.id, node_id, True)
-            if actor_role not in REVIEWERS:
+            if current_role not in REVIEWERS:
                 if node.assignee_user_id and node.assignee_user_id != actor_user_id:
                     raise AccountStoreError(403, "WORKFLOW_NODE_ASSIGNEE_REQUIRED", "该节点已分配给其他处理人。")
                 if not node.assignee_user_id:
@@ -618,36 +660,41 @@ class ServiceWorkflowStore:
                 node.output_summary = output_summary
                 node.submitted_at = now()
                 node.decision_note = note
-            elif action == "approve" and node.status == "pending_review" and actor_role in REVIEWERS:
+            elif action == "approve" and node.status == "pending_review" and current_role in REVIEWERS:
                 node.status = "completed"
                 node.completed_at = now()
                 node.decision_note = note
-            elif action == "return" and node.status == "pending_review" and actor_role in REVIEWERS:
+            elif action == "return" and node.status == "pending_review" and current_role in REVIEWERS:
                 node.status = "in_progress"
                 node.decision_note = note
-            elif action == "skip" and node.status not in {"completed", "skipped"} and actor_role in REVIEWERS:
+            elif action == "skip" and node.status not in {"completed", "skipped"} and current_role in REVIEWERS:
                 node.status = "skipped"
                 node.completed_at = now()
                 node.decision_note = note
-            elif action == "reopen" and node.status in {"completed", "skipped"} and actor_role in REVIEWERS:
+            elif action == "reopen" and node.status in {"completed", "skipped"} and current_role in REVIEWERS:
                 node.status = "in_progress"
                 node.completed_at = None
                 node.decision_note = note
                 case.status = "active" if case.status == "pending_review" else case.status
-            elif action in {"approve", "return", "skip", "reopen"} and actor_role not in REVIEWERS:
+            elif action in {"approve", "return", "skip", "reopen"} and current_role not in REVIEWERS:
                 raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "只有管理员或所有者可以审核节点。")
             else:
                 raise AccountStoreError(409, "WORKFLOW_NODE_ACTION_INVALID", "当前节点状态不能执行该操作。")
             node.updated_at = now()
             case.lock_version += 1
             case.updated_at = now()
-            self.event(session, case, node, action, before, node.status, actor_user_id, actor_name, actor_role, note, {"output_summary": output_summary, "assignee": node.assignee_user_id})
+            self.event(session, case, node, action, before, node.status, actor_user_id, actor_name, current_role, note, {"output_summary": output_summary, "assignee": node.assignee_user_id})
         return self.get(organization_id=organization_id, case_id=case_id)
 
     def case_action(self, *, organization_id, case_id, actor_user_id, actor_name, actor_role, action, lock_version, note, acknowledge_open_items):
-        if actor_role not in EDITORS:
-            raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "当前角色不能操作企业服务流程。")
         with self.sessions.begin() as session:
+            current_role = self._current_actor_role(
+                session,
+                organization_id,
+                actor_user_id,
+                EDITORS,
+                "当前角色不能操作企业服务流程。",
+            )
             case = self.case(session, organization_id, case_id, True)
             self.check(case, lock_version)
             before = case.status
@@ -668,7 +715,7 @@ class ServiceWorkflowStore:
                 if any(node.status not in {"completed", "skipped"} for node in nodes):
                     raise AccountStoreError(409, "WORKFLOW_NODES_INCOMPLETE", "仍有未完成节点，不能提交结项审核。")
                 case.status = "pending_review"
-            elif action == "complete" and case.status == "pending_review" and actor_role in REVIEWERS:
+            elif action == "complete" and case.status == "pending_review" and current_role in REVIEWERS:
                 project = self.project(session, organization_id, case.project_id)
                 if not context or context.project_version != project.lock_version:
                     raise AccountStoreError(409, "WORKFLOW_CONTEXT_STALE", "项目材料已更新，请刷新流程依据后再结项。")
@@ -677,19 +724,19 @@ class ServiceWorkflowStore:
                 case.status = "completed"
                 case.completed_at = now()
                 case.closure_summary = note
-            elif action == "cancel" and case.status not in {"completed", "cancelled"} and actor_role in REVIEWERS:
+            elif action == "cancel" and case.status not in {"completed", "cancelled"} and current_role in REVIEWERS:
                 case.status = "cancelled"
                 case.closure_summary = note
-            elif action == "reopen" and case.status in {"completed", "cancelled"} and actor_role in REVIEWERS:
+            elif action == "reopen" and case.status in {"completed", "cancelled"} and current_role in REVIEWERS:
                 case.status = "active"
                 case.completed_at = None
-            elif action in {"complete", "cancel", "reopen"} and actor_role not in REVIEWERS:
+            elif action in {"complete", "cancel", "reopen"} and current_role not in REVIEWERS:
                 raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "只有管理员或所有者可以执行该流程操作。")
             else:
                 raise AccountStoreError(409, "WORKFLOW_ACTION_INVALID", "当前流程状态不能执行该操作。")
             case.lock_version += 1
             case.updated_at = now()
-            self.event(session, case, None, action, before, case.status, actor_user_id, actor_name, actor_role, note, {"acknowledge_open_items": acknowledge_open_items})
+            self.event(session, case, None, action, before, case.status, actor_user_id, actor_name, current_role, note, {"acknowledge_open_items": acknowledge_open_items})
         return self.get(organization_id=organization_id, case_id=case_id)
 
     def events(self, *, organization_id, case_id):
