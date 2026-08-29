@@ -59,7 +59,7 @@ def list_cases(
 @router.post("", response_model=WorkflowCaseResponse, status_code=201)
 def create_case(request: Request, payload: WorkflowCreateRequest) -> WorkflowCaseResponse:
     organization_id, user_id, display_name, role = _context(request, write=True)
-    if role == "editor" and payload.owner_user_id not in {None, user_id}:
+    if role == "editor" and payload.owner_user_id and payload.owner_user_id != user_id:
         raise AccountStoreError(403, "WORKFLOW_FORBIDDEN", "编辑者只能把自己设为流程负责人。")
     ensure_active_organization_project(organization_id, payload.project_id)
     return WorkflowCaseResponse.model_validate(

@@ -84,3 +84,16 @@ def test_editor_cannot_assign_another_member_as_case_owner_on_create() -> None:
     )
     assert allowed.status_code == 201, allowed.text
     assert allowed.json()["owner_user_id"] == editor_user_id
+
+    empty_owner = editor_client.post(
+        "/api/service-cases",
+        headers=_headers(editor["csrf_token"], organization_id),
+        json={
+            "project_id": project_id,
+            "title": "Editor default-owned case",
+            "objective": "Preserve the existing empty owner value as default self-assignment.",
+            "owner_user_id": "",
+        },
+    )
+    assert empty_owner.status_code == 201, empty_owner.text
+    assert empty_owner.json()["owner_user_id"] == editor_user_id
