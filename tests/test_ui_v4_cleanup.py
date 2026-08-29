@@ -81,3 +81,14 @@ def test_provenance_guard_is_self_contained_after_wrapper_removal() -> None:
     assert "ZHILINK_DATA_PROVENANCE_READY" in script
     assert "CORE_SCRIPT" not in script
     assert "loadCoreGuard" not in script
+
+
+def test_dashboard_pending_items_ignore_markdown_structure_noise() -> None:
+    dashboard = (ASSETS / "ui-v4-dashboard.js").read_text(encoding="utf-8")
+
+    assert "function pendingText(raw)" in dashboard
+    assert 'if (/^\\s*\\|.*\\|\\s*$/.test(source)) return "";' in dashboard
+    assert '.replace(/[*_`~]/g, "")' in dashboard
+    assert "待确认(?:信息|事项)?" in dashboard
+    assert "待核实(?:信息|事项)?" in dashboard
+    assert "const text = pendingText(raw);" in dashboard
