@@ -62,6 +62,7 @@ UI_SCRIPTS = (
     "ui-v4-forms.js",
     "ui-v4-results.js",
     "ui-v4-final-qa.js",
+    "report-freshness.js",
 )
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
