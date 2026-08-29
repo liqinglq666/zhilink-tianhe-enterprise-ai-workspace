@@ -1,4 +1,4 @@
-/* Keep example and legacy session data out of the formal enterprise workspace. */
+/* Keep incompatible legacy session data out of the formal enterprise workspace. */
 (() => {
   const contracts = window.ZHILINK_WORKSPACE_CONTRACTS;
   const hooks = window.ZHILINK_WORKSPACE_HOOKS;
@@ -89,7 +89,8 @@
     return String(appState()?.meta?.[key]?.origin || "") || inferLegacyOrigin(key);
   }
   function isFormalResult(key) {
-    return Boolean(appState()?.results?.[key]) && FORMAL_ORIGINS.has(originFor(key));
+    const origin = originFor(key);
+    return Boolean(appState()?.results?.[key]) && (origin === "example" || FORMAL_ORIGINS.has(origin));
   }
   function isolatedKeys() {
     const current = appState();
@@ -184,9 +185,6 @@
     window.dispatchEvent(new CustomEvent(EVENTS.resultSchemaStamped, {
       detail: { key, version: expectedVersion(key) },
     }));
-    if (origin === "example" && typeof toast === "function") {
-      toast("示例内容仅供体验，不会加入当前项目、待处理事项或报告。");
-    }
   }
 
   function collectFormalResults(context) {
@@ -214,8 +212,8 @@
       const isolated = isolatedKeys().length;
       container.className = "recent-list empty";
       container.textContent = isolated
-        ? "暂无已加入项目的正式材料。示例和历史会话内容不会显示在这里。"
-        : "暂无已加入项目的正式材料。输入真实业务内容并生成后，这里会显示最近材料。";
+        ? "暂无已加入项目的正式材料。历史会话内容不会显示在这里。"
+        : "暂无已加入项目的正式材料。输入业务内容并生成后，这里会显示最近材料。";
       return;
     }
     const safe = value => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -246,7 +244,7 @@
       if (anchor?.parentNode) anchor.parentNode.insertBefore(notice, anchor);
       else home.appendChild(notice);
     }
-    const html = `<div><strong>有 ${keys.length} 项示例或历史会话内容未加入当前项目</strong><p>示例和历史会话内容不会加入项目、待处理事项或报告；如需正式使用，请换成真实业务输入后重新生成。</p></div><button id="clearIsolatedResults" type="button">清除这些内容</button>`;
+    const html = `<div><strong>有 ${keys.length} 项历史会话内容未加入当前项目</strong><p>历史会话内容不会加入项目、待处理事项或报告；如需继续使用，请重新生成。</p></div><button id="clearIsolatedResults" type="button">清除这些内容</button>`;
     if (notice.innerHTML !== html) notice.innerHTML = html;
   }
 
@@ -264,12 +262,12 @@
       }
       const origin = originFor(key);
       panel.dataset.resultOrigin = origin;
-      if (FORMAL_ORIGINS.has(origin)) {
+      if (origin === "example" || FORMAL_ORIGINS.has(origin)) {
         existing?.remove();
         return;
       }
-      const text = origin === "example" ? "示例内容" : "历史会话内容";
-      const className = `meta-pill data-origin-pill ${origin === "example" ? "example" : "legacy"}`;
+      const text = "历史会话内容";
+      const className = "meta-pill data-origin-pill legacy";
       if (existing && existing.textContent === text && existing.className === className) return;
       existing?.remove();
       const meta = panel.querySelector(".result-meta");
@@ -320,7 +318,7 @@
     });
     persistActiveResults(current.results, current.meta);
     saveContexts({});
-    if (typeof toast === "function") toast(`已清除 ${keys.length} 项示例或历史会话内容。`);
+    if (typeof toast === "function") toast(`已清除 ${keys.length} 项历史会话内容。`);
     window.updateProgress?.();
   }
 
@@ -339,7 +337,7 @@
       if (projectSave && isolatedKeys().length) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        if (typeof toast === "function") toast("当前包含示例或历史会话内容。请先清除这些内容，再保存项目。");
+        if (typeof toast === "function") toast("当前包含历史会话内容。请先清除这些内容，再保存项目。");
       }
     }, true);
     window.addEventListener(EVENTS.resultUpdated, event => {
