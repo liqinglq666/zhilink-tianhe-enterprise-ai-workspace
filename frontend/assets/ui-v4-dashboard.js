@@ -66,6 +66,18 @@
       }
     });
   }
+  function pendingText(raw) {
+    const source = String(raw || "");
+    if (/^\s*\|.*\|\s*$/.test(source)) return "";
+    const text = source
+      .replace(/^[#>*\-\d.、\s]+/, "")
+      .replace(/\[[A-Z0-9-]+\]/g, "")
+      .replace(/[*_`~]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (/^(待确认(?:信息|事项)?|需确认(?:信息|事项)?|人工确认(?:信息|事项)?|尚未明确|未明确|待补充(?:信息|事项)?|待核实(?:信息|事项)?|需核实(?:信息|事项)?)[：:]?$/.test(text)) return "";
+    return text;
+  }
   function collectPendingItems() {
     const items = [];
     const seen = new Set();
@@ -74,7 +86,7 @@
     RESULT_KEYS.forEach(key => {
       if (!isFormalResult(key)) return;
       String(results[key] || "").split(/\n+/).forEach(raw => {
-        const text = raw.replace(/^[#>*\-\d.、\s]+/, "").replace(/\[[A-Z0-9-]+\]/g, "").replace(/\s+/g, " ").trim();
+        const text = pendingText(raw);
         if (!text || !pattern.test(text) || seen.has(text)) return;
         seen.add(text);
         items.push({ title: text.slice(0, 70), source: RESULT_TITLES[key] || key });
