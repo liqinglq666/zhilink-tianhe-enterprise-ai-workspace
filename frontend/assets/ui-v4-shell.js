@@ -255,8 +255,7 @@
       const navButton = event.target.closest?.(".nav button");
       if (navButton && isMobileSidebar()) {
         const title = byId("pageTitle");
-        setSidebarOpen(false);
-        if (!pendingMobileNavKey) title?.focus?.({ preventScroll: true });
+        setSidebarOpen(false, title);
       }
     });
     document.addEventListener("keydown", event => {
