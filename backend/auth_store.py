@@ -424,9 +424,9 @@ class AccountStore:
         )
 
     def list_members(self, actor_user_id: str, organization_id: str) -> list[dict[str, Any]]:
-        self.require_permission(actor_user_id, organization_id, "member:read")
         try:
             with self.sessions() as session:
+                self._require_permission_in_session(session, actor_user_id, organization_id, "member:read")
                 rows = session.execute(
                     select(UserRecord, OrganizationMembershipRecord)
                     .join(OrganizationMembershipRecord, OrganizationMembershipRecord.user_id == UserRecord.id)
@@ -434,6 +434,8 @@ class AccountStore:
                     .order_by(OrganizationMembershipRecord.created_at.asc())
                 ).all()
                 return [{"user_id": user.id, "email": user.email, "display_name": user.display_name, "role": member.role, "created_at": member.created_at} for user, member in rows]
+        except AccountStoreError:
+            raise
         except SQLAlchemyError as exc:
             raise AccountStoreError(503, "ACCOUNT_STORAGE_UNAVAILABLE", "成员列表读取失败。", retryable=True) from exc
 
@@ -447,18 +449,25 @@ class AccountStore:
             raise AccountStoreError(403, "RBAC_FORBIDDEN", "管理员不能修改其他管理员。")
 
     def add_member(self, actor_user_id: str, organization_id: str, email: str, role: Role) -> dict[str, Any]:
-        actor = self.require_permission(actor_user_id, organization_id, "member:manage")
-        self._validate_role_change(actor["role"], "viewer", role)
         normalized = normalize_email(email)
         try:
             with self.sessions.begin() as session:
+                self._lock_organization(session, organization_id)
+                actor = self._require_permission_in_session(
+                    session,
+                    actor_user_id,
+                    organization_id,
+                    "member:manage",
+                    lock=True,
+                )
+                self._validate_role_change(actor.role, "viewer", role)
                 user = session.scalar(select(UserRecord).where(UserRecord.email == normalized))
                 if user is None:
                     raise AccountStoreError(404, "MEMBER_USER_NOT_FOUND", "该邮箱尚未注册。请对方先注册，再添加为组织成员。")
                 existing = session.scalar(select(OrganizationMembershipRecord).where(
                     OrganizationMembershipRecord.organization_id == organization_id,
                     OrganizationMembershipRecord.user_id == user.id,
-                ))
+                ).with_for_update())
                 if existing is not None and existing.status == "active":
                     raise AccountStoreError(409, "MEMBER_ALREADY_EXISTS", "该用户已经是组织成员。")
                 if existing is None:
@@ -488,10 +497,16 @@ class AccountStore:
             raise AccountStoreError(404, "ORGANIZATION_NOT_FOUND", "组织不存在或无权访问。")
 
     def update_member_role(self, actor_user_id: str, organization_id: str, target_user_id: str, role: Role) -> dict[str, Any]:
-        actor = self.require_permission(actor_user_id, organization_id, "member:manage")
         try:
             with self.sessions.begin() as session:
                 self._lock_organization(session, organization_id)
+                actor = self._require_permission_in_session(
+                    session,
+                    actor_user_id,
+                    organization_id,
+                    "member:manage",
+                    lock=True,
+                )
                 membership = session.scalar(select(OrganizationMembershipRecord).where(
                     OrganizationMembershipRecord.organization_id == organization_id,
                     OrganizationMembershipRecord.user_id == target_user_id,
@@ -499,7 +514,7 @@ class AccountStore:
                 ).with_for_update())
                 if membership is None:
                     raise AccountStoreError(404, "MEMBER_NOT_FOUND", "组织成员不存在。")
-                self._validate_role_change(actor["role"], membership.role, role)
+                self._validate_role_change(actor.role, membership.role, role)
                 if membership.role == "owner" and role != "owner" and self._owner_count(session, organization_id) <= 1:
                     raise AccountStoreError(409, "LAST_OWNER_REQUIRED", "组织必须至少保留一名所有者。")
                 membership.role, membership.updated_at = role, _now()
@@ -512,10 +527,16 @@ class AccountStore:
             raise AccountStoreError(503, "ACCOUNT_STORAGE_UNAVAILABLE", "成员角色更新失败。", retryable=True) from exc
 
     def remove_member(self, actor_user_id: str, organization_id: str, target_user_id: str) -> None:
-        actor = self.require_permission(actor_user_id, organization_id, "member:manage")
         try:
             with self.sessions.begin() as session:
                 self._lock_organization(session, organization_id)
+                actor = self._require_permission_in_session(
+                    session,
+                    actor_user_id,
+                    organization_id,
+                    "member:manage",
+                    lock=True,
+                )
                 membership = session.scalar(select(OrganizationMembershipRecord).where(
                     OrganizationMembershipRecord.organization_id == organization_id,
                     OrganizationMembershipRecord.user_id == target_user_id,
@@ -523,7 +544,7 @@ class AccountStore:
                 ).with_for_update())
                 if membership is None:
                     raise AccountStoreError(404, "MEMBER_NOT_FOUND", "组织成员不存在。")
-                self._validate_role_change(actor["role"], membership.role, None)
+                self._validate_role_change(actor.role, membership.role, None)
                 if membership.role == "owner" and self._owner_count(session, organization_id) <= 1:
                     raise AccountStoreError(409, "LAST_OWNER_REQUIRED", "组织必须至少保留一名所有者。")
                 membership.status, membership.updated_at = "removed", _now()
