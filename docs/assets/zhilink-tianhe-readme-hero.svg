@@ -1,82 +1,94 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="600" viewBox="0 0 1800 600" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="700" viewBox="0 0 1800 700" role="img" aria-labelledby="title desc">
   <title id="title">智链天河 · Enterprise AI Workspace</title>
   <desc id="desc">把会议、合同、政策与执行，连成一条可落地的 AI 工作链。</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.72" stop-color="#f8fbff"/><stop offset="1" stop-color="#e9f4ff"/></linearGradient>
-    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#123fd0"/><stop offset="0.55" stop-color="#0f7cf1"/><stop offset="1" stop-color="#05c7dc"/></linearGradient>
-    <linearGradient id="cyan" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#0477e8"/><stop offset="1" stop-color="#13d3c2"/></linearGradient>
-    <linearGradient id="nav" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#071f4a"/><stop offset="1" stop-color="#153d76"/></linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#0a4ca3" flood-opacity="0.14"/></filter>
-    <filter id="card" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="5" stdDeviation="10" flood-color="#2167b6" flood-opacity="0.10"/></filter>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".72" stop-color="#f8fbff"/><stop offset="1" stop-color="#eaf4ff"/></linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1e4ed8"/><stop offset=".55" stop-color="#1688ef"/><stop offset="1" stop-color="#10c8cc"/></linearGradient>
+    <linearGradient id="nav" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#071f4b"/><stop offset="1" stop-color="#123b73"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#124c91" flood-opacity=".13"/></filter>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#2873bd" flood-opacity=".09"/></filter>
     <style>
-      .cn{font-family:Inter,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}.en{font-family:Inter,Arial,sans-serif}.dark{fill:#0a2b61}.muted{fill:#5f7594}.label{font-size:20px;font-weight:700}.small{font-size:14px}.tiny{font-size:12px}.chip{fill:#fff;stroke:#d8e5f4;stroke-width:1.5}.cardbox{fill:#fff;stroke:#dce8f6;stroke-width:1.5}.line{stroke:#1596ee;stroke-width:3;fill:none}.softline{stroke:#cfdceb;stroke-width:7;stroke-linecap:round}
+      .cn{font-family:Inter,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}.en{font-family:Inter,Arial,sans-serif}.dark{fill:#082b63}.muted{fill:#637691}.chip{fill:#fff;stroke:#d8e5f3;stroke-width:1.4}.card{fill:#fff;stroke:#dce8f4;stroke-width:1.4}.soft{stroke:#d5e0eb;stroke-width:6;stroke-linecap:round}.flow{stroke:#178be9;stroke-width:3;fill:none;stroke-linecap:round}.check{fill:#13c6b5}
     </style>
   </defs>
-  <rect width="1800" height="600" rx="24" fill="url(#bg)"/>
-  <circle cx="1700" cy="80" r="180" fill="#ddecff" opacity=".46"/><circle cx="1590" cy="520" r="240" fill="#d7efff" opacity=".38"/>
 
-  <!-- brand mark -->
-  <g transform="translate(62 58)">
-    <path d="M72 146C32 109 35 54 72 28c34-24 78-18 107 7l64 52c21 17 48 16 68-1l20-17" fill="none" stroke="url(#blue)" stroke-width="34" stroke-linecap="round"/>
-    <path d="M309 56c28 34 24 85-8 115-30 27-76 28-107 3l-67-52c-21-16-48-15-69 2l-19 16" fill="none" stroke="url(#cyan)" stroke-width="34" stroke-linecap="round"/>
-    <path d="M30 166c39 35 116 39 184 7 67-31 112-83 108-128" fill="none" stroke="#0ec6d7" stroke-width="5" stroke-linecap="round" opacity=".9"/>
-    <circle cx="30" cy="166" r="11" fill="#0caee9"/><circle cx="157" cy="16" r="11" fill="#16d2cf"/><circle cx="286" cy="171" r="8" fill="#0d86ec"/>
+  <rect width="1800" height="700" rx="28" fill="url(#bg)"/>
+  <circle cx="1680" cy="70" r="190" fill="#ddebff" opacity=".48"/>
+  <circle cx="1580" cy="610" r="260" fill="#d9efff" opacity=".42"/>
+  <circle cx="75" cy="655" r="150" fill="#edf6ff" opacity=".68"/>
+
+  <!-- Left brand -->
+  <g transform="translate(70 55)">
+    <path d="M44 119C16 91 18 49 48 27c28-21 65-17 89 3l52 42c18 15 40 14 57-1l16-13" fill="none" stroke="url(#brand)" stroke-width="28" stroke-linecap="round"/>
+    <path d="M245 49c23 27 20 68-7 92-26 24-63 24-88 4l-55-43c-18-14-41-13-58 2l-15 13" fill="none" stroke="#09a7dc" stroke-width="28" stroke-linecap="round"/>
+    <path d="M20 138c33 28 95 31 150 5 55-25 92-68 90-104" fill="none" stroke="#12c7cf" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="20" cy="138" r="8" fill="#109ee9"/><circle cx="124" cy="18" r="8" fill="#18d1c8"/><circle cx="232" cy="142" r="7" fill="#157fe5"/>
   </g>
 
-  <text x="410" y="150" class="cn dark" font-size="88" font-weight="850" letter-spacing="3">智链天河</text>
-  <line x1="414" y1="194" x2="458" y2="194" stroke="#16b7df" stroke-width="4" stroke-linecap="round"/>
-  <text x="480" y="203" class="en muted" font-size="28" font-weight="650" letter-spacing="1">Enterprise AI Workspace</text>
-  <line x1="813" y1="194" x2="855" y2="194" stroke="#16b7df" stroke-width="4" stroke-linecap="round"/>
-  <text x="64" y="298" class="cn dark" font-size="38" font-weight="800">把会议、合同、政策与执行，连成一条可落地的 <tspan fill="#1381ef">AI</tspan> 工作链。</text>
+  <text x="330" y="125" class="cn dark" font-size="72" font-weight="850" letter-spacing="2">智链天河</text>
+  <line x1="334" y1="171" x2="372" y2="171" stroke="#10bfcf" stroke-width="3.5" stroke-linecap="round"/>
+  <text x="390" y="181" class="en muted" font-size="25" font-weight="650" letter-spacing=".6">Enterprise AI Workspace</text>
+  <line x1="690" y1="171" x2="728" y2="171" stroke="#10bfcf" stroke-width="3.5" stroke-linecap="round"/>
 
-  <!-- capability chips -->
-  <g class="cn" transform="translate(62 342)">
-    <g transform="translate(0 0)"><rect class="chip" width="145" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#1684f4"/><text x="62" y="39" class="dark label">会议纪要</text><path d="M26 22h12v17H26zM29 26h6M29 31h6M29 36h4" stroke="#fff" stroke-width="1.8" fill="none"/></g>
-    <g transform="translate(158 0)"><rect class="chip" width="145" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#12c5b2"/><text x="62" y="39" class="dark label">合同审阅</text><path d="M26 22h12v17H26zM29 26h6M29 31h6M29 36h4" stroke="#fff" stroke-width="1.8" fill="none"/></g>
-    <g transform="translate(316 0)"><rect class="chip" width="145" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#7367f0"/><text x="62" y="39" class="dark label">政策助手</text><path d="M32 22l2.4 5 5.6.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.6-.8z" fill="none" stroke="#fff" stroke-width="1.5"/></g>
-    <g transform="translate(474 0)"><rect class="chip" width="145" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#1884ee"/><text x="62" y="39" class="dark label">供需协作</text><circle cx="28" cy="27" r="4" fill="none" stroke="#fff" stroke-width="1.6"/><circle cx="38" cy="27" r="4" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M22 39c1-6 11-6 12 0M32 39c1-6 11-6 12 0" stroke="#fff" stroke-width="1.6" fill="none"/></g>
-    <g transform="translate(632 0)"><rect class="chip" width="145" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#12bfae"/><text x="62" y="39" class="dark label">实施计划</text><rect x="24" y="23" width="16" height="16" rx="2" fill="none" stroke="#fff" stroke-width="1.7"/><path d="M27 20v5M37 20v5M27 31l4 4 7-8" stroke="#fff" stroke-width="1.6" fill="none"/></g>
-    <g transform="translate(790 0)"><rect class="chip" width="145" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#1383ef"/><text x="62" y="39" class="dark label">报告归档</text><rect x="24" y="24" width="17" height="14" rx="2" fill="none" stroke="#fff" stroke-width="1.7"/><path d="M27 29h11M29 34h7" stroke="#fff" stroke-width="1.6"/></g>
+  <text x="70" y="286" class="cn dark" font-size="34" font-weight="800">把会议、合同、政策与执行，连成一条可落地的 <tspan fill="#147fe8">AI 工作链</tspan></text>
+
+  <!-- Capability chips -->
+  <g class="cn" transform="translate(70 335)">
+    <g transform="translate(0 0)"><rect class="chip" width="136" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#1684f4"/><path d="M25 22h14v18H25zM29 27h7M29 32h7M29 37h5" stroke="#fff" stroke-width="1.8" fill="none"/><text x="60" y="39" class="dark" font-size="18" font-weight="750">会议纪要</text></g>
+    <g transform="translate(148 0)"><rect class="chip" width="136" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#12c2b1"/><path d="M25 22h14v18H25zM29 27h7M29 32h7M29 37h5" stroke="#fff" stroke-width="1.8" fill="none"/><text x="60" y="39" class="dark" font-size="18" font-weight="750">合同审阅</text></g>
+    <g transform="translate(296 0)"><rect class="chip" width="136" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#7668ef"/><path d="M32 22l2.4 5 5.6.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9 5.6-.8z" fill="none" stroke="#fff" stroke-width="1.5"/><text x="60" y="39" class="dark" font-size="18" font-weight="750">政策助手</text></g>
+    <g transform="translate(444 0)"><rect class="chip" width="136" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#1685ee"/><circle cx="28" cy="27" r="4" fill="none" stroke="#fff" stroke-width="1.5"/><circle cx="38" cy="27" r="4" fill="none" stroke="#fff" stroke-width="1.5"/><path d="M22 39c1-6 11-6 12 0M32 39c1-6 11-6 12 0" stroke="#fff" stroke-width="1.5" fill="none"/><text x="60" y="39" class="dark" font-size="18" font-weight="750">供需协作</text></g>
+    <g transform="translate(592 0)"><rect class="chip" width="136" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#11bcae"/><rect x="24" y="23" width="16" height="16" rx="2" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M27 20v5M37 20v5M27 31l4 4 7-8" stroke="#fff" stroke-width="1.5" fill="none"/><text x="60" y="39" class="dark" font-size="18" font-weight="750">实施计划</text></g>
+    <g transform="translate(740 0)"><rect class="chip" width="136" height="62" rx="13"/><rect x="15" y="14" width="34" height="34" rx="8" fill="#1684ee"/><rect x="24" y="24" width="17" height="14" rx="2" fill="none" stroke="#fff" stroke-width="1.6"/><path d="M27 29h11M29 34h7" stroke="#fff" stroke-width="1.5"/><text x="60" y="39" class="dark" font-size="18" font-weight="750">报告归档</text></g>
   </g>
 
-  <line x1="62" y1="438" x2="998" y2="438" stroke="#dce7f3" stroke-width="1.5"/>
-  <g class="cn" transform="translate(68 462)">
-    <g><path d="M14 6l18 7v12c0 13-8 22-18 27C4 47-4 38-4 25V13z" transform="translate(10 0)" fill="none" stroke="#187fe7" stroke-width="3"/><path d="M17 27l6 6 12-15" fill="none" stroke="#187fe7" stroke-width="3"/><text x="58" y="25" class="dark" font-size="22" font-weight="800">智能驱动</text><text x="58" y="50" class="muted" font-size="14">AI 深度理解，生成高质量成果</text></g>
-    <g transform="translate(330 0)"><circle cx="13" cy="13" r="7" fill="none" stroke="#1884ef" stroke-width="3"/><circle cx="51" cy="13" r="7" fill="none" stroke="#1884ef" stroke-width="3"/><circle cx="13" cy="51" r="7" fill="none" stroke="#1884ef" stroke-width="3"/><circle cx="51" cy="51" r="7" fill="none" stroke="#1884ef" stroke-width="3"/><path d="M20 16l24 0M17 20l0 24M47 20l0 24M20 48h24" stroke="#1884ef" stroke-width="3"/><text x="78" y="25" class="dark" font-size="22" font-weight="800">流程贯通</text><text x="78" y="50" class="muted" font-size="14">从信息到执行，实现端到端协同</text></g>
-    <g transform="translate(675 0)"><path d="M3 49h57M10 42V28h10v14M29 42V18h10v24M48 42V8h10v34" fill="none" stroke="#1884ef" stroke-width="3"/><path d="M13 20l14-8 13 4 15-13" fill="none" stroke="#1884ef" stroke-width="3"/><text x="80" y="25" class="dark" font-size="22" font-weight="800">追踪闭环</text><text x="80" y="50" class="muted" font-size="14">全程可追溯，决策有依据，效果可度量</text></g>
+  <line x1="70" y1="438" x2="946" y2="438" stroke="#dce7f2" stroke-width="1.5"/>
+
+  <!-- Benefit strip -->
+  <g class="cn" transform="translate(72 480)">
+    <g>
+      <path d="M17 4l18 7v13c0 14-8 23-18 29C7 47-1 38-1 24V11z" fill="none" stroke="#1884ef" stroke-width="3"/><path d="M10 27l6 6 12-15" fill="none" stroke="#1884ef" stroke-width="3"/>
+      <text x="58" y="23" class="dark" font-size="21" font-weight="800">智能驱动</text><text x="58" y="48" class="muted" font-size="14">AI 深度理解，生成高质量成果</text>
+    </g>
+    <g transform="translate(305 0)">
+      <circle cx="13" cy="13" r="7" fill="none" stroke="#1884ef" stroke-width="3"/><circle cx="47" cy="13" r="7" fill="none" stroke="#1884ef" stroke-width="3"/><circle cx="13" cy="47" r="7" fill="none" stroke="#1884ef" stroke-width="3"/><circle cx="47" cy="47" r="7" fill="none" stroke="#1884ef" stroke-width="3"/><path d="M20 13h20M13 20v20M47 20v20M20 47h20" stroke="#1884ef" stroke-width="3"/>
+      <text x="74" y="23" class="dark" font-size="21" font-weight="800">流程贯通</text><text x="74" y="48" class="muted" font-size="14">从信息到执行，实现端到端协同</text>
+    </g>
+    <g transform="translate(625 0)">
+      <path d="M2 49h58M9 42V30h10v12M28 42V19h10v23M47 42V8h10v34" fill="none" stroke="#1884ef" stroke-width="3"/><path d="M12 21l14-8 13 4L55 4" fill="none" stroke="#1884ef" stroke-width="3"/>
+      <text x="76" y="23" class="dark" font-size="21" font-weight="800">追踪闭环</text><text x="76" y="48" class="muted" font-size="14">全程可追溯，效果可度量</text>
+    </g>
   </g>
 
-  <!-- workspace mockup -->
-  <g transform="translate(1025 38)" filter="url(#shadow)">
-    <rect x="0" y="0" width="705" height="520" rx="26" fill="#f7fbff" stroke="#dce8f6" stroke-width="2"/>
-    <rect x="0" y="0" width="94" height="520" rx="26" fill="url(#nav)"/>
-    <rect x="25" y="22" width="44" height="44" rx="10" fill="#fff"/>
-    <path d="M34 49c-8-7-7-19 1-25 7-5 15-3 21 2l7 6c4 3 8 3 12 0M60 29c7 8 6 18-1 25-7 6-16 6-23 1l-8-6" fill="none" stroke="url(#blue)" stroke-width="5" stroke-linecap="round"/>
-    <g stroke="#dfeaff" stroke-width="2.4" fill="none">
-      <path d="M32 108l14-12 14 12v18H50v-11h-8v11H32z"/><rect x="28" y="150" width="36" height="36" rx="8" fill="#157fee" stroke="none"/><path d="M36 160h8v8h-8zM49 160h8v8h-8zM36 173h8v8h-8zM49 173h8v8h-8z" stroke="#fff"/><path d="M35 217h22v30H35zM40 224h12M40 231h12M40 238h8"/><circle cx="46" cy="281" r="7"/><path d="M31 300c2-12 28-12 30 0"/><rect x="31" y="333" width="30" height="28" rx="5"/><path d="M37 328v10M55 328v10M36 346h20"/><path d="M33 398h26v28H33zM39 391v12M53 391v12"/><path d="M34 462h24l-2 28H36zM38 456h16"/>
+  <!-- Right workspace mockup -->
+  <g transform="translate(1030 40)" filter="url(#shadow)">
+    <rect width="700" height="610" rx="26" fill="#f7fbff" stroke="#dce8f5" stroke-width="2"/>
+    <rect width="88" height="610" rx="26" fill="url(#nav)"/>
+    <rect x="22" y="22" width="44" height="44" rx="10" fill="#fff"/>
+    <path d="M31 49c-8-7-7-19 1-25 7-5 15-3 21 2l7 6c4 3 8 3 12 0M57 29c7 8 6 18-1 25-7 6-16 6-23 1l-8-6" fill="none" stroke="url(#brand)" stroke-width="5" stroke-linecap="round"/>
+    <g stroke="#deebff" stroke-width="2.3" fill="none">
+      <path d="M29 111l15-13 15 13v19H49v-11h-9v11H29z"/><rect x="26" y="154" width="36" height="36" rx="8" fill="#1684ef" stroke="none"/><path d="M34 162h8v8h-8zM47 162h8v8h-8zM34 175h8v8h-8zM47 175h8v8h-8z" stroke="#fff"/><path d="M34 222h21v29H34zM39 229h11M39 236h11M39 243h8"/><circle cx="44" cy="287" r="7"/><path d="M29 306c2-12 28-12 30 0"/><rect x="29" y="343" width="30" height="28" rx="5"/><path d="M35 338v10M53 338v10M34 356h20"/><path d="M31 416h26v28H31zM37 409v12M51 409v12"/><path d="M32 494h24l-2 28H34zM36 488h16"/>
     </g>
 
-    <rect x="116" y="24" width="445" height="150" rx="18" class="cardbox"/>
-    <rect x="138" y="48" width="38" height="38" rx="9" fill="#e8f4ff"/><path d="M149 56h16v22h-16zM153 61h8M153 66h8M153 71h6" fill="none" stroke="#1684f4" stroke-width="2"/>
-    <text x="190" y="78" class="cn dark" font-size="24" font-weight="800">会议纪要</text>
-    <line x1="138" y1="112" x2="420" y2="112" class="softline"/><line x1="138" y1="136" x2="372" y2="136" class="softline"/>
-    <rect x="138" y="149" width="104" height="0" fill="none"/>
-    <rect x="470" y="48" width="66" height="66" rx="14" fill="#f3f8ff"/><circle cx="503" cy="81" r="22" fill="none" stroke="#1b84f4" stroke-width="9" stroke-dasharray="92 46"/><circle cx="503" cy="81" r="22" fill="none" stroke="#12c6d0" stroke-width="9" stroke-dasharray="35 103" stroke-dashoffset="-92"/>
+    <rect x="112" y="26" width="438" height="152" rx="18" class="card"/>
+    <rect x="135" y="50" width="38" height="38" rx="9" fill="#e8f4ff"/><path d="M146 58h16v22h-16zM150 63h8M150 68h8M150 73h6" fill="none" stroke="#1684f4" stroke-width="2"/>
+    <text x="188" y="80" class="cn dark" font-size="24" font-weight="800">会议纪要</text>
+    <line x1="135" y1="116" x2="410" y2="116" class="soft"/><line x1="135" y1="141" x2="365" y2="141" class="soft"/>
+    <rect x="463" y="49" width="64" height="64" rx="14" fill="#f1f7ff"/><circle cx="495" cy="81" r="22" fill="none" stroke="#1b84f4" stroke-width="8" stroke-dasharray="90 48"/><circle cx="495" cy="81" r="22" fill="none" stroke="#14c6cd" stroke-width="8" stroke-dasharray="34 104" stroke-dashoffset="-90"/>
 
-    <!-- row 1 -->
-    <g transform="translate(118 205)"><rect width="180" height="90" rx="16" class="cardbox" filter="url(#card)"/><rect x="18" y="19" width="36" height="36" rx="9" fill="#15c2b3"/><text x="68" y="44" class="cn dark" font-size="20" font-weight="800">合同审阅</text><line x1="68" y1="60" x2="140" y2="60" class="softline"/><circle cx="164" cy="76" r="10" fill="#11c7b5"/><path d="M159 76l4 4 7-8" stroke="#fff" stroke-width="2" fill="none"/></g>
-    <g transform="translate(330 205)"><rect width="180" height="90" rx="16" class="cardbox" filter="url(#card)"/><rect x="18" y="19" width="36" height="36" rx="9" fill="#7065ef"/><text x="68" y="44" class="cn dark" font-size="20" font-weight="800">政策助手</text><line x1="68" y1="60" x2="140" y2="60" class="softline"/><circle cx="164" cy="76" r="10" fill="#11c7b5"/><path d="M159 76l4 4 7-8" stroke="#fff" stroke-width="2" fill="none"/></g>
-    <g transform="translate(542 205)"><rect width="140" height="90" rx="16" class="cardbox" filter="url(#card)"/><rect x="16" y="19" width="34" height="36" rx="9" fill="#1684ef"/><text x="62" y="44" class="cn dark" font-size="19" font-weight="800">供需协作</text><line x1="62" y1="60" x2="115" y2="60" class="softline"/><circle cx="124" cy="76" r="10" fill="#11c7b5"/><path d="M119 76l4 4 7-8" stroke="#fff" stroke-width="2" fill="none"/></g>
-    <path d="M298 250h32M510 250h32" class="line"/><circle cx="314" cy="250" r="5" fill="#13a4ec"/><circle cx="526" cy="250" r="5" fill="#13a4ec"/>
+    <!-- Flow row 1 -->
+    <g transform="translate(110 218)" filter="url(#cardShadow)"><rect width="160" height="88" rx="16" class="card"/><rect x="18" y="19" width="34" height="34" rx="9" fill="#13bfae"/><text x="65" y="43" class="cn dark" font-size="18" font-weight="800">合同审阅</text><line x1="65" y1="62" x2="124" y2="62" class="soft"/><circle cx="140" cy="69" r="8" class="check"/><path d="M136 69l3 3 6-7" fill="none" stroke="#fff" stroke-width="2"/></g>
+    <path d="M270 262h34" class="flow"/><circle cx="287" cy="262" r="5" fill="#178be9"/>
+    <g transform="translate(304 218)" filter="url(#cardShadow)"><rect width="160" height="88" rx="16" class="card"/><rect x="18" y="19" width="34" height="34" rx="9" fill="#7466ef"/><text x="65" y="43" class="cn dark" font-size="18" font-weight="800">政策助手</text><line x1="65" y1="62" x2="124" y2="62" class="soft"/><circle cx="140" cy="69" r="8" class="check"/><path d="M136 69l3 3 6-7" fill="none" stroke="#fff" stroke-width="2"/></g>
+    <path d="M464 262h32" class="flow"/><circle cx="480" cy="262" r="5" fill="#178be9"/>
+    <g transform="translate(496 218)" filter="url(#cardShadow)"><rect width="160" height="88" rx="16" class="card"/><rect x="18" y="19" width="34" height="34" rx="9" fill="#1684ee"/><text x="65" y="43" class="cn dark" font-size="18" font-weight="800">供需协作</text><line x1="65" y1="62" x2="124" y2="62" class="soft"/><circle cx="140" cy="69" r="8" class="check"/><path d="M136 69l3 3 6-7" fill="none" stroke="#fff" stroke-width="2"/></g>
 
-    <!-- row 2 -->
-    <g transform="translate(145 340)"><rect width="205" height="90" rx="16" class="cardbox" filter="url(#card)"/><rect x="18" y="19" width="36" height="36" rx="9" fill="#12bfae"/><text x="68" y="44" class="cn dark" font-size="20" font-weight="800">实施计划</text><line x1="68" y1="60" x2="145" y2="60" class="softline"/><circle cx="188" cy="76" r="10" fill="#11c7b5"/><path d="M183 76l4 4 7-8" stroke="#fff" stroke-width="2" fill="none"/></g>
-    <g transform="translate(420 340)"><rect width="205" height="90" rx="16" class="cardbox" filter="url(#card)"/><rect x="18" y="19" width="36" height="36" rx="9" fill="#1684ef"/><text x="68" y="44" class="cn dark" font-size="20" font-weight="800">报告归档</text><line x1="68" y1="60" x2="145" y2="60" class="softline"/><circle cx="188" cy="76" r="10" fill="#11c7b5"/><path d="M183 76l4 4 7-8" stroke="#fff" stroke-width="2" fill="none"/></g>
-    <path d="M350 385h70" class="line"/><circle cx="385" cy="385" r="5" fill="#13a4ec"/>
-    <path d="M612 295v70h-18" stroke="#1684ef" stroke-width="3" stroke-dasharray="7 7" fill="none"/><circle cx="612" cy="365" r="6" fill="#1384ef"/>
+    <!-- Flow row 2 -->
+    <g transform="translate(130 375)" filter="url(#cardShadow)"><rect width="190" height="90" rx="16" class="card"/><rect x="20" y="20" width="36" height="36" rx="9" fill="#13bfae"/><text x="70" y="45" class="cn dark" font-size="19" font-weight="800">实施计划</text><line x1="70" y1="65" x2="132" y2="65" class="soft"/><circle cx="168" cy="70" r="8" class="check"/><path d="M164 70l3 3 6-7" fill="none" stroke="#fff" stroke-width="2"/></g>
+    <path d="M320 420h78" class="flow"/><circle cx="358" cy="420" r="5" fill="#178be9"/>
+    <g transform="translate(398 375)" filter="url(#cardShadow)"><rect width="190" height="90" rx="16" class="card"/><rect x="20" y="20" width="36" height="36" rx="9" fill="#1684ee"/><text x="70" y="45" class="cn dark" font-size="19" font-weight="800">报告归档</text><line x1="70" y1="65" x2="132" y2="65" class="soft"/><circle cx="168" cy="70" r="8" class="check"/><path d="M164 70l3 3 6-7" fill="none" stroke="#fff" stroke-width="2"/></g>
+    <path d="M622 306v85h-18" class="flow" stroke-dasharray="7 8"/><circle cx="622" cy="391" r="6" fill="#178be9"/>
 
-    <path d="M94 482c132-35 255-22 370-5 95 14 165 5 241-45v88H94z" fill="#dff0ff" opacity=".7"/>
-    <path d="M94 492c154-44 282-25 397-9 92 13 151 0 214-42" fill="none" stroke="#6ebaff" stroke-width="2" opacity=".75"/>
-    <path d="M94 504c155-35 291-22 405-7 91 12 144-3 206-45" fill="none" stroke="#91d3ff" stroke-width="2" opacity=".75"/>
+    <path d="M88 562c120-42 239-35 356-14 97 17 168 3 256-46" fill="none" stroke="#65b6ff" stroke-width="2"/><path d="M88 576c125-39 245-32 360-12 95 17 166 2 252-44" fill="none" stroke="#a6d7ff" stroke-width="2"/>
   </g>
 </svg>
