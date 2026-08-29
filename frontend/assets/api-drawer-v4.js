@@ -22,7 +22,8 @@
   }
 
   function cleanDetail(value) {
-    return String(value || "").replace(/\s+/g, " ").trim();
+    if (typeof value !== "string") return "";
+    return value.replace(/\s+/g, " ").trim();
   }
 
   function safeConnectionDetail(value, fallback) {
