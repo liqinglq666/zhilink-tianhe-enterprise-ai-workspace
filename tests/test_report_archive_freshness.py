@@ -17,9 +17,10 @@ def test_source_changes_invalidate_old_derived_report() -> None:
     assert 'key === "report" || !state.results.report' in source
     assert "previousContent === incomingContent" in source
     assert "delete state.results.report" in source
-    assert 'mode: REPORT_REFRESH_MODE' in source
+    assert "mode: REPORT_REFRESH_MODE" in source
     assert "源材料已发生变化" in source
     assert "重新整合运营报告" in source
+    assert 'panel.className = "result-panel report-needs-refresh"' in source
 
 
 def test_stale_report_is_excluded_from_export_collection() -> None:
@@ -27,6 +28,13 @@ def test_stale_report_is_excluded_from_export_collection() -> None:
 
     assert "if (reportNeedsRefresh())" in source
     assert "originalCollectResultsForReport(false)" in source
+
+
+def test_completed_report_restores_fresh_action_label_after_loading() -> None:
+    source = open("frontend/assets/report-freshness.js", encoding="utf-8").read()
+
+    assert 'if (key === "report") setTimeout(() => updateProgress(), 0);' in source
+    assert 'stale ? "重新整合运营报告" : "AI 整合运营报告"' in source
 
 
 def test_refresh_marker_can_be_saved_in_existing_project_meta_schema() -> None:
