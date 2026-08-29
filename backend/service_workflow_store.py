@@ -30,6 +30,10 @@ EDITORS = {"owner", "admin", "editor"}
 REVIEWERS = {"owner", "admin"}
 ASSIGNEES = EDITORS
 KB = re.compile(r"^THKB-([A-F0-9]{8})@v(\d+)$")
+NO_PENDING_TEXT = re.compile(
+    r"^(?:(?:无|暂无|没有|不存在)(?:任何|其他)?(?:待确认|未决)(?:事项|信息|内容|问题|项)?|"
+    r"(?:待确认|未决)(?:事项|信息|内容|问题|项)?[：:]?(?:无|暂无|没有|不存在))[。.!！；;]?$"
+)
 DEFAULT_NODES = (
     ("intake", "接收建档", "核对企业身份、联系人、服务目标和当前项目材料。"),
     ("diagnosis", "需求诊断", "梳理企业需求、约束、优先级和仍需补充的信息。"),
@@ -154,7 +158,7 @@ def pending(results: dict[str, str]) -> list[dict[str, str]]:
                 continue
             text = clean(line, 300)
             key = (module, text)
-            if text and text not in {"待确认", "待确认信息"} and key not in seen:
+            if text and text not in {"待确认", "待确认信息"} and not NO_PENDING_TEXT.fullmatch(text) and key not in seen:
                 seen.add(key)
                 out.append({"module": module, "text": text})
             if len(out) >= 40:
