@@ -61,15 +61,20 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _positive_env_int(name: str, default: int) -> int:
+    value = _env_int(name, default)
+    return value if value > 0 else default
+
+
 def _bounded_env_int(name: str, default: int, minimum: int, maximum: int) -> int:
     value = _env_int(name, default)
     return max(minimum, min(value, maximum))
 
 
 APP_VERSION = "2.8.1"
-MAX_BODY_BYTES = _env_int("MAX_BODY_BYTES", 1500000)
+MAX_BODY_BYTES = _positive_env_int("MAX_BODY_BYTES", 1500000)
 RATE_LIMIT_REQUESTS = _env_int("RATE_LIMIT_REQUESTS", 30)
-RATE_LIMIT_WINDOW_SECONDS = _env_int("RATE_LIMIT_WINDOW_SECONDS", 60)
+RATE_LIMIT_WINDOW_SECONDS = _positive_env_int("RATE_LIMIT_WINDOW_SECONDS", 60)
 MAX_CONCURRENT_GENERATIONS_PER_CLIENT = _env_int("MAX_CONCURRENT_GENERATIONS_PER_CLIENT", 1)
 MODEL_TEST_TIMEOUT_SECONDS = _bounded_env_int("MODEL_TEST_TIMEOUT_SECONDS", 20, 5, 120)
 MODEL_REQUEST_TIMEOUT_SECONDS = _bounded_env_int("MODEL_REQUEST_TIMEOUT_SECONDS", 120, 10, 600)
