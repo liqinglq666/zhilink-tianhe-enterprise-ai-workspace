@@ -1,4 +1,4 @@
-/* Recover workspace JSON and isolate user-scoped browser state on logout. */
+/* Recover known workspace JSON keys before feature modules start. */
 (() => {
   const targets = [
     [localStorage, "zhilian_identity"],
@@ -47,6 +47,4 @@
   window.addEventListener("beforeunload", () => {
     if (logoutPending) clearUserScopedBrowserState();
   });
-
-  window.ZHILINK_STORAGE_RECOVERY = Object.freeze({ clearUserScopedBrowserState });
 })();
