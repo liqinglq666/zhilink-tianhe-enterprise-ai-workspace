@@ -394,6 +394,35 @@ class AccountStore:
             raise AccountStoreError(403, "RBAC_FORBIDDEN", "当前组织角色没有执行此操作的权限。")
         return member
 
+    @staticmethod
+    def _require_permission_in_session(session, user_id: str, organization_id: str, permission: str, *, lock: bool = False):
+        query = select(OrganizationMembershipRecord).where(
+            OrganizationMembershipRecord.organization_id == organization_id,
+            OrganizationMembershipRecord.user_id == user_id,
+            OrganizationMembershipRecord.status == "active",
+        )
+        if lock:
+            query = query.with_for_update()
+        member = session.scalar(query)
+        if member is None:
+            raise AccountStoreError(404, "ORGANIZATION_NOT_FOUND", "组织不存在或无权访问。")
+        if permission not in ROLE_PERMISSIONS.get(member.role, set()):
+            raise AccountStoreError(403, "RBAC_FORBIDDEN", "当前组织角色没有执行此操作的权限。")
+        return member
+
+    def _revalidate_project_scope(self, session, scope: ProjectScope, permission: str, *, lock: bool = False) -> None:
+        if scope.kind != "organization":
+            return
+        if not scope.organization_id or not scope.user_id:
+            raise AccountStoreError(404, "ORGANIZATION_NOT_FOUND", "组织不存在或无权访问。")
+        self._require_permission_in_session(
+            session,
+            scope.user_id,
+            scope.organization_id,
+            permission,
+            lock=lock,
+        )
+
     def list_members(self, actor_user_id: str, organization_id: str) -> list[dict[str, Any]]:
         self.require_permission(actor_user_id, organization_id, "member:read")
         try:
@@ -531,6 +560,7 @@ class AccountStore:
     def list_projects(self, scope: ProjectScope, *, limit: int, offset: int, include_archived: bool) -> tuple[list[dict[str, Any]], int]:
         try:
             with self.sessions() as session:
+                self._revalidate_project_scope(session, scope, "project:read")
                 query = self._project_query(scope)
                 if not include_archived:
                     query = query.where(ProjectRecord.status == "active")
@@ -544,6 +574,7 @@ class AccountStore:
         record = ProjectRecord(id=str(uuid4()), workspace_hash=scope.storage_hash, name=name, description=description, snapshot=snapshot)
         try:
             with self.sessions.begin() as session:
+                self._revalidate_project_scope(session, scope, "project:create", lock=True)
                 session.add(record)
                 session.flush()
                 if scope.kind == "organization":
@@ -556,6 +587,7 @@ class AccountStore:
     def get_project(self, scope: ProjectScope, project_id: str) -> dict[str, Any]:
         try:
             with self.sessions() as session:
+                self._revalidate_project_scope(session, scope, "project:read")
                 return _project_to_dict(self._get_project_record(session, scope, project_id))
         except ProjectNotFound:
             raise
@@ -565,6 +597,7 @@ class AccountStore:
     def update_project(self, scope: ProjectScope, project_id: str, *, expected_lock_version: int, name: str | None, description: str | None, status: str | None, snapshot: dict[str, Any] | None, version_label: str) -> dict[str, Any]:
         try:
             with self.sessions.begin() as session:
+                self._revalidate_project_scope(session, scope, "project:update", lock=True)
                 record = self._get_project_record(session, scope, project_id, lock=True)
                 if record.lock_version != expected_lock_version:
                     raise ProjectVersionConflict(record.lock_version)
@@ -599,6 +632,7 @@ class AccountStore:
     def list_history(self, scope: ProjectScope, project_id: str, *, limit: int, offset: int) -> tuple[list[dict[str, Any]], int]:
         try:
             with self.sessions() as session:
+                self._revalidate_project_scope(session, scope, "history:read")
                 self._get_project_record(session, scope, project_id)
                 total = session.scalar(select(func.count(ProjectHistoryRecord.id)).where(ProjectHistoryRecord.project_id == project_id)) or 0
                 records = session.scalars(select(ProjectHistoryRecord).where(ProjectHistoryRecord.project_id == project_id).order_by(ProjectHistoryRecord.version_number.desc()).limit(limit).offset(offset)).all()
@@ -611,6 +645,7 @@ class AccountStore:
     def get_history(self, scope: ProjectScope, project_id: str, version_number: int) -> dict[str, Any]:
         try:
             with self.sessions() as session:
+                self._revalidate_project_scope(session, scope, "history:read")
                 self._get_project_record(session, scope, project_id)
                 record = session.scalar(select(ProjectHistoryRecord).where(ProjectHistoryRecord.project_id == project_id, ProjectHistoryRecord.version_number == version_number))
                 if record is None:
@@ -624,6 +659,7 @@ class AccountStore:
     def restore_history(self, scope: ProjectScope, project_id: str, version_number: int, *, expected_lock_version: int, version_label: str) -> dict[str, Any]:
         try:
             with self.sessions.begin() as session:
+                self._revalidate_project_scope(session, scope, "history:restore", lock=True)
                 project = self._get_project_record(session, scope, project_id, lock=True)
                 if project.lock_version != expected_lock_version:
                     raise ProjectVersionConflict(project.lock_version)
@@ -648,6 +684,7 @@ class AccountStore:
     def delete_project(self, scope: ProjectScope, project_id: str) -> None:
         try:
             with self.sessions.begin() as session:
+                self._revalidate_project_scope(session, scope, "project:delete", lock=True)
                 record = self._get_project_record(session, scope, project_id, lock=True)
                 session.execute(delete(OrganizationProjectRecord).where(OrganizationProjectRecord.project_id == project_id))
                 session.execute(delete(ProjectHistoryRecord).where(ProjectHistoryRecord.project_id == project_id))
@@ -658,10 +695,16 @@ class AccountStore:
             raise ProjectStoreUnavailable("项目删除失败。") from exc
 
     def claim_workspace_projects(self, actor_user_id: str, organization_id: str, workspace_key: str) -> int:
-        self.require_permission(actor_user_id, organization_id, "project:claim")
         workspace_hash = hash_workspace_key(workspace_key)
         try:
             with self.sessions.begin() as session:
+                self._require_permission_in_session(
+                    session,
+                    actor_user_id,
+                    organization_id,
+                    "project:claim",
+                    lock=True,
+                )
                 records = session.scalars(select(ProjectRecord).where(
                     ProjectRecord.workspace_hash == workspace_hash,
                     ~exists(select(OrganizationProjectRecord.project_id).where(OrganizationProjectRecord.project_id == ProjectRecord.id)),
