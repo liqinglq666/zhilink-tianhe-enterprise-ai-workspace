@@ -68,6 +68,14 @@
       .replace(/AI\s*建议/g, "建议")
       .replace(/^##\s+(?:原文待办事项|待办事项表)\s*$/gm, "## 待办事项");
   }
+  function cleanMeetingMarkdownArtifacts(markdown) {
+    return String(markdown || "")
+      .replace(/`{2,}/g, "")
+      .replace(/[（(]\s*[）)]/g, "")
+      .replace(/^(\s*[-*+]\s*)[：:]\s*/gm, "$1")
+      .replace(/[ \t]+([）)])/g, "$1")
+      .replace(/([（(])[ \t]+/g, "$1");
+  }
   function cleanInternalRefs(markdown) {
     return String(markdown || "")
       .replace(INTERNAL_REF_RE, "")
@@ -78,7 +86,7 @@
       .trim();
   }
   function sanitizeMeetingMarkdown(markdown) {
-    return cleanInternalRefs(normalizeStatuses(removeEvidenceColumns(stripHiddenSections(markdown))));
+    return cleanInternalRefs(normalizeStatuses(removeEvidenceColumns(stripHiddenSections(cleanMeetingMarkdownArtifacts(markdown)))));
   }
   function sanitizeReportMarkdown(markdown) {
     return cleanInternalRefs(removeEvidenceColumns(stripHiddenSections(markdown)));
@@ -116,11 +124,11 @@
     const seen = new Set();
     for (const line of String(markdown || "").split(/\r?\n/)) {
       if (!/\[MT-C\d{2}\]/.test(line)) continue;
-      const text = line
+      const text = cleanMeetingMarkdownArtifacts(line
         .replace(/^\s*[-*]?\s*\[\s*\]\s*/, "")
         .replace(INTERNAL_REF_RE, "")
         .replace(/^\s*[-*|]\s*/, "")
-        .replace(/\|\s*$/, "")
+        .replace(/\|\s*$/, ""))
         .trim();
       if (!text || seen.has(text)) continue;
       seen.add(text);
