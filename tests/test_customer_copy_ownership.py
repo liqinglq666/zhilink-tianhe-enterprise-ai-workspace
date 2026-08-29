@@ -66,13 +66,20 @@ def test_account_project_provenance_and_model_copy_are_source_owned() -> None:
         assert expected in project
 
     for expected in (
-        "示例内容仅供体验，不会加入当前项目、待处理事项或报告。",
-        "有 ${keys.length} 项示例或历史会话内容未加入当前项目",
+        "有 ${keys.length} 项历史会话内容未加入当前项目",
+        "历史会话内容不会加入项目、待处理事项或报告",
         "清除这些内容",
-        'origin === "example" ? "示例内容" : "历史会话内容"',
-        "当前包含示例或历史会话内容。请先清除这些内容，再保存项目。",
+        'const text = "历史会话内容"',
+        "当前包含历史会话内容。请先清除这些内容，再保存项目。",
     ):
         assert expected in provenance
+
+    for removed_example_isolation_copy in (
+        "示例内容仅供体验，不会加入当前项目、待处理事项或报告。",
+        "有 ${keys.length} 项示例或历史会话内容未加入当前项目",
+        "当前包含示例或历史会话内容。请先清除这些内容，再保存项目。",
+    ):
+        assert removed_example_isolation_copy not in provenance
 
     for expected in (
         "AI 服务设置",
