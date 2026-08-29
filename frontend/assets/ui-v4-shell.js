@@ -255,7 +255,7 @@
       const navButton = event.target.closest?.(".nav button");
       if (navButton && isMobileSidebar()) {
         const title = byId("pageTitle");
-        setSidebarOpen(false, title);
+        if (!pendingMobileNavKey) setSidebarOpen(false, title);
       }
     });
     document.addEventListener("keydown", event => {
@@ -282,7 +282,7 @@
       if (!pendingMobileNavKey || event.key !== pendingMobileNavKey) return;
       event.preventDefault();
       pendingMobileNavKey = "";
-      byId("pageTitle")?.focus?.({ preventScroll: true });
+      setSidebarOpen(false, byId("pageTitle"));
     });
     window.addEventListener("blur", () => { pendingMobileNavKey = ""; });
     window.addEventListener("storage", event => {
