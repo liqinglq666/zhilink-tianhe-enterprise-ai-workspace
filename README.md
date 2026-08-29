@@ -27,6 +27,24 @@
 
 </div>
 
+<p align="center">
+  <a href="#why-zhilink-tianhe">项目定位</a> ·
+  <a href="#product-workflow">工作流</a> ·
+  <a href="#core-capabilities">核心能力</a> ·
+  <a href="#system-architecture">系统架构</a> ·
+  <a href="#security--data-boundaries">安全边界</a> ·
+  <a href="#technology-stack">技术栈</a> ·
+  <a href="#repository-structure">目录结构</a>
+  <br />
+  <a href="#quick-start">快速开始</a> ·
+  <a href="#docker-deployment">Docker 部署</a> ·
+  <a href="#key-environment-variables">环境变量</a> ·
+  <a href="#engineering-quality">工程质量</a> ·
+  <a href="#design-principles">设计原则</a> ·
+  <a href="#online-demo">在线体验</a> ·
+  <a href="#license">License</a>
+</p>
+
 > [!NOTE]
 > 在线地址用于作品展示与评审体验。免费实例可能存在冷启动；正式企业部署建议使用持久化 PostgreSQL、HTTPS、Secure Cookie、数据库备份与受控模型网关。
 
