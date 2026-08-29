@@ -1,7 +1,7 @@
 <div align="center">
 
 <a href="https://zhilink-tianhe-ai-workspace.onrender.com">
-  <img src="docs/assets/zhilink-tianhe-readme-hero.webp" alt="智链天河 · Enterprise AI Workspace" width="100%" />
+  <img src="docs/assets/zhilink-tianhe-readme-hero.jpg" alt="智链天河 · Enterprise AI Workspace" width="100%" />
 </a>
 
 <br />
