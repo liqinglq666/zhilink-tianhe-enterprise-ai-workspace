@@ -5,7 +5,7 @@
   if (!contracts || !ICONS) throw new Error("Workspace runtime and icons must load before final QA.");
 
   const PAGE_NAV_SELECTOR = "#navList button[data-section], [data-goto]";
-  const SCROLLABLE_SELECTOR = ".result-section-content, .structured-table-wrap";
+  const SCROLLABLE_SELECTOR = ".result-section-content, .structured-table-wrap, .ui-v4-table-scroll";
   const MOBILE_BREAKPOINT = 1020;
   const SHARED_MODULES = contracts.modules;
   let keyboardNavigationPending = false;
@@ -161,6 +161,16 @@
     if (visualHeight > 0) document.documentElement.style.setProperty("--ui4-visual-height", `${visualHeight}px`);
     if (visualWidth > 0) document.documentElement.style.setProperty("--ui4-visual-width", `${visualWidth}px`);
 
+    // On mobile the visual viewport shrinks behind the software keyboard even when
+    // 100dvh still refers to the larger layout viewport (notably on iOS Safari).
+    const focused = document.activeElement;
+    const editing = focused instanceof HTMLElement &&
+      (focused.matches("input:not([type='checkbox']):not([type='radio']):not([type='range']), textarea, select") ||
+        focused.isContentEditable);
+    const keyboardOpen = window.innerWidth <= MOBILE_BREAKPOINT && editing &&
+      Boolean(window.visualViewport) && window.innerHeight - visualHeight > 140;
+    document.documentElement.dataset.uiV4Keyboard = keyboardOpen ? "open" : "closed";
+
     const width = window.innerWidth;
     const viewport = width <= 360 ? "compact-360" : width <= 390 ? "compact-390" : width <= 768 ? "mobile" : width <= 1024 ? "tablet" : width <= 1280 ? "desktop-compact" : "desktop";
     document.documentElement.dataset.uiV4Viewport = viewport;
@@ -315,6 +325,8 @@
     document.addEventListener("keydown", handleKeydown, true);
     document.addEventListener("click", handleClick, true);
     document.addEventListener("pointerdown", () => document.body.classList.remove("ui-v4-keyboard-user"), true);
+    document.addEventListener("focusin", scheduleViewportSync);
+    document.addEventListener("focusout", scheduleViewportSync);
     window.addEventListener("resize", scheduleViewportSync, { passive: true });
     window.visualViewport?.addEventListener("resize", scheduleViewportSync, { passive: true });
     window.visualViewport?.addEventListener("scroll", scheduleViewportSync, { passive: true });
