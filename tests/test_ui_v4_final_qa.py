@@ -74,7 +74,7 @@ def test_v4_final_qa_makes_horizontal_result_content_keyboard_reachable() -> Non
         script = client.get("/assets/ui-v4-final-qa.js?v=20260811.1")
 
     text = script.text
-    assert 'const SCROLLABLE_SELECTOR = ".result-section-content, .structured-table-wrap"' in text
+    assert 'const SCROLLABLE_SELECTOR = ".result-section-content, .structured-table-wrap, .ui-v4-table-scroll"' in text
     assert 'region.scrollWidth > region.clientWidth + 2' in text
     assert 'region.dataset.uiV4KeyboardScroll = "true"' in text
     assert 'region.setAttribute("tabindex", "0")' in text
@@ -166,3 +166,25 @@ def test_v4_final_qa_does_not_own_business_or_persistence_state() -> None:
         '.rel = "stylesheet"',
     ):
         assert forbidden not in script
+
+
+def test_mobile_refinements_stay_in_final_presentation_layer() -> None:
+    script = (ASSETS / "ui-v4-final-qa.js").read_text(encoding="utf-8")
+    stylesheet = (ASSETS / "ui-v4-final-qa.css").read_text(encoding="utf-8")
+    browser_test = (ROOT / "scripts/browser_acceptance.mjs").read_text(encoding="utf-8")
+
+    assert 'document.documentElement.dataset.uiV4Keyboard = keyboardOpen ? "open" : "closed"' in script
+    assert 'window.innerHeight - visualHeight > 140' in script
+    assert 'document.addEventListener("focusin", scheduleViewportSync)' in script
+    assert 'document.addEventListener("focusout", scheduleViewportSync)' in script
+    assert ".ui-v4-table-scroll" in script
+
+    assert "@media (max-width: 768px)" in stylesheet
+    assert 'font-size: 16px;' in stylesheet
+    assert 'html[data-ui-v4-keyboard="open"] body.ui-v4-final-qa' in stylesheet
+    assert '#serviceWorkflowModal .service-workflow-dialog' in stylesheet
+    assert 'max-height: var(--ui4-visual-height, 100dvh) !important;' in stylesheet
+
+    for width in (320, 360, 390, 430, 768, 1024):
+        assert str(width) in browser_test
+    assert "mobile responsive screen matrix passed" in browser_test
