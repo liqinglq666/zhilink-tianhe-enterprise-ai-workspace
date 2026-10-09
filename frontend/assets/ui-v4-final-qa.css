@@ -689,3 +689,77 @@ body.ui-v4-final-qa {
   .ui-v4-final-qa textarea,
   .ui-v4-final-qa [data-ui-v4-dialog] { forced-color-adjust: auto; }
 }
+
+/* Mobile-only refinement: never change the desktop workbench or its business flow. */
+@media (max-width: 768px) {
+  /* iOS Safari zooms focused fields smaller than 16px, obscuring controls. */
+  .ui-v4-final-qa :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea,
+    select
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  /* Keep wide business tables readable without stretching the document. */
+  .ui-v4-final-qa :is(
+    .result-section-content,
+    .ui-v4-table-scroll,
+    .structured-table-wrap,
+    .structured-dialog .structured-raw pre,
+    .result-actions
+  ) {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-inline: contain;
+  }
+  .ui-v4-final-qa .structured-summary > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  /* Service workflow is a peer of the other full-screen mobile dialogs. */
+  .ui-v4-final-qa #serviceWorkflowModal .service-workflow-dialog {
+    inset: 0;
+    width: 100%;
+    height: min(100dvh, var(--ui4-visual-height, 100dvh));
+    max-height: var(--ui4-visual-height, 100dvh);
+    border-radius: 0;
+  }
+  .ui-v4-final-qa #serviceWorkflowModal .service-workflow-layout {
+    min-height: 0;
+  }
+  .ui-v4-final-qa #serviceWorkflowModal :is(.service-workflow-layout aside, .service-workflow-layout main) {
+    min-height: 0;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* A virtual keyboard should not leave modal actions behind the keyboard. */
+  html[data-ui-v4-keyboard="open"] body.ui-v4-final-qa :is(
+    #apiPanel,
+    #accountManagerModal .account-dialog,
+    #projectManagerModal .project-dialog,
+    #knowledgeBaseModal .knowledge-dialog,
+    #identityModal .modal-card,
+    #meetingSourceDialog .meeting-source-dialog,
+    #structuredResultModal .structured-dialog,
+    #reviewWorkflowModal .review-dialog,
+    #serviceWorkflowModal .service-workflow-dialog
+  ) {
+    min-height: 0 !important;
+    height: var(--ui4-visual-height, 100dvh) !important;
+    max-height: var(--ui4-visual-height, 100dvh) !important;
+    overflow-y: auto;
+  }
+  html[data-ui-v4-keyboard="open"] body.ui-v4-final-qa :is(
+    .ui-v4-form-actions.sticky-actions,
+    .ui-v4-business-page .sticky-actions
+  ) {
+    position: static;
+    bottom: auto;
+  }
+}
