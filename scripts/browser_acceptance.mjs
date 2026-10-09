@@ -325,6 +325,57 @@ async function main() {
       throw new Error(`${error.message}\nMobile focus state: ${JSON.stringify(focusState)}`);
     });
 
+
+    // Exercise every existing business page at realistic phone/tablet widths.
+    // Layout checks are intentionally separate from the existing keyboard-nav path.
+    for (const width of [320, 360, 390, 430, 768, 1024]) {
+      await client.send("Emulation.setDeviceMetricsOverride", {
+        width, height: 844, deviceScaleFactor: 1, mobile: true,
+        screenWidth: width, screenHeight: 844,
+      });
+      await waitJs(`window.innerWidth === ${width}`, `responsive viewport ${width}px`);
+      for (const section of ["home", "meeting", "contract", "policy", "match", "profile", "landing", "report"]) {
+        await click(`.nav button[data-section="${section}"]`);
+        await waitJs(`document.querySelector('.page.active-page')?.id === ${JSON.stringify(section)}`, `mobile page ${section}`);
+        const layout = await evaluate(`(() => {
+          const page = document.querySelector(".page.active-page");
+          const main = document.querySelector("main.main");
+          const bounds = node => node?.getBoundingClientRect();
+          return {
+            page: bounds(page)?.width || 0,
+            pageRight: bounds(page)?.right || 0,
+            mainRight: bounds(main)?.right || 0,
+            documentWidth: document.documentElement.scrollWidth,
+            viewportWidth: window.innerWidth,
+          };
+        })()`);
+        assert(layout.page > 0 && layout.page <= width + 1, `Invalid page width at ${width}px/${section}: ${JSON.stringify(layout)}`);
+        assert(layout.pageRight <= width + 1 && layout.mainRight <= width + 1, `Page escapes viewport at ${width}px/${section}: ${JSON.stringify(layout)}`);
+        assert(layout.documentWidth <= width + 1, `Document scrolls sideways at ${width}px/${section}: ${JSON.stringify(layout)}`);
+      }
+      if (width <= 768) {
+        const fontSize = await evaluate("parseFloat(getComputedStyle(document.getElementById('meetingInput')).fontSize)");
+        assert(fontSize >= 16, `Mobile text input must not trigger Safari zoom at ${width}px: ${fontSize}px`);
+      }
+    }
+
+    // Verify that a core business modal fits the visual phone viewport.
+    await client.send("Emulation.setDeviceMetricsOverride", {
+      width: 390, height: 844, deviceScaleFactor: 1, mobile: true,
+      screenWidth: 390, screenHeight: 844,
+    });
+    await click("#uiV4ProjectContext");
+    await waitJs("document.getElementById('projectManagerModal')?.classList.contains('show')", "mobile project dialog open");
+    const dialogBounds = await evaluate(`(() => {
+      const rect = document.querySelector("#projectManagerModal .project-dialog")?.getBoundingClientRect();
+      return rect && { left: rect.left, right: rect.right, width: rect.width };
+    })()`);
+    assert(dialogBounds && dialogBounds.left >= -1 && dialogBounds.right <= 391,
+      `Project modal overflows a 390px phone: ${JSON.stringify(dialogBounds)}`);
+    await click("[data-close-project-manager]");
+    await waitJs("!document.getElementById('projectManagerModal')?.classList.contains('show')", "mobile project dialog close");
+    console.log("[browser] mobile responsive screen matrix passed");
+
     await client.send("Emulation.clearDeviceMetricsOverride");
     await waitJs("window.innerWidth > 1020 && !document.querySelector('.sidebar')?.hasAttribute('inert') && !document.querySelector('.sidebar')?.hasAttribute('aria-hidden')", "desktop sidebar accessibility state restored");
     console.log("[browser] mobile keyboard navigation passed");
