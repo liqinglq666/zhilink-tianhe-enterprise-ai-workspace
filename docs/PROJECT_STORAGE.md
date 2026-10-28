@@ -1,6 +1,6 @@
 # 项目存储
 
-第二阶段第 7 项为工作台增加了可持久化项目。默认使用 SQLite，也可以通过同一套 SQLAlchemy 模型切换 PostgreSQL。第 9 项进一步增加账号、组织空间和 RBAC；完整账号权限边界见 [`AUTH_RBAC.md`](AUTH_RBAC.md)。
+工作台支持项目持久化存储，默认使用 SQLite，也可通过 SQLAlchemy 连接 PostgreSQL。账号、组织空间和权限设计见 [`AUTH_RBAC.md`](AUTH_RBAC.md)。
 
 ## 用户操作
 
@@ -154,7 +154,7 @@ Render 免费实例及其他不提供持久磁盘的托管环境，其容器文�
 - `organization_memberships`
 - `auth_sessions`
 
-应用首次访问存储时会通过 `create_all` 创建缺失表。正式长期生产迭代应引入 Alembic 等迁移流程，不应依赖 `create_all` 修改既有表结构。
+数据库表结构由 Alembic 管理。部署时运行 `python scripts/migrate.py` 执行迁移；业务请求不会自动建表或修改表结构。
 
 ## 备份建议
 
