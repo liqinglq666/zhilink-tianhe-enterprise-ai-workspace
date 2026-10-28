@@ -22,5 +22,8 @@ runtime/
 .idea/
 .vscode/
 node_modules/
+tests/
+docs/
+.github/
 coverage/
 htmlcov/
